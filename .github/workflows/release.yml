@@ -1,19 +1,26 @@
-# Baut bei jeder neuen Version die ZIP-Dateien und hängt sie an das GitHub-Release.
-# Auslöser: ein neuer Tag (z. B. 4.2.2) per Git oder ein über die Webseite veröffentlichtes Release.
+# Baut die ZIP-Dateien und veröffentlicht sie als GitHub-Release.
+#
+# Auslöser:
+# - Änderung der Versionsnummer in Elternabend.toc auf dem Branch main
+#   (gibt es für diese Nummer noch kein Release, wird es automatisch angelegt)
+# - ein neuer Tag oder ein über die Webseite veröffentlichtes Release
+# - von Hand unter "Actions → Release bauen → Run workflow"
 name: Release bauen
 
 on:
   push:
-    tags:
-      - '*'
+    branches: [main]
+    paths: ['Elternabend.toc', '.github/workflows/release.yml']
+    tags: ['*']
   release:
     types: [published]
+  workflow_dispatch:
 
 permissions:
   contents: write
 
 concurrency:
-  group: release-${{ github.ref_name }}
+  group: release
   cancel-in-progress: false
 
 jobs:
@@ -22,33 +29,54 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: ZIP-Dateien bauen
-        id: bauen
+      - name: Version bestimmen
+        id: version
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          TAG="${GITHUB_REF_NAME}"
-          VERSION="${TAG#v}"
-          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+            TAG="${GITHUB_REF_NAME}"
+          else
+            VERSION="$(sed -n 's/^## Version:[[:space:]]*//p' Elternabend.toc | tr -d '\r' | head -n1)"
+            TAG="$VERSION"
+          fi
+          if [ -z "$VERSION" ]; then echo "Keine Versionsnummer gefunden" >&2; exit 1; fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          # Bei einer Änderung auf main ohne neue Versionsnummer nichts tun
+          if [ "${GITHUB_EVENT_NAME}" = "push" ] && [ "${GITHUB_REF_TYPE}" = "branch" ] \
+             && gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG gibt es schon – nichts zu tun."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: ZIP-Dateien bauen
+        if: steps.version.outputs.skip != 'true'
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
           mkdir -p build/Elternabend
           rsync -a ./ build/Elternabend/ \
             --exclude '.git' --exclude '.github' --exclude 'build' \
             --exclude '.gitignore' --exclude '.gitattributes' --exclude '.gitkeep' \
             --exclude 'Taktik-Werkstatt'
-          # Versionsnummer in der .toc an den Tag anpassen
           sed -i "s/^## Version:.*/## Version: $VERSION/" build/Elternabend/Elternabend.toc
           cd build
           zip -rq "Elternabend-$VERSION.zip" Elternabend
           cp "Elternabend-$VERSION.zip" "Elternabend-$VERSION-forever.zip"
           ls -l
 
-      - name: An das Release hängen
+      - name: Release anlegen oder ZIPs anhängen
+        if: steps.version.outputs.skip != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ steps.bauen.outputs.tag }}
-          VERSION: ${{ steps.bauen.outputs.version }}
+          TAG: ${{ steps.version.outputs.tag }}
+          VERSION: ${{ steps.version.outputs.version }}
         run: |
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" build/*.zip --clobber
           else
-            gh release create "$TAG" build/*.zip --title "Elternabend $VERSION" --generate-notes
+            gh release create "$TAG" build/*.zip --target "$GITHUB_SHA" \
+              --title "Elternabend $VERSION" --generate-notes
           fi

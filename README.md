@@ -18,9 +18,9 @@ Das Gilden-Addon von **Elternabend** für **WoW Forever**: Raid, Soft-Reserve, P
 Am besten installieren es alle Raidmitglieder: Dann sehen alle die Soft-Reserves im Tooltip und bekommen einen Hinweis, wenn ihr Item ausgewürfelt wird.
 
 ### Neue Version veröffentlichen (Gildenleitung)
-1. Versionsnummer in `Elternabend.toc` (`## Version:`) erhöhen und die Änderungen hochladen.
-2. Unter **Releases → Draft a new release** einen neuen Tag mit genau dieser Nummer anlegen (z. B. `4.2.2`) und veröffentlichen – oder per Git: `git tag 4.2.2 && git push origin 4.2.2`.
-3. Die GitHub-Action baut daraus automatisch `Elternabend-4.2.2.zip` und `Elternabend-4.2.2-forever.zip` (für WowUp) und hängt beide an das Release.
+1. Versionsnummer in `Elternabend.toc` (`## Version:`) erhöhen, z. B. auf `4.2.2`.
+2. Die Änderungen auf den Branch `main` hochladen.
+3. Fertig: Die GitHub-Action legt automatisch das Release `4.2.2` an und hängt `Elternabend-4.2.2.zip` und `Elternabend-4.2.2-forever.zip` (für WowUp) an. WowUp meldet das Update danach bei allen.
 
 ## Bedienung
 `/ea` oder ein Klick auf das Wappen an der Minimap öffnet das Fenster (Rechtsklick: direkt die Gilde).
