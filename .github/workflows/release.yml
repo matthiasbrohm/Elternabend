@@ -1,0 +1,54 @@
+# Baut bei jeder neuen Version die ZIP-Dateien und hängt sie an das GitHub-Release.
+# Auslöser: ein neuer Tag (z. B. 4.2.2) per Git oder ein über die Webseite veröffentlichtes Release.
+name: Release bauen
+
+on:
+  push:
+    tags:
+      - '*'
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: ZIP-Dateien bauen
+        id: bauen
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          VERSION="${TAG#v}"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          mkdir -p build/Elternabend
+          rsync -a ./ build/Elternabend/ \
+            --exclude '.git' --exclude '.github' --exclude 'build' \
+            --exclude '.gitignore' --exclude '.gitattributes' --exclude '.gitkeep' \
+            --exclude 'Taktik-Werkstatt'
+          # Versionsnummer in der .toc an den Tag anpassen
+          sed -i "s/^## Version:.*/## Version: $VERSION/" build/Elternabend/Elternabend.toc
+          cd build
+          zip -rq "Elternabend-$VERSION.zip" Elternabend
+          cp "Elternabend-$VERSION.zip" "Elternabend-$VERSION-forever.zip"
+          ls -l
+
+      - name: An das Release hängen
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.bauen.outputs.tag }}
+          VERSION: ${{ steps.bauen.outputs.version }}
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" build/*.zip --clobber
+          else
+            gh release create "$TAG" build/*.zip --title "Elternabend $VERSION" --generate-notes
+          fi

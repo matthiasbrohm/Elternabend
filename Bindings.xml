@@ -1,0 +1,9 @@
+<Bindings>
+    <!-- Eigene Taste in den Tastenbelegungen: nächste Gildenanfrage einladen (zählt als Tastendruck) -->
+    <Binding name="ELTERNABEND_GILDENEINLADUNG" header="ELTERNABEND" category="ADDONS">
+        Elternabend.Recruit:InviteNext()
+    </Binding>
+    <Binding name="ELTERNABEND_KIND" category="ADDONS">
+        Elternabend.Away:Toggle()
+    </Binding>
+</Bindings>
