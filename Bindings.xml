@@ -1,6 +1,8 @@
 <Bindings>
-    <!-- Eigene Taste in den Tastenbelegungen: nächste Gildenanfrage einladen (zählt als Tastendruck) -->
-    <Binding name="ELTERNABEND_GILDENEINLADUNG" header="ELTERNABEND" category="ADDONS">
+    <!-- Eigene Taste: klickt den geschützten Knopf, der „/ginvite Name“ ausführt (ein Lua-Aufruf würde blockiert) -->
+    <Binding name="CLICK ElternabendNaechsteEinladung:LeftButton" header="ELTERNABEND" category="ADDONS"/>
+    <!-- Alte Belegung: wird beim Einloggen automatisch auf die neue umgestellt -->
+    <Binding name="ELTERNABEND_GILDENEINLADUNG" category="ADDONS">
         Elternabend.Recruit:InviteNext()
     </Binding>
     <Binding name="ELTERNABEND_KIND" category="ADDONS">
