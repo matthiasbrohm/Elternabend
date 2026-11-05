@@ -1745,7 +1745,7 @@ function UI:CreateGuildPanel()
     intro:SetPoint("TOPLEFT", heading, "BOTTOMLEFT", 0, -10)
     intro:SetWidth(294)
     intro:SetSpacing(3)
-    intro:SetText("Wer dich mit einem Stichwort anflüstert, landet in der Liste. Klick auf „Einladen“, dann Enter: Der Befehl /ginvite Name steht schon im Chat, nochmal Enter lädt ein. Selbst einladen darf ein Addon in WoW Forever nicht.")
+    intro:SetText("Wer dich mit einem Stichwort anflüstert, landet in der Liste. Einladen: im Chat /ginvite Vorname Nachname tippen – das darf in WoW Forever nur man selbst, kein Addon. Danach räumt das Addon die Anfrage weg und flüstert die Antwort.")
 
     local toggle = T.Button(card, "", 294, "primary")
     toggle:SetPoint("TOPLEFT", intro, "BOTTOMLEFT", 0, -14)
@@ -1780,7 +1780,7 @@ function UI:CreateGuildPanel()
     hint:SetPoint("BOTTOMLEFT", 18, 16)
     hint:SetWidth(294)
     hint:SetSpacing(3)
-    hint:SetText("Noch schneller: In den Tastaturbelegungen unter AddOns » Elternabend eine Taste für „Nächste Gildenanfrage einladen“ festlegen. Dann reicht pro Anfrage: Taste, Enter, Enter.")
+    hint:SetText("Noch schneller: In den Tastaturbelegungen unter AddOns » Elternabend eine Taste für „Nächste Gildenanfrage einladen“ festlegen. Dann schreibt ein Tastendruck den Befehl für die nächste Anfrage in den Chat.")
 
     p.summary = T.Text(p, "body")
     p.summary:SetPoint("TOPLEFT", card, "TOPRIGHT", 14, -6)
@@ -1858,7 +1858,7 @@ function UI:UpdateRecruitToast()
     end
     if not t then
         t = CreateFrame("Frame", "ElternabendGildenanfrage", UIParent, "BackdropTemplate")
-        t:SetSize(380, 86)
+        t:SetSize(400, 108)
         t:SetPoint("TOP", 0, -150)
         t:SetFrameStrata("DIALOG")
         t:SetMovable(true)
@@ -1874,6 +1874,8 @@ function UI:UpdateRecruitToast()
         kicker:SetText("GILDENANFRAGE · ELTERNABEND")
         t.name = T.Text(t, "heading")
         t.name:SetPoint("TOPLEFT", kicker, "BOTTOMLEFT", 0, -4)
+        t.cmd = T.Text(t, "body")
+        t.cmd:SetPoint("TOPLEFT", t.name, "BOTTOMLEFT", 0, -6)
         t.more = T.Text(t, "muted", "RIGHT")
         t.more:SetPoint("TOPRIGHT", -46, -12)
 
@@ -1885,11 +1887,9 @@ function UI:UpdateRecruitToast()
             t.dismissedKey = q[#q] and q[#q].key
             t:Hide()
         end)
-        local invite = T.Button(t, "Einladen", 120, "primary")
-        invite:SetPoint("BOTTOMRIGHT", -12, 12)
-        ns.Recruit:SetupInviteButton(invite, function() return ns.Recruit:NextName() end)
+        -- Ein „Einladen“-Knopf geht in WoW Forever nicht (siehe Recruit.lua) – der Befehl steht oben
         local drop = T.Button(t, "Verwerfen", 100)
-        drop:SetPoint("RIGHT", invite, "LEFT", -8, 0)
+        drop:SetPoint("BOTTOMRIGHT", -12, 12)
         drop:SetScript("OnClick", function()
             local q = ns.Recruit.queue[1]
             if q then ns.Recruit:Decline(q.name) end
@@ -1901,6 +1901,7 @@ function UI:UpdateRecruitToast()
     if t.dismissedKey and queue[#queue].key == t.dismissedKey then return end
     t.dismissedKey = nil
     t.name:SetText(ns.ShortName(queue[1].name) .. " möchte in die Gilde")
+    t.cmd:SetText("Einladen: tippe " .. T.Hex("goldBright", ns.Recruit:Command(queue[1].name)))
     t.more:SetText(#queue > 1 and ("+" .. (#queue - 1) .. " weitere") or "")
     t:Show()
 end

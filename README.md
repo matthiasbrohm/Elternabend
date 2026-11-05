@@ -102,11 +102,10 @@ Wer das Addon hat, aber noch nicht in der Gilde ist, sieht im Start-Reiter den K
 Technisch läuft das über einen versteckten, passwortgeschützten Chat-Kanal („ElternabendTreff“), dem das Addon im Hintergrund beitritt; im Chat ist er nicht zu sehen.
 
 ## Gildeneinladung per Flüstern
-Wer dich mit `ginv` anflüstert (Stichwörter im Reiter **Invite** einstellbar, den nur sieht, wer in die Gilde einladen darf), bekommt nach einem Rechtsklick auf seinen Namen („In Gilde einladen“) eine Gildeneinladung.
-- Bei jeder Anfrage erscheint ein kleines Fenster mit „Einladen“ und „Verwerfen“. „Einladen“ schreibt den Namen zum Rechtsklicken in den Chat.
-- Noch schneller: In den Tastaturbelegungen unter **AddOns → Elternabend** eine Taste für „Nächste Gildenanfrage einladen“ festlegen.
-- WoW Forever behält Gildeneinladungen der Blizzard-Oberfläche vor – weder Addons noch Makros dürfen einladen. Auch das Chatfeld darf das Addon nicht anfassen. Ein Klick auf „Einladen“ schreibt deshalb den Namen in den Chat: **Rechtsklick darauf → „In Gilde einladen“** oder `/ginvite Vorname Nachname` selbst tippen. Sobald WoW „Ihr habt … eingeladen“ meldet, räumt das Addon die Anfrage weg und flüstert die Antwort.
-- Nach der Einladung bekommt die Person eine Antwort per Flüstern; wer beitritt, wird nach etwa 10 Sekunden im Gildenchat begrüßt (beides abschaltbar).
+Wer dich mit `ginv` anflüstert (Stichwörter im Reiter **Invite** einstellbar, den nur sieht, wer in die Gilde einladen darf), landet in der Anfrageliste, und es erscheint ein kleines Fenster mit dem fertigen Befehl, z. B. „Einladen: tippe `/ginvite Anna Sturmwind`“.
+- **Einladen musst du selbst tippen.** WoW Forever behält Gildeneinladungen der Blizzard-Oberfläche vor: Weder Addons noch Makros dürfen einladen, und ein Addon darf auch nichts in die Eingabezeile schreiben – sonst blockiert WoW sogar den selbst abgeschickten Befehl („Funktion, die der Blizzard-UI vorbehalten ist“). Das haben wir ausgiebig getestet.
+- Sobald WoW „Ihr habt … eingeladen“ meldet, verschwindet die Anfrage, und die Person bekommt eine Antwort per Flüstern. Wer beitritt, wird nach etwa 10 Sekunden im Gildenchat begrüßt (beides abschaltbar).
+- „Einladen“ im Reiter **Invite** und die Taste „Nächste Gildenanfrage einladen“ (Tastaturbelegungen → AddOns → Elternabend) schreiben den Befehl zum Abtippen in den Chat.
 - Man braucht einen Gildenrang, der einladen darf. Das Addon „InviteOnWhisper“ sollte nicht gleichzeitig auf `ginv` reagieren, sonst kommen doppelte Fenster.
 
 ## Start: Begrüßung und Gildeninfos
