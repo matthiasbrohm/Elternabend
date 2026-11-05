@@ -1,20 +1,17 @@
 -- Elternabend Raid: Gildeneinladung per Flüstern („ginv“)
 --
--- Gildeneinladungen sind im Client der Blizzard-Oberfläche vorbehalten: Ruft ein
--- Addon C_GuildInfo.Invite selbst auf, blockiert WoW das („Funktion, die Blizzard
--- vorbehalten ist“). Erlaubt ist aber ein Klick auf einen geschützten Knopf, der
--- den Chatbefehl „/ginvite Name“ ausführt – genau wie ein Makro. Deshalb liegt über
--- jedem „Einladen“-Knopf unsichtbar so ein geschützter Knopf (siehe unten), und die
--- eigene Taste aus den Tastenbelegungen klickt einen solchen Knopf.
--- Im Kampf lassen sich geschützte Knöpfe nicht umstellen; Einladen geht dann erst danach.
+-- Gildeneinladungen sind in WoW Forever der Blizzard-Oberfläche vorbehalten: Weder ein
+-- Addon noch ein Makro darf einladen („der Blizzard-UI vorbehalten“). Erlaubt ist nur
+-- der Chatbefehl, wenn man ihn selbst mit Enter abschickt. Ein Klick auf „Einladen“
+-- öffnet deshalb das Chatfeld mit „/ginvite Vorname Nachname“; Enter drücken genügt.
+-- Ob die Einladung rausging, zeigt die Systemmeldung „Ihr habt … eingeladen“.
 local _, ns = ...
 
 local Recruit = { queue = {}, recent = {} }
 ns.Recruit = Recruit
 
 BINDING_HEADER_ELTERNABEND = "Elternabend"
-BINDING_NAME_ELTERNABEND_GILDENEINLADUNG = "Nächste Gildenanfrage einladen (alt)"
-_G["BINDING_NAME_CLICK ElternabendNaechsteEinladung:LeftButton"] = "Nächste Gildenanfrage einladen"
+BINDING_NAME_ELTERNABEND_GILDENEINLADUNG = "Nächste Gildenanfrage einladen"
 
 local REPEAT_SECONDS = 30 -- doppelte Anfragen derselben Person ignorieren
 -- Begrüßung erst nach einer kurzen Pause: Direkt nach dem Beitritt ist der Gildenchat
@@ -125,30 +122,48 @@ function Recruit:Drop(name, by)
     self:Log(name, by and ("von " .. by .. " eingeladen") or "erledigt")
 end
 
--- Nach dem Klick auf einen geschützten Einladen-Knopf: aufräumen und Bescheid geben.
--- „name“ ist der Absender genau so, wie das Spiel ihn liefert – in WoW Forever
--- mit Vor- und Nachnamen, sonst kommt die Einladung nicht an.
+-- Einladung ist raus (Systemmeldung „Ihr habt … eingeladen“): aufräumen und Bescheid geben.
+-- Geflüstert wird an den Namen genau so, wie das Spiel ihn bei der Anfrage geliefert hat –
+-- in WoW Forever mit Vor- und Nachnamen.
 function Recruit:Invited(name)
-    Remove(ns.NameKey(name))
-    self:Log(name, "eingeladen")
-    Whisper(name, Settings().reply)
-    if ns.Join then ns.Join:Done(name) end
+    local key = ns.NameKey(name)
+    local target
+    for _, q in ipairs(self.queue) do
+        if ns.SameName(q.key, key) then target = q.name break end
+    end
+    if not target then return false end
+    Remove(key)
+    self:Log(target, "eingeladen")
+    Whisper(target, Settings().reply)
+    if ns.Join then ns.Join:Done(target) end
+    return true
 end
 
--- Wird nur noch erreicht, wenn der geschützte Knopf nicht greifen konnte (z. B. im Kampf)
-function Recruit:Invite()
-    if InCombatLockdown() then
-        ns.Print("Gildeneinladungen gehen erst nach dem Kampf.")
+-- Chatfeld öffnen und Text vorgeben (je nach Client-Version eine andere Funktion)
+local function OpenChat(text, who)
+    if ChatFrame_OpenChat then
+        ChatFrame_OpenChat(text)
+    elseif ChatFrameUtil and ChatFrameUtil.OpenChat then
+        ChatFrameUtil.OpenChat(text)
     else
-        ns.Print("Bitte nochmal auf „Einladen“ klicken.")
+        ns.Print("Bitte im Chat eintippen: " .. text)
+        return
     end
+    ns.Print("Enter drücken, um " .. (who or "") .. " einzuladen.")
+end
+
+-- „name“ ist der Absender genau so, wie das Spiel ihn liefert (Forever: „Vorname Nachname“)
+function Recruit:Invite(name)
+    if not name then return end
+    OpenChat("/ginvite " .. name, ns.ShortName(name) or name)
 end
 
 function Recruit:InviteNext()
-    if not self.queue[1] then
-        ns.Print("Keine offenen Gildenanfragen.")
+    local q = self.queue[1]
+    if q then
+        self:Invite(q.name)
     else
-        self:Invite()
+        ns.Print("Keine offenen Gildenanfragen.")
     end
 end
 
@@ -156,126 +171,23 @@ function Recruit:NextName()
     return self.queue[1] and self.queue[1].name
 end
 
--- Geschützte Knöpfe ----------------------------------------------------------------
--- Tastendruck und Mausklick lösen den Knopf beim Drücken oder Loslassen aus – je nach
--- Einstellung „ActionButtonUseKeyDown“. Nur in dieser Phase zählt der Klick.
-local function Acts(down)
-    return (down and true or false) == (GetCVarBool("ActionButtonUseKeyDown") and true or false)
-end
-
-local function MakeSecure(name, parent)
-    local b = CreateFrame("Button", name, parent or UIParent, "SecureActionButtonTemplate")
-    b:RegisterForClicks("AnyUp", "AnyDown")
-    b:SetAttribute("type", "macro")
-    b:SetAttribute("macrotext", "")
-    return b
-end
-
-local function Arm(b, target)
-    if InCombatLockdown() then return false end
-    b.inviteName = target
-    b:SetAttribute("macrotext", target and ("/ginvite " .. target) or "")
-    return target ~= nil
-end
-
-local function AfterClick(b, down)
-    if not Acts(down) then return end
-    local target = b.inviteName
-    if not InCombatLockdown() then Arm(b, nil) end
-    if target then Recruit:Invited(target) end
-end
-
--- Für die eigene Taste: „CLICK ElternabendNaechsteEinladung:LeftButton“ (Bindings.xml)
-local nextButton = MakeSecure("ElternabendNaechsteEinladung")
-nextButton:SetSize(1, 1)
-nextButton:SetAlpha(0)
-nextButton:SetPoint("TOPLEFT", UIParent, "TOPLEFT", -50, 50)
-nextButton:SetScript("PreClick", function(self, _, down)
-    if not Acts(down) then return end
-    if InCombatLockdown() then
-        ns.Print("Gildeneinladungen gehen erst nach dem Kampf.")
-    elseif not Arm(self, Recruit:NextName()) then
-        ns.Print("Keine offenen Gildenanfragen.")
-    end
-end)
-nextButton:SetScript("PostClick", function(self, _, down) AfterClick(self, down) end)
-
--- Für die sichtbaren „Einladen“-Knöpfe: ein unsichtbarer geschützter Knopf legt sich
--- beim Draufzeigen genau darüber. Verankert wird er an UIParent, nicht am Fenster –
--- so bleibt das Addon-Fenster frei beweglich und lässt sich auch im Kampf schließen.
-local overlay = MakeSecure("ElternabendEinladenKnopf")
-overlay:SetFrameStrata("TOOLTIP")
-overlay:Hide()
-
-local function HideOverlay()
-    if overlay.owner then overlay.owner:UnlockHighlight() end
-    overlay.owner = nil
-    if not InCombatLockdown() then
-        Arm(overlay, nil)
-        overlay:Hide()
-    end
-end
-
-overlay:SetScript("PreClick", function(self, _, down)
-    if not Acts(down) then return end
-    local owner = self.owner
-    -- Kurz vor dem Klick nochmal den aktuellen Namen setzen (die Liste kann sich geändert haben)
-    if owner and owner.inviteName then Arm(self, owner.inviteName(owner)) end
-end)
-overlay:SetScript("PostClick", function(self, _, down)
-    if not Acts(down) then return end
-    AfterClick(self, down)
-    C_Timer.After(0, HideOverlay)
-end)
-overlay:SetScript("OnLeave", HideOverlay)
-overlay:SetScript("OnHide", function(self)
-    if self.owner then self.owner:UnlockHighlight() end
-    self.owner = nil
-end)
-
-local function ShowOverlay(owner)
-    if InCombatLockdown() or not owner:IsVisible() or not owner:IsEnabled() then return end
-    local target = owner.inviteName(owner)
-    if not target then return end
-    local left, bottom, width, height = owner:GetLeft(), owner:GetBottom(), owner:GetWidth(), owner:GetHeight()
-    if not left or not bottom then return end
-    local scale = owner:GetEffectiveScale() / UIParent:GetEffectiveScale()
-    overlay:ClearAllPoints()
-    overlay:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", left * scale, bottom * scale)
-    overlay:SetSize(width * scale, height * scale)
-    Arm(overlay, target)
-    overlay.owner = owner
-    overlay:Show()
-    owner:LockHighlight()
-end
-
--- Macht aus einem normalen Knopf einen „Einladen“-Knopf.
--- getName(knopf) liefert den Namen, der eingeladen werden soll (oder nil).
+-- Macht aus einem Knopf einen „Einladen“-Knopf. getName(knopf) liefert den Namen (oder nil).
 function Recruit:SetupInviteButton(btn, getName)
-    btn.inviteName = getName
-    btn:HookScript("OnEnter", ShowOverlay)
-    btn:SetScript("OnClick", function() Recruit:Invite() end)
+    btn:SetScript("OnClick", function(self) Recruit:Invite(getName(self)) end)
 end
 
--- Kampf beginnt: Overlay ist dann gesperrt – vorher wegräumen
-ns:On("PLAYER_REGEN_DISABLED", function()
-    if overlay:IsShown() then HideOverlay() end
-end)
-
--- Alte Taste (Lua-Aufruf, wird inzwischen blockiert) auf den geschützten Knopf umstellen
+-- Version 4.2.2 hatte die Taste auf einen Makro-Knopf umgestellt, den Forever ebenfalls
+-- blockiert. Hier wieder zurück auf die normale Belegung.
 local function MigrateBinding()
     if InCombatLockdown() then return end
     local changed = false
-    for _, key in ipairs({ GetBindingKey("ELTERNABEND_GILDENEINLADUNG") }) do
+    for _, key in ipairs({ GetBindingKey("CLICK ElternabendNaechsteEinladung:LeftButton") }) do
         if key then
-            SetBinding(key, "CLICK ElternabendNaechsteEinladung:LeftButton")
+            SetBinding(key, "ELTERNABEND_GILDENEINLADUNG")
             changed = true
         end
     end
-    if changed then
-        SaveBindings(GetCurrentBindingSet())
-        ns.Print("Deine Taste für „Nächste Gildenanfrage einladen“ wurde auf die neue Einladung umgestellt.")
-    end
+    if changed then SaveBindings(GetCurrentBindingSet()) end
 end
 ns:On("PLAYER_LOGIN", function() C_Timer.After(5, MigrateBinding) end)
 
@@ -320,7 +232,7 @@ ns:On("CHAT_MSG_SYSTEM", function(msg)
     -- Eigene Einladung, egal ob per Addon, Gildenfenster oder /ginvite: merken für die Begrüßung
     local invited = INVITED and msg:match(INVITED)
     if invited then
-        Recruit:Log(invited, "eingeladen")
+        if not Recruit:Invited(invited) then Recruit:Log(invited, "eingeladen") end
         return
     end
 

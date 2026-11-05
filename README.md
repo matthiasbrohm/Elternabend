@@ -102,10 +102,10 @@ Wer das Addon hat, aber noch nicht in der Gilde ist, sieht im Start-Reiter den K
 Technisch läuft das über einen versteckten, passwortgeschützten Chat-Kanal („ElternabendTreff“), dem das Addon im Hintergrund beitritt; im Chat ist er nicht zu sehen.
 
 ## Gildeneinladung per Flüstern
-Wer dich mit `ginv` anflüstert (Stichwörter im Reiter **Invite** einstellbar, den nur sieht, wer in die Gilde einladen darf), bekommt mit einem Klick eine Gildeneinladung. Ganz ohne Klick geht es nicht: Der Client erlaubt Gildeneinladungen nur nach einem Klick oder Tastendruck, als Schutz gegen Spam-Bots.
-- Bei jeder Anfrage erscheint ein kleines Fenster mit „Einladen“ und „Verwerfen“.
+Wer dich mit `ginv` anflüstert (Stichwörter im Reiter **Invite** einstellbar, den nur sieht, wer in die Gilde einladen darf), bekommt mit Klick und Enter eine Gildeneinladung.
+- Bei jeder Anfrage erscheint ein kleines Fenster mit „Einladen“ und „Verwerfen“. „Einladen“ öffnet den Chat mit dem fertigen Befehl, Enter schickt ihn ab.
 - Noch schneller: In den Tastaturbelegungen unter **AddOns → Elternabend** eine Taste für „Nächste Gildenanfrage einladen“ festlegen.
-- Technisch: WoW behält Gildeneinladungen der Blizzard-Oberfläche vor. Das Addon legt deshalb über jeden „Einladen“-Knopf einen unsichtbaren, geschützten Knopf, der wie ein Makro `/ginvite Name` ausführt. Im Kampf lässt WoW das nicht zu – eingeladen wird dann nach dem Kampf.
+- WoW Forever behält Gildeneinladungen der Blizzard-Oberfläche vor – weder Addons noch Makros dürfen einladen. Ein Klick auf „Einladen“ öffnet deshalb das Chatfeld mit `/ginvite Vorname Nachname`; **Enter** drücken schickt die Einladung ab. Danach räumt das Addon die Anfrage selbst weg und flüstert die Antwort.
 - Nach der Einladung bekommt die Person eine Antwort per Flüstern; wer beitritt, wird nach etwa 10 Sekunden im Gildenchat begrüßt (beides abschaltbar).
 - Man braucht einen Gildenrang, der einladen darf. Das Addon „InviteOnWhisper“ sollte nicht gleichzeitig auf `ginv` reagieren, sonst kommen doppelte Fenster.
 
