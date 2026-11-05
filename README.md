@@ -98,11 +98,9 @@ Ein Addon kann keine Bilder aus dem Internet laden oder verschicken. Die Bilder 
 „Dem Raid zeigen“ verschickt nur die Kennung des Bildes. Wer eine ältere Addon-Version hat, bekommt den Hinweis, das Addon zu aktualisieren.
 
 ## Der Gilde beitreten per Knopf
-Wer das Addon hat, aber noch nicht in der Gilde ist, sieht im Start-Reiter den Knopf **„Der Gilde beitreten“**. Ein Klick flüstert automatisch `ginv` an alle, die einladen dürfen – bei ihnen erscheint das Gildenanfrage-Fenster mit dem Befehl zum Kopieren. Wer gerade offline ist, bekommt nichts; die Meldung „Kein Spieler namens …“ blendet das Addon aus. Der Anfragende sieht, ob die Anfrage angekommen ist. Ist niemand online, steht dort `/w Name ginv` zum Kopieren für später.
+Wer das Addon hat, aber noch nicht in der Gilde ist, sieht im Start-Reiter den Knopf **„Der Gilde beitreten“**. Ein Klick schreibt `ginv` in einen versteckten, passwortgeschützten Chat-Kanal („ElternabendTreff“). Alle Mitglieder mit Addon, die einladen dürfen, sitzen im Hintergrund darin; bei ihnen erscheint das Gildenanfrage-Fenster mit dem Befehl zum Kopieren. Im Chat sieht man den Kanal nicht. Sobald die Person beigetreten ist, verschwindet die Anfrage bei allen.
 
-Die Liste der Einladenden steht oben in `Join.lua` (`Join.INVITERS`, Vorname Nachname). Neue Offiziere dort eintragen und eine neue Version veröffentlichen.
-
-Zusätzlich versucht das Addon den alten Weg über einen versteckten, passwortgeschützten Chat-Kanal („ElternabendTreff“). In WoW Forever kommen Addon-Nachrichten von Nicht-Mitgliedern darüber aber nicht an.
+Zusätzlich flüstert der Knopf `ginv` an die Namen in `Join.INVITERS` (oben in `Join.lua`) – als Rückfallebene. Wer davon offline ist, bekommt nichts; die Meldung „Kein Spieler namens …“ blendet das Addon aus.
 
 ## Gildeneinladung per Flüstern
 Wer dich mit `ginv` anflüstert (Stichwörter im Reiter **Invite** einstellbar, den nur sieht, wer in die Gilde einladen darf), landet in der Anfrageliste, und es erscheint ein kleines Fenster mit dem fertigen Befehl `/ginvite Anna Sturmwind` zum Kopieren: ins Feld klicken, **Cmd+C** (Windows: Strg+C), dann im Chat **Enter, Cmd+V, Enter**.

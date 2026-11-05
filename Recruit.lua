@@ -232,6 +232,9 @@ ns:On("CHAT_MSG_SYSTEM", function(msg)
     local name = JOINED and msg:match(JOINED)
     if name then
         local key = ns.NameKey(name)
+        -- Beigetreten (egal wer eingeladen hat): offene Anfrage bei allen wegräumen
+        Remove(key)
+        ns:Fire("RECRUIT_UPDATE")
         if Recruit:LastStatus(key) == "eingeladen" then
             Recruit:Log(name, "beigetreten")
             if Settings().welcome then Recruit:Welcome(name, 1) end

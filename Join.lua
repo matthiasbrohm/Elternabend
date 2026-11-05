@@ -30,6 +30,8 @@ Join.INVITERS = {
     "Beta Lux",
 }
 Join.KEYWORD = "ginv"
+-- Klartext im versteckten Kanal: kommt (anders als Addon-Nachrichten) auch von Nicht-Mitgliedern an
+Join.CHANNEL_TEXT = "ginv"
 
 -- „Kein Spieler namens '%s' ist online.“ → Suchmuster für die Spielsprache
 local NOT_FOUND
@@ -101,15 +103,26 @@ function Join:Request()
     -- Zuverlässiger Weg: „ginv“ an alle Einladenden flüstern
     self:WhisperInviters()
     -- Zusätzlich der alte Weg über den Kanal (klappt, wo Forever ihn zulässt)
+    self.posted = false
     local function SendChannel()
-        if self:ChannelId() then
-            ns.Comm:Send("JOINREQ", ns.UnitFullName("player"), "CHANNEL", self:ChannelId())
-        end
+        local id = self:ChannelId()
+        if not id then return end
+        -- Klartext „ginv“ in den Kanal: Alle Mitglieder mit Addon sitzen darin und sehen die Anfrage
+        ns.WhenChatFree(function() C_ChatInfo.SendChatMessage(Join.CHANNEL_TEXT, "CHANNEL", nil, id) end)
+        self.posted = true
+        -- Alter Weg als Addon-Nachricht (für ältere Addon-Versionen)
+        ns.Comm:Send("JOINREQ", ns.UnitFullName("player"), "CHANNEL", id)
     end
     if self:EnsureChannel() then SendChannel() else C_Timer.After(2, SendChannel) end
     C_Timer.After(ANSWER_WAIT, function()
         if self.state == "sending" then
-            self.state = (next(self.acks) or self:ReachedCount() > 0) and "sent" or "nobody"
+            if next(self.acks) or self:ReachedCount() > 0 then
+                self.state = "sent"
+            elseif self.posted then
+                self.state = "posted"
+            else
+                self.state = "nobody"
+            end
             ns:Fire("JOIN_UPDATE")
         end
     end)
@@ -170,6 +183,8 @@ function Join:StatusText()
     elseif self.state == "sent" then
         return (n == 1 and "Anfrage ist angekommen" or ("Anfrage ist bei " .. n .. " Einladenden angekommen"))
             .. " – gleich kommt die Einladung. Einfach annehmen!"
+    elseif self.state == "posted" then
+        return "Anfrage ist raus – wer aus der Gilde gerade online ist, sieht sie. Gleich kommt die Einladung."
     elseif self.state == "nobody" then
         return "Gerade ist niemand zum Einladen online. Später nochmal versuchen oder selbst flüstern:"
     end
@@ -187,6 +202,16 @@ ns.Comm.handlers.JOINREQ = function(sender)
         ns.Comm:Send("JOINACK", nil, "WHISPER", sender)
     end
 end
+
+-- Klartext-Anfrage im versteckten Kanal (siehe Request)
+ns:On("CHAT_MSG_CHANNEL", function(text, sender, _, channelName, _, _, _, _, channelBaseName)
+    if ns.IsSecret(text) or ns.IsSecret(sender) or type(text) ~= "string" or not sender then return end
+    local inChannel = channelBaseName == CHANNEL
+        or (type(channelName) == "string" and not ns.IsSecret(channelName) and channelName:find(CHANNEL, 1, true))
+    if not inChannel or ns.Lower(strtrim(text)) ~= Join.CHANNEL_TEXT then return end
+    if ns.SameName(sender, ns.PlayerKey()) or not Join:CanReceive() then return end
+    ns.Recruit:Request(sender, "Addon")
+end)
 
 -- Ein anderer Einladender war schneller: Anfrage hier entfernen
 ns.Comm.handlers.JOINDONE = function(sender, parts)
