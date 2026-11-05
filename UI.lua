@@ -1745,7 +1745,7 @@ function UI:CreateGuildPanel()
     intro:SetPoint("TOPLEFT", heading, "BOTTOMLEFT", 0, -10)
     intro:SetWidth(294)
     intro:SetSpacing(3)
-    intro:SetText("Wer dich mit einem Stichwort anflüstert, landet in der Liste. Einladen: im Chat /ginvite Vorname Nachname tippen – das darf in WoW Forever nur man selbst, kein Addon. Danach räumt das Addon die Anfrage weg und flüstert die Antwort.")
+    intro:SetText("Wer dich mit einem Stichwort anflüstert, landet in der Liste. „Einladen“ zeigt den Befehl /ginvite Name markiert zum Kopieren – dann im Chat einfügen und Enter. Einladen darf in WoW Forever nur man selbst, kein Addon.")
 
     local toggle = T.Button(card, "", 294, "primary")
     toggle:SetPoint("TOPLEFT", intro, "BOTTOMLEFT", 0, -14)
@@ -1780,7 +1780,7 @@ function UI:CreateGuildPanel()
     hint:SetPoint("BOTTOMLEFT", 18, 16)
     hint:SetWidth(294)
     hint:SetSpacing(3)
-    hint:SetText("Noch schneller: In den Tastaturbelegungen unter AddOns » Elternabend eine Taste für „Nächste Gildenanfrage einladen“ festlegen. Dann schreibt ein Tastendruck den Befehl für die nächste Anfrage in den Chat.")
+    hint:SetText("Noch schneller: In den Tastaturbelegungen unter AddOns » Elternabend eine Taste für „Nächste Gildenanfrage einladen“ festlegen. Dann markiert ein Tastendruck den Befehl für die nächste Anfrage zum Kopieren.")
 
     p.summary = T.Text(p, "body")
     p.summary:SetPoint("TOPLEFT", card, "TOPRIGHT", 14, -6)
@@ -1849,7 +1849,7 @@ function UI:CreateGuildPanel()
 end
 
 -- Kleines Fenster, sobald jemand per Flüstern in die Gilde möchte
-function UI:UpdateRecruitToast()
+function UI:UpdateRecruitToast(focusName)
     local queue = ns.Recruit.queue
     local t = self.recruitToast
     if #queue == 0 then
@@ -1858,7 +1858,7 @@ function UI:UpdateRecruitToast()
     end
     if not t then
         t = CreateFrame("Frame", "ElternabendGildenanfrage", UIParent, "BackdropTemplate")
-        t:SetSize(400, 108)
+        t:SetSize(420, 132)
         t:SetPoint("TOP", 0, -150)
         t:SetFrameStrata("DIALOG")
         t:SetMovable(true)
@@ -1874,8 +1874,31 @@ function UI:UpdateRecruitToast()
         kicker:SetText("GILDENANFRAGE · ELTERNABEND")
         t.name = T.Text(t, "heading")
         t.name:SetPoint("TOPLEFT", kicker, "BOTTOMLEFT", 0, -4)
-        t.cmd = T.Text(t, "body")
-        t.cmd:SetPoint("TOPLEFT", t.name, "BOTTOMLEFT", 0, -6)
+        -- Befehl zum Kopieren: Addons dürfen weder einladen noch in die Eingabezeile schreiben
+        -- noch in die Zwischenablage. Hier steht er markiert – Cmd/Strg+C, dann im Chat
+        -- Enter, einfügen, Enter. Selbst eingefügt gilt er als selbst getippt.
+        local copyKey = (IsMacClient and IsMacClient()) and "Cmd" or "Strg"
+        t.cmdBox = T.EditBox(t, 270)
+        t.cmdBox:SetPoint("TOPLEFT", t.name, "BOTTOMLEFT", 0, -8)
+        t.cmdBox:HookScript("OnEditFocusGained", function(self) self:HighlightText() end)
+        t.cmdBox:SetScript("OnMouseUp", function(self) self:HighlightText() end)
+        t.cmdBox:HookScript("OnTextChanged", function(self, userInput)
+            if userInput then
+                self:SetText(self.value or "")
+                self:HighlightText()
+            end
+        end)
+        -- Nach dem Kopieren den Fokus abgeben, damit Enter gleich den Chat öffnet
+        t.cmdBox:SetScript("OnKeyUp", function(self, key)
+            if key == "C" and (IsControlKeyDown() or (IsMetaKeyDown and IsMetaKeyDown())) then
+                C_Timer.After(0, function() self:ClearFocus() end)
+            end
+        end)
+        t.hint = T.Text(t, "muted")
+        t.hint:SetPoint("BOTTOMLEFT", 16, 16)
+        t.hint:SetWidth(270)
+        t.hint:SetJustifyH("LEFT")
+        t.hint:SetText("Ins Feld klicken, " .. copyKey .. "+C – dann Enter, " .. copyKey .. "+V, Enter")
         t.more = T.Text(t, "muted", "RIGHT")
         t.more:SetPoint("TOPRIGHT", -46, -12)
 
@@ -1897,14 +1920,28 @@ function UI:UpdateRecruitToast()
         self.recruitToast = t
     end
 
-    -- Geschlossen? Erst bei einer neuen Anfrage wieder zeigen
+    -- Geschlossen? Erst bei einer neuen Anfrage wieder zeigen (oder nach Klick auf „Einladen“)
+    if focusName then t.dismissedKey = nil end
     if t.dismissedKey and queue[#queue].key == t.dismissedKey then return end
     t.dismissedKey = nil
-    t.name:SetText(ns.ShortName(queue[1].name) .. " möchte in die Gilde")
-    t.cmd:SetText("Einladen: tippe " .. T.Hex("goldBright", ns.Recruit:Command(queue[1].name)))
+    local target = focusName or queue[1].name
+    t.name:SetText(ns.ShortName(target) .. " möchte in die Gilde")
+    local cmd = ns.Recruit:Command(target)
+    if t.cmdBox.value ~= cmd then
+        t.cmdBox.value = cmd
+        t.cmdBox:SetText(cmd)
+        t.cmdBox:SetCursorPosition(0)
+    end
     t.more:SetText(#queue > 1 and ("+" .. (#queue - 1) .. " weitere") or "")
     t:Show()
+    -- Nach Klick auf „Einladen“ (Reiter Invite oder Taste): Befehl gleich markieren
+    if focusName then
+        t.cmdBox:SetFocus()
+        t.cmdBox:HighlightText()
+    end
 end
+
+ns:Listen("RECRUIT_COPY", function(name) UI:UpdateRecruitToast(name) end)
 
 ns:Listen("RECRUIT_UPDATE", function()
     UI:UpdateRecruitToast()

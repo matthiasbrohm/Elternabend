@@ -4,7 +4,7 @@
 -- Addon noch ein Makro darf einladen, und das Addon darf auch die Eingabezeile nicht
 -- anfassen (weder öffnen noch Text einsetzen) – sonst rechnet WoW selbst einen von Hand
 -- abgeschickten /ginvite dem Addon zu und blockiert ihn. Getestet am 05.11.2026.
--- Das Addon zeigt deshalb nur den fertigen Befehl zum Abtippen an. Ob die Einladung
+-- Das Addon zeigt deshalb nur den fertigen Befehl markiert zum Kopieren an (eigenes Textfeld). Ob die Einladung
 -- rausging, zeigt die Systemmeldung „Ihr habt … eingeladen“; dann räumt das Addon auf.
 local _, ns = ...
 
@@ -145,10 +145,10 @@ function Recruit:Command(name)
     return name and ("/ginvite " .. name) or nil
 end
 
--- „Einladen“: nur den Befehl zum Abtippen in den Chat schreiben (Eingabezeile bleibt unberührt)
+-- „Einladen“: Befehl im Anfrage-Fenster markiert zum Kopieren zeigen (Eingabezeile bleibt unberührt)
 function Recruit:Invite(name)
     if not name then return end
-    ns.Print("Zum Einladen tippe: |cfff3dc9a" .. self:Command(name) .. "|r")
+    ns:Fire("RECRUIT_COPY", name)
 end
 
 function Recruit:InviteNext()
