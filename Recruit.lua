@@ -215,7 +215,7 @@ end
 function Recruit:WelcomeText(name)
     local fmt = Settings().welcomeText
     if not fmt or fmt == "" or not fmt:find("%%s") then
-        fmt = "Willkommen bei Elternabend, %s! Die Kinder schlafen, die Helden erwachen. Stell dich bitte kurz in unserem Discord vor (gilde-elternabend.de/discord), dann stufen wir dich vom Initial zum Mitglied hoch."
+        fmt = "Willkommen bei Elternabend, %s! Die Kinder schlafen, die Helden erwachen. Stell dich bitte kurz in unserem Discord vor (gilde-elternabend.de/discord), dann stufen wir dich vom Initianden zum Mitglied hoch."
     end
     return string.format(fmt, ns.ShortName(name) or name)
 end
