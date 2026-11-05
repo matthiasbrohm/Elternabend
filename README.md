@@ -105,7 +105,7 @@ Zusätzlich flüstert der Knopf `ginv` an die Namen in `Join.INVITERS` (oben in 
 ## Gildeneinladung per Flüstern
 Wer dich mit `ginv` anflüstert (Stichwörter im Reiter **Invite** einstellbar, den nur sieht, wer in die Gilde einladen darf), landet in der Anfrageliste, und es erscheint ein kleines Fenster mit dem fertigen Befehl `/ginvite Anna Sturmwind` zum Kopieren: ins Feld klicken, **Cmd+C** (Windows: Strg+C), dann im Chat **Enter, Cmd+V, Enter**.
 - **Den Befehl musst du selbst abschicken.** WoW Forever behält Gildeneinladungen der Blizzard-Oberfläche vor: Weder Addons noch Makros dürfen einladen, und ein Addon darf auch nichts in die Eingabezeile schreiben – sonst blockiert WoW sogar den selbst abgeschickten Befehl („Funktion, die der Blizzard-UI vorbehalten ist“). Das haben wir ausgiebig getestet.
-- Sobald WoW „Ihr habt … eingeladen“ meldet, verschwindet die Anfrage, und die Person bekommt eine Antwort per Flüstern. Wer beitritt, wird nach etwa 10 Sekunden im Gildenchat begrüßt (beides abschaltbar).
+- Sobald WoW „Ihr habt … eingeladen“ meldet, verschwindet die Anfrage, und die Person bekommt eine Antwort per Flüstern. Wer beitritt, wird nach 10 bis 20 Sekunden im Gildenchat begrüßt (abschaltbar) – egal wer eingeladen hat: Das erste Addon in der Gilde grüßt, alle anderen schweigen, sobald jemand mit „Willkommen“ und dem Namen begrüßt hat.
 - „Einladen“ im Reiter **Invite** und die Taste „Nächste Gildenanfrage einladen“ (Tastaturbelegungen → AddOns → Elternabend) öffnen das Fenster mit dem Befehl gleich markiert.
 - Man braucht einen Gildenrang, der einladen darf. Das Addon „InviteOnWhisper“ sollte nicht gleichzeitig auf `ginv` reagieren, sonst kommen doppelte Fenster.
 
