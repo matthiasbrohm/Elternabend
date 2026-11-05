@@ -1,0 +1,8 @@
+# Einstellungen für den BigWigs-Packager (Upload zu CurseForge)
+package-as: Elternabend
+
+ignore:
+  - Taktik-Werkstatt
+  - .gitkeep
+
+# Ohne eigene CHANGELOG-Datei baut der Packager die Änderungsliste aus den Commit-Nachrichten

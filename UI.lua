@@ -460,7 +460,7 @@ function UI:CreateStartPanel()
     -- Noch nicht in der Gilde: ein Klick schickt die Beitrittsanfrage an alle Einladenden
     p.joinBtn = T.Button(motd, "Der Gilde beitreten", 170, "primary")
     p.joinBtn:SetPoint("RIGHT", -16, -6)
-    p.joinBtn:SetScript("OnClick", function() ns.Join:Request() end)
+    p.joinBtn:SetScript("OnClick", function() ns.Join:Click() end)
     -- Notlösung zum Kopieren, falls gerade niemand erreichbar ist: „/w Name ginv“
     p.joinCopy = T.EditBox(motd, leftWidth - 32 - 186)
     p.joinCopy:HookScript("OnEditFocusGained", function(self) self:HighlightText() end)
@@ -645,6 +645,7 @@ function UI:CreateStartPanel()
             p.joinCopy:SetShown(fallback and true or false)
             p.motd:SetHeight(fallback and 16 or 40)
             p.joinBtn:Show()
+            p.joinBtn:SetText(ns.Join.state == "confirm" and "Ja, beitreten" or "Der Gilde beitreten")
             p.joinBtn:SetEnabled(ns.Join.state ~= "sending")
         end
 

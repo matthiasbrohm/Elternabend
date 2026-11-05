@@ -26,6 +26,9 @@ concurrency:
 jobs:
   release:
     runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
+      skip: ${{ steps.version.outputs.skip }}
     steps:
       - uses: actions/checkout@v4
 
@@ -80,3 +83,33 @@ jobs:
             gh release create "$TAG" build/*.zip --target "$GITHUB_SHA" \
               --title "Elternabend $VERSION" --generate-notes
           fi
+
+  # Dieselbe Version zusätzlich zu CurseForge hochladen (BigWigs-Packager).
+  # Läuft nur, wenn bei GitHub das Secret CF_API_KEY hinterlegt ist und in der .toc
+  # die Zeile „## X-Curse-Project-ID: …“ steht.
+  curseforge:
+    needs: release
+    if: needs.release.outputs.skip != 'true'
+    runs-on: ubuntu-latest
+    env:
+      CF_API_KEY: ${{ secrets.CF_API_KEY }}
+    steps:
+      - name: Prüfen, ob CurseForge eingerichtet ist
+        id: check
+        run: |
+          if [ -z "$CF_API_KEY" ]; then
+            echo "Kein CF_API_KEY hinterlegt – CurseForge wird übersprungen."
+            echo "go=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "go=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.check.outputs.go == 'true'
+        with:
+          ref: ${{ needs.release.outputs.tag }}
+          fetch-depth: 0
+
+      - name: Zu CurseForge hochladen
+        if: steps.check.outputs.go == 'true'
+        uses: BigWigsMods/packager@v2

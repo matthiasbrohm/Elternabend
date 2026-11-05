@@ -94,6 +94,27 @@ function Join:UpdateMembership()
 end
 
 -- Anfragende Seite --------------------------------------------------------------
+-- Das Addon gibt es öffentlich (CurseForge): Wer es nur ausprobiert, soll nicht aus
+-- Versehen eine Anfrage an die ganze Gilde schicken. Erster Klick fragt nach, der zweite sendet.
+local CONFIRM_SECONDS = 15
+
+function Join:Click()
+    if self.confirmAt and GetTime() - self.confirmAt < CONFIRM_SECONDS then
+        self.confirmAt = nil
+        self:Request()
+        return
+    end
+    self.confirmAt = GetTime()
+    self.state = "confirm"
+    ns:Fire("JOIN_UPDATE")
+    C_Timer.After(CONFIRM_SECONDS, function()
+        if self.state == "confirm" and self.confirmAt and GetTime() - self.confirmAt >= CONFIRM_SECONDS - 0.1 then
+            self.state, self.confirmAt = nil, nil
+            ns:Fire("JOIN_UPDATE")
+        end
+    end)
+end
+
 function Join:Request()
     if IsInGuild() then
         ns.Print("Du bist schon in einer Gilde.")
@@ -184,7 +205,9 @@ end
 -- Text für den Start-Reiter (kurz: höchstens zwei Zeilen neben dem Knopf)
 function Join:StatusText()
     local n = math.max(self:AckCount(), self:ReachedCount())
-    if self.state == "sending" then
+    if self.state == "confirm" then
+        return "Möchtest du der Gilde Elternabend beitreten? Dann klick nochmal auf den Knopf."
+    elseif self.state == "sending" then
         return "Anfrage wird gesendet …"
     elseif self.state == "sent" then
         return (n == 1 and "Anfrage ist angekommen" or ("Anfrage ist bei " .. n .. " Einladenden angekommen"))
