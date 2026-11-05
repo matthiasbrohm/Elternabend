@@ -27,7 +27,6 @@ local defaults = {
         enabled = true,
         keywords = "ginv, gildeninvite, gilde",
         reply = "Die Einladung in die Gilde Elternabend ist unterwegs – einfach annehmen. Willkommen!",
-        welcome = true,
         log = {},
     },
     welcomeSeen = {}, -- Begrüßung schon gezeigt (pro Charakter)

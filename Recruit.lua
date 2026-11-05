@@ -15,10 +15,6 @@ BINDING_HEADER_ELTERNABEND = "Elternabend"
 BINDING_NAME_ELTERNABEND_GILDENEINLADUNG = "Nächste Gildenanfrage einladen"
 
 local REPEAT_SECONDS = 30 -- doppelte Anfragen derselben Person ignorieren
--- Begrüßung erst nach einer kurzen Pause: Direkt nach dem Beitritt ist der Gildenchat
--- beim neuen Mitglied noch nicht verbunden, und es würde den Gruß verpassen.
-local WELCOME_DELAY = 10
-local WELCOME_TRIES = 3
 local LOG_SIZE = 100
 
 local function Settings()
@@ -189,71 +185,6 @@ function Recruit:Decline(name)
     self:Log(name, "verworfen")
 end
 
--- Steht der Name schon in der Gildenliste? (Vergleich mit und ohne Realm, Vor-/Nachname)
-local function InGuildRoster(name)
-    for i = 1, GetNumGuildMembers() do
-        local n = GetGuildRosterInfo(i)
-        if n and not ns.IsSecret(n) and ns.SameName(n, name) then return true end
-    end
-    return false
-end
-
--- Begrüßung im Gildenchat: warten, Gildenliste auffrischen und schreiben, sobald das neue
--- Mitglied darin steht. Spätestens nach dem letzten Versuch wird trotzdem gegrüßt – der
--- Beitritt ist ja gemeldet.
--- Begrüßung: Seit alle einladen dürfen, begrüßt nicht mehr nur, wer eingeladen hat, sondern
--- das erste Addon in der Gilde, das den Beitritt sieht. Damit nicht alle gleichzeitig grüßen,
--- wartet jedes Addon zufällig ein paar Sekunden und schweigt, wenn schon jemand den Neuen
--- im Gildenchat mit „Willkommen“ und seinem Namen begrüßt hat.
-Recruit.pendingWelcome = {}
-
-local function FirstName(name)
-    local short = ns.ShortName(name) or name or ""
-    return short:match("^(%S+)") or short
-end
-
-function Recruit:WelcomeText(name)
-    local fmt = Settings().welcomeText
-    if not fmt or fmt == "" or not fmt:find("%%s") then
-        fmt = "Willkommen bei Elternabend, %s! Die Kinder schlafen, die Helden erwachen. Stell dich bitte kurz in unserem Discord vor (gilde-elternabend.de/discord), dann stufen wir dich vom Initianden zum Mitglied hoch."
-    end
-    return string.format(fmt, ns.ShortName(name) or name)
-end
-
-function Recruit:Welcome(name, try)
-    local key = ns.NameKey(name)
-    if not key then return end
-    if try == 1 then
-        self.pendingWelcome[key] = ns.Lower(FirstName(name))
-    end
-    C_GuildInfo.GuildRoster()
-    local wait = try == 1 and (WELCOME_DELAY + math.random() * 10) or WELCOME_DELAY
-    C_Timer.After(wait, function()
-        if not Recruit.pendingWelcome[key] then return end -- jemand anderes war schneller
-        if not InGuildRoster(name) and try < WELCOME_TRIES then
-            Recruit:Welcome(name, try + 1)
-            return
-        end
-        ns.WhenChatFree(function()
-            if not Recruit.pendingWelcome[key] then return end
-            Recruit.pendingWelcome[key] = nil
-            C_ChatInfo.SendChatMessage(Recruit:WelcomeText(name), "GUILD")
-        end)
-    end)
-end
-
--- Begrüßt schon jemand anderes? (Addon oder von Hand: „Willkommen“ + Vorname)
-ns:On("CHAT_MSG_GUILD", function(text, sender)
-    if not next(Recruit.pendingWelcome) then return end
-    if ns.IsSecret(text) or ns.IsSecret(sender) or type(text) ~= "string" then return end
-    if ns.SameName(sender, ns.PlayerKey()) then return end
-    local lower = ns.Lower(text)
-    if not lower:find("willkommen", 1, true) then return end
-    for key, first in pairs(Recruit.pendingWelcome) do
-        if first ~= "" and lower:find(first, 1, true) then Recruit.pendingWelcome[key] = nil end
-    end
-end)
-
 -- Namen aus Systemmeldungen säubern (Farbcodes und anklickbare Spielernamen entfernen)
 local function CleanName(name)
     if not name then return nil end
@@ -272,7 +203,7 @@ end)
 
 ns:On("CHAT_MSG_SYSTEM", function(msg)
     if not ns.db or ns.IsSecret(msg) then return end
-    -- Eigene Einladung, egal ob per Addon, Gildenfenster oder /ginvite: merken für die Begrüßung
+    -- Eigene Einladung, egal ob per Addon, Gildenfenster oder /ginvite: merken für die Antwort per Flüstern
     local invited = CleanName(INVITED and msg:match(INVITED))
     if invited then
         if not Recruit:Invited(invited) then Recruit:Log(invited, "eingeladen") end
@@ -286,8 +217,8 @@ ns:On("CHAT_MSG_SYSTEM", function(msg)
         Remove(key)
         if Recruit:LastStatus(key) then Recruit:Log(name, "beigetreten") end
         ns:Fire("RECRUIT_UPDATE")
-        -- Jedes Addon in der Gilde kann begrüßen – aber nur eins tut es (siehe Welcome)
-        if Settings().welcome and not ns.SameName(name, ns.PlayerKey()) then Recruit:Welcome(name, 1) end
+        -- Keine automatische Begrüßung im Gildenchat mehr: Mit vielen Addons in der Gilde
+        -- kam sie zu oft. Begrüßt wird von Hand.
         return
     end
     name = CleanName(DECLINED and msg:match(DECLINED))

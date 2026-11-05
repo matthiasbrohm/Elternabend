@@ -1792,13 +1792,6 @@ function UI:CreateGuildPanel()
     reply:SetMaxLetters(240)
     reply:HookScript("OnEditFocusLost", function(self) S().reply = strtrim(self:GetText()) end)
 
-    local welcome = T.Button(card, "", 294)
-    welcome:SetPoint("TOPLEFT", reply, "BOTTOMLEFT", 0, -14)
-    welcome:SetScript("OnClick", function()
-        S().welcome = not S().welcome
-        p:Refresh()
-    end)
-
     local hint = T.Text(card, "muted")
     hint:SetPoint("BOTTOMLEFT", 18, 16)
     hint:SetWidth(294)
@@ -1835,7 +1828,6 @@ function UI:CreateGuildPanel()
     function p:Refresh()
         local s = S()
         toggle:SetText(s.enabled and "Flüster-Einladung ist an" or "Flüster-Einladung ist aus")
-        welcome:SetText("Begrüßung im Gildenchat: " .. (s.welcome and "an" or "aus"))
         if not keywords:HasFocus() then keywords:SetText(s.keywords or "") end
         if not reply:HasFocus() then reply:SetText(s.reply or "") end
 
