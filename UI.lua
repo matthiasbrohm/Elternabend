@@ -2214,10 +2214,66 @@ function UI:CreateProfessionsPanel()
     local rightWidth = 330
     local leftWidth = 904 - rightWidth - 12
 
-    local search = T.EditBox(p, leftWidth, "Was suchst du? Rezept oder Gegenstand, z. B. „Heiltrank“")
+    local FILTER_W = 200
+    local search = T.EditBox(p, leftWidth - FILTER_W - 8, "Was suchst du? Rezept oder Gegenstand, z. B. „Heiltrank“")
     T.AddClearButton(search)
     search:SetPoint("TOPLEFT", 0, 0)
     search:HookScript("OnTextChanged", function() p:Refresh() end)
+
+    -- Filter nach Beruf: zeigt nur Charaktere (bzw. Rezepte) mit diesem Beruf
+    p.profFilter = nil
+    local filterBtn = T.Button(p, "Alle Berufe", FILTER_W)
+    filterBtn:SetPoint("LEFT", search, "RIGHT", 8, 0)
+    local menu = T.Panel(p)
+    menu:SetFrameStrata("DIALOG")
+    menu:SetPoint("TOPLEFT", filterBtn, "BOTTOMLEFT", 0, -2)
+    menu:SetWidth(FILTER_W)
+    menu:EnableMouse(true)
+    menu:Hide()
+    menu.buttons = {}
+    local function KnownProfessions()
+        local count = {}
+        for key, c in pairs(ns.db.professions) do
+            if #M.list == 0 or M.byKey[key] then
+                for _, pr in ipairs(c.profs) do
+                    if pr.name then count[pr.name] = (count[pr.name] or 0) + 1 end
+                end
+            end
+        end
+        local names = {}
+        for n in pairs(count) do table.insert(names, n) end
+        table.sort(names)
+        return names, count
+    end
+    local function OpenMenu()
+        local names, count = KnownProfessions()
+        local entries = { { label = "Alle Berufe" } }
+        for _, n in ipairs(names) do table.insert(entries, { label = n .. "  (" .. count[n] .. ")", value = n }) end
+        for i, e in ipairs(entries) do
+            local b = menu.buttons[i]
+            if not b then
+                b = T.Button(menu, "", FILTER_W - 12)
+                b:SetHeight(22)
+                b:SetPoint("TOPLEFT", 6, -6 - (i - 1) * 24)
+                menu.buttons[i] = b
+            end
+            b:SetText(e.value == p.profFilter and T.Hex("goldBright", e.label) or e.label)
+            b:SetScript("OnClick", function()
+                p.profFilter = e.value
+                p.detail = nil -- zurück zur Übersicht mit allen, die diesen Beruf haben
+                menu:Hide()
+                p:Refresh()
+            end)
+            b:Show()
+        end
+        for i = #entries + 1, #menu.buttons do menu.buttons[i]:Hide() end
+        menu:SetHeight(10 + #entries * 24)
+        menu:Show()
+    end
+    filterBtn:SetScript("OnClick", function()
+        if menu:IsShown() then menu:Hide() else OpenMenu() end
+    end)
+    p:HookScript("OnHide", function() menu:Hide() end)
 
     local function Online(key)
         local m = M.byKey[key]
@@ -2432,6 +2488,9 @@ function UI:CreateProfessionsPanel()
         p.summary:SetText(summary)
         p:RefreshOrders()
 
+        local filter = p.profFilter
+        filterBtn:SetText(filter and T.Hex("goldBright", filter) or "Alle Berufe")
+
         local text = strtrim(search:GetText() or "")
         local searching = text ~= ""
         local detail = not searching and p.detail and ns.db.professions[p.detail]
@@ -2446,7 +2505,7 @@ function UI:CreateProfessionsPanel()
             -- Alle Rezepte eines Charakters, nach Beruf und Name
             local rows = {}
             for _, pr in ipairs(detail.profs) do
-                for _, id in ipairs(pr.recipes or {}) do
+                for _, id in ipairs((not filter or pr.name == filter) and pr.recipes or {}) do
                     table.insert(rows, { recipe = P:RecipeName(id) or ("Rezept " .. id), id = id, char = detail.name, key = p.detail, prof = pr.name })
                 end
             end
@@ -2463,6 +2522,11 @@ function UI:CreateProfessionsPanel()
             p.summary:SetText("Rezepte von " .. T.Hex("goldBright", ns.ShortName(detail.name)) .. "  ·  " .. #rows .. " Rezepte")
         elseif searching then
             local hits = P:Search(text, 200)
+            if filter then
+                local only = {}
+                for _, h in ipairs(hits) do if h.prof == filter then table.insert(only, h) end end
+                hits = only
+            end
             hitList:SetData(hits, function(row, h)
                 local m = M.byKey[h.key]
                 row.cols.recipe:SetText(T.Hex("goldBright", h.recipe))
@@ -2470,23 +2534,47 @@ function UI:CreateProfessionsPanel()
                 row.cols.prof:SetText(T.Hex("muted", h.prof))
                 row.cols.status:SetText(Online(h.key))
             end)
-            if #hits == 0 then p.summary:SetText(T.Hex("orange", "Niemand gefunden, der „" .. text .. "“ herstellen kann.")) end
+            if #hits == 0 then
+                p.summary:SetText(T.Hex("orange", "Niemand gefunden, der „" .. text .. "“ herstellen kann"
+                    .. (filter and (" (" .. filter .. ")") or "") .. "."))
+            end
         else
             local rows = {}
             for key, c in pairs(ns.db.professions) do
                 if #c.profs > 0 and (#M.list == 0 or M.byKey[key]) then
-                    table.insert(rows, { key = key, name = c.name, profs = c.profs, time = c.time, from = c.from })
+                    local match
+                    for _, pr in ipairs(c.profs) do if pr.name == filter then match = pr end end
+                    if not filter or match then
+                        table.insert(rows, { key = key, name = c.name, profs = c.profs, time = c.time, from = c.from, match = match })
+                    end
                 end
             end
-            table.sort(rows, function(a, b) return a.name < b.name end)
+            -- Mit Filter: höchste Stufe zuerst, sonst alphabetisch
+            table.sort(rows, function(a, b)
+                local la, lb = a.match and a.match.level or 0, b.match and b.match.level or 0
+                if la ~= lb then return la > lb end
+                return a.name < b.name
+            end)
             allList:SetData(rows, function(row, c)
                 local m = M.byKey[c.key]
                 row.cols.char:SetText(m and ("|c" .. ClassHex(m.classFile) .. ns.ShortName(c.name) .. "|r") or ns.ShortName(c.name))
                 local names = {}
-                for _, pr in ipairs(c.profs) do table.insert(names, pr.name) end
-                row.cols.profs:SetText(table.concat(names, ", "))
+                if c.match then
+                    local pr = c.match
+                    table.insert(names, T.Hex("goldBright", pr.name .. " " .. (pr.level or "?") .. "/" .. (pr.max or "?"))
+                        .. T.Hex("muted", "  ·  " .. #(pr.recipes or {}) .. " Rezepte"))
+                end
+                for _, pr in ipairs(c.profs) do
+                    if pr ~= c.match then table.insert(names, c.match and T.Hex("muted", pr.name) or pr.name) end
+                end
+                row.cols.profs:SetText(table.concat(names, c.match and "  ·  " or ", "))
                 row.cols.status:SetText(Online(c.key))
             end)
+            if filter then
+                p.summary:SetText(#rows == 0 and T.Hex("orange", "Niemand mit " .. filter .. " gefunden.")
+                    or (#rows .. (#rows == 1 and " Charakter" or " Charaktere") .. " mit " .. T.Hex("goldBright", filter)
+                        .. "  ·  Klick auf einen Namen zeigt seine Rezepte"))
+            end
         end
     end
 
