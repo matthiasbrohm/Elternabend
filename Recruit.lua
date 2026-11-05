@@ -140,12 +140,39 @@ function Recruit:Invited(name)
     return true
 end
 
--- Nur eine Hinweiszeile in den Chat schreiben – das Chatfeld selbst bleibt unberührt
+-- Einladen in zwei Schritten: Klick auf „Einladen“ merkt sich den Namen. Öffnest du danach
+-- selbst mit Enter die Eingabezeile (Blizzards eigener Weg), setzt das Addon dort nur den
+-- Text „/ginvite Name“ ein – ein zweites Enter schickt ihn ab. Das Addon öffnet die
+-- Eingabezeile bewusst nicht selbst: Das würde sie „vergiften“, und WoW blockiert dann.
+local pendingInvite
+
 function Recruit:Invite(name)
     if not name then return end
+    pendingInvite = { cmd = "/ginvite " .. name, time = GetTime() }
     local link = "|Hplayer:" .. name .. "|h|cff3fc7eb[" .. name .. "]|r|h"
-    ns.Print("Einladen: Rechtsklick auf " .. link .. " → „In Gilde einladen“ – oder tippe |cfff3dc9a/ginvite " .. name .. "|r")
+    ns.Print("Drück jetzt |cfff3dc9aEnter|r – der Befehl für " .. link .. " steht dann schon im Chat. Nochmal Enter lädt ein.")
 end
+
+local function FillEditBox(editBox)
+    if not pendingInvite then return end
+    local p = pendingInvite
+    pendingInvite = nil
+    if GetTime() - p.time > 60 then return end
+    if (editBox:GetText() or "") ~= "" then return end
+    editBox:SetText(p.cmd)
+end
+
+local function HookEditBoxes()
+    for i = 1, (NUM_CHAT_WINDOWS or 10) do
+        local box = _G["ChatFrame" .. i .. "EditBox"]
+        if box and not box.elternabendHooked then
+            box.elternabendHooked = true
+            box:HookScript("OnShow", FillEditBox)
+            box:HookScript("OnEditFocusGained", FillEditBox)
+        end
+    end
+end
+ns:On("PLAYER_LOGIN", HookEditBoxes)
 
 function Recruit:InviteNext()
     local q = self.queue[1]
