@@ -6,6 +6,12 @@
 -- ihn nicht. Die Anfrage landet bei den Einladenden im bekannten Gildenanfrage-Fenster;
 -- eingeladen wird weiterhin per Klick (WoW erlaubt es nicht ohne).
 --
+-- In WoW Forever kommen Addon-Nachrichten über den Kanal von Nicht-Mitgliedern nicht an
+-- (getestet am 05.11.2026). Deshalb flüstert der Knopf zusätzlich ganz normal „ginv“ an
+-- alle aus INVITERS – das landet bei ihnen in der Gildenanfrage wie ein getipptes „ginv“.
+-- Wer gerade offline ist, bekommt nichts; die Meldung „Kein Spieler namens …“ wird
+-- ausgeblendet und gezählt.
+--
 --   JOINREQ            Anfragender → Kanal
 --   JOINACK            Einladender → Anfragender (Flüstern): „Anfrage ist angekommen“
 --   JOINDONE \t Name    Einladender → Kanal: erledigt, bei den anderen entfernen
@@ -17,6 +23,20 @@ ns.Join = Join
 local CHANNEL = "ElternabendTreff"
 local PASSWORD = "kinderschlafen"
 local ANSWER_WAIT = 8 -- Sekunden auf Antworten warten
+
+-- Wer Anfragen per Flüstern bekommt (Vorname Nachname, genau wie im Spiel).
+-- Neue Offiziere hier ergänzen und eine neue Version veröffentlichen.
+Join.INVITERS = {
+    "Beta Lux",
+}
+Join.KEYWORD = "ginv"
+
+-- „Kein Spieler namens '%s' ist online.“ → Suchmuster für die Spielsprache
+local NOT_FOUND
+if ERR_CHAT_PLAYER_NOT_FOUND_S then
+    NOT_FOUND = ERR_CHAT_PLAYER_NOT_FOUND_S:gsub("%%%d%$", "%%"):gsub("([%(%)%.%-%+%[%]%*%?%^%$])", "%%%1"):gsub("%%s", "(.+)")
+    NOT_FOUND = "^" .. NOT_FOUND .. "$"
+end
 
 -- Kanal -------------------------------------------------------------------------
 function Join:ChannelId()
@@ -78,24 +98,63 @@ function Join:Request()
     self.state = "sending"
     ns:Fire("JOIN_UPDATE")
 
-    local function Send()
-        local id = self:ChannelId()
-        if not id then
-            self.state = "failed"
-            ns:Fire("JOIN_UPDATE")
-            return
+    -- Zuverlässiger Weg: „ginv“ an alle Einladenden flüstern
+    self:WhisperInviters()
+    -- Zusätzlich der alte Weg über den Kanal (klappt, wo Forever ihn zulässt)
+    local function SendChannel()
+        if self:ChannelId() then
+            ns.Comm:Send("JOINREQ", ns.UnitFullName("player"), "CHANNEL", self:ChannelId())
         end
-        ns.Comm:Send("JOINREQ", ns.UnitFullName("player"), "CHANNEL", id)
-        C_Timer.After(ANSWER_WAIT, function()
-            if self.state == "sending" then
-                self.state = next(self.acks) and "sent" or "nobody"
-                ns:Fire("JOIN_UPDATE")
-            end
-        end)
     end
-    -- Beitritt zum Kanal dauert einen Moment
-    if self:EnsureChannel() then Send() else C_Timer.After(2, Send) end
+    if self:EnsureChannel() then SendChannel() else C_Timer.After(2, SendChannel) end
+    C_Timer.After(ANSWER_WAIT, function()
+        if self.state == "sending" then
+            self.state = (next(self.acks) or self:ReachedCount() > 0) and "sent" or "nobody"
+            ns:Fire("JOIN_UPDATE")
+        end
+    end)
 end
+
+-- Flüstern an alle aus INVITERS; wer offline ist, meldet das Spiel per Systemnachricht
+function Join:WhisperInviters()
+    self.whispered, self.offline = {}, {}
+    local me = ns.PlayerKey()
+    for _, name in ipairs(self.INVITERS) do
+        local key = ns.NameKey(name)
+        if key and key ~= me then
+            self.whispered[key] = name
+            ns.WhenChatFree(function() C_ChatInfo.SendChatMessage(self.KEYWORD, "WHISPER", nil, name) end)
+        end
+    end
+end
+
+function Join:ReachedCount()
+    local n = 0
+    for key in pairs(self.whispered or {}) do
+        if not self.offline[key] then n = n + 1 end
+    end
+    return n
+end
+
+-- Ein Name zum Selbst-Anflüstern, falls der Knopf nicht durchkommt
+function Join:FallbackCommand()
+    local name = self.INVITERS[1]
+    return name and ("/w " .. name .. " " .. self.KEYWORD) or nil
+end
+
+-- „Kein Spieler namens … ist online“ für unsere Flüster-Anfragen: zählen und ausblenden
+local function FilterNotFound(_, _, msg)
+    if not NOT_FOUND or type(msg) ~= "string" or ns.IsSecret(msg) or not Join.whispered then return end
+    local who = msg:match(NOT_FOUND)
+    local key = who and ns.NameKey(who)
+    if key and Join.whispered[key] then
+        Join.offline[key] = true
+        return true
+    end
+end
+if AddFilter then AddFilter("CHAT_MSG_SYSTEM", FilterNotFound) end
+-- Zählen auch dann, wenn kein Chatfenster Systemmeldungen zeigt
+ns:On("CHAT_MSG_SYSTEM", function(msg) FilterNotFound(nil, nil, msg) end)
 
 function Join:AckCount()
     local n = 0
@@ -105,15 +164,14 @@ end
 
 -- Text für den Start-Reiter (kurz: höchstens zwei Zeilen neben dem Knopf)
 function Join:StatusText()
-    local n = self:AckCount()
+    local n = math.max(self:AckCount(), self:ReachedCount())
     if self.state == "sending" then
-        return n > 0 and ("Angekommen bei " .. n .. " Einladenden …") or "Anfrage wird gesendet …"
+        return "Anfrage wird gesendet …"
     elseif self.state == "sent" then
-        return "Angekommen bei " .. n .. " Einladenden – gleich kommt die Einladung."
+        return (n == 1 and "Anfrage ist angekommen" or ("Anfrage ist bei " .. n .. " Einladenden angekommen"))
+            .. " – gleich kommt die Einladung. Einfach annehmen!"
     elseif self.state == "nobody" then
-        return "Gerade ist niemand zum Einladen online."
-    elseif self.state == "failed" then
-        return "Hat nicht geklappt – bitte nochmal klicken."
+        return "Gerade ist niemand zum Einladen online. Später nochmal versuchen oder selbst flüstern:"
     end
 end
 

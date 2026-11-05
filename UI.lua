@@ -461,6 +461,18 @@ function UI:CreateStartPanel()
     p.joinBtn = T.Button(motd, "Der Gilde beitreten", 170, "primary")
     p.joinBtn:SetPoint("RIGHT", -16, -6)
     p.joinBtn:SetScript("OnClick", function() ns.Join:Request() end)
+    -- Notlösung zum Kopieren, falls gerade niemand erreichbar ist: „/w Name ginv“
+    p.joinCopy = T.EditBox(motd, leftWidth - 32 - 186)
+    p.joinCopy:HookScript("OnEditFocusGained", function(self) self:HighlightText() end)
+    p.joinCopy:SetScript("OnMouseUp", function(self) self:HighlightText() end)
+    p.joinCopy:HookScript("OnTextChanged", function(self, userInput)
+        if userInput then
+            self:SetText(self.value or "")
+            self:HighlightText()
+        end
+    end)
+    p.joinCopy:SetPoint("BOTTOMLEFT", 16, 10)
+    p.joinCopy:Hide()
 
     -- Raidzeiten
     local raid = StartCard(p, "Raidzeiten", 66)
@@ -616,12 +628,22 @@ function UI:CreateStartPanel()
             p.motd:SetWidth(leftWidth - 32)
             p.motd:SetText(text ~= "" and text or T.Hex("dim", "Gerade keine Nachricht des Tages."))
             p.joinBtn:Hide()
+            p.joinCopy:Hide()
+            p.motd:SetHeight(40)
         else
             local status = ns.Join:StatusText()
             p.motdCard.kicker:SetText("MITMACHEN")
             p.motd:SetWidth(leftWidth - 32 - 186)
             p.motd:SetText(status and T.Hex(ns.Join.state == "nobody" and "orange" or "goldBright", status)
                 or "Noch nicht in der Gilde? Ein Klick genügt.")
+            local fallback = ns.Join.state == "nobody" and ns.Join:FallbackCommand()
+            if fallback and p.joinCopy.value ~= fallback then
+                p.joinCopy.value = fallback
+                p.joinCopy:SetText(fallback)
+                p.joinCopy:SetCursorPosition(0)
+            end
+            p.joinCopy:SetShown(fallback and true or false)
+            p.motd:SetHeight(fallback and 16 or 40)
             p.joinBtn:Show()
             p.joinBtn:SetEnabled(ns.Join.state ~= "sending")
         end
