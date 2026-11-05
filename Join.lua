@@ -24,26 +24,16 @@ function Join:ChannelId()
     return id and id > 0 and id or nil
 end
 
--- Den Kanal aus allen Chatfenstern nehmen, damit niemand ihn sieht
-local function HideFromChat()
-    for i = 1, (NUM_CHAT_WINDOWS or 10) do
-        local frame = _G["ChatFrame" .. i]
-        if frame then
-            if ChatFrame_RemoveChannel then
-                pcall(ChatFrame_RemoveChannel, frame, CHANNEL)
-            elseif ChatFrameUtil and ChatFrameUtil.RemoveChannel then
-                pcall(ChatFrameUtil.RemoveChannel, frame, CHANNEL)
-            end
-        end
-    end
-end
+-- Hinweis: Den Kanal nicht mehr per ChatFrame_RemoveChannel aus den Chatfenstern nehmen.
+-- Das verändert Blizzards Chatfenster und kann dazu führen, dass WoW Befehle wie
+-- /ginvite dem Addon zurechnet und blockiert. Im Kanal laufen nur Addon-Nachrichten,
+-- im Chat erscheint dort nichts; die Beitrittshinweise filtert FilterNotice unten.
 
 function Join:EnsureChannel()
     if self:ChannelId() then return true end
     if self.joining and GetTime() - self.joining < 5 then return false end
     self.joining = GetTime()
     JoinTemporaryChannel(CHANNEL, PASSWORD)
-    C_Timer.After(1, HideFromChat)
     return false
 end
 

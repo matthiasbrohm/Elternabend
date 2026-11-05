@@ -1,10 +1,11 @@
 -- Elternabend Raid: Gildeneinladung per Flüstern („ginv“)
 --
--- Gildeneinladungen sind in WoW Forever der Blizzard-Oberfläche vorbehalten: Weder ein
--- Addon noch ein Makro darf einladen („der Blizzard-UI vorbehalten“). Erlaubt ist nur
--- der Chatbefehl, wenn man ihn selbst mit Enter abschickt. Ein Klick auf „Einladen“
--- öffnet deshalb das Chatfeld mit „/ginvite Vorname Nachname“; Enter drücken genügt.
--- Ob die Einladung rausging, zeigt die Systemmeldung „Ihr habt … eingeladen“.
+-- Gildeneinladungen sind in WoW Forever der Blizzard-Oberfläche vorbehalten: Weder das
+-- Addon noch ein Makro darf einladen. Auch das Chatfeld darf das Addon nicht anfassen –
+-- schon ein vorausgefüllter Befehl gilt dann als „vom Addon“ und wird blockiert.
+-- Ein Klick auf „Einladen“ schreibt deshalb nur eine Zeile in den Chat: den Namen zum
+-- Rechtsklicken („In Gilde einladen“) und den Befehl zum Abtippen. Ob die Einladung
+-- rausging, zeigt die Systemmeldung „Ihr habt … eingeladen“; dann räumt das Addon auf.
 local _, ns = ...
 
 local Recruit = { queue = {}, recent = {} }
@@ -139,23 +140,11 @@ function Recruit:Invited(name)
     return true
 end
 
--- Chatfeld öffnen und Text vorgeben (je nach Client-Version eine andere Funktion)
-local function OpenChat(text, who)
-    if ChatFrame_OpenChat then
-        ChatFrame_OpenChat(text)
-    elseif ChatFrameUtil and ChatFrameUtil.OpenChat then
-        ChatFrameUtil.OpenChat(text)
-    else
-        ns.Print("Bitte im Chat eintippen: " .. text)
-        return
-    end
-    ns.Print("Enter drücken, um " .. (who or "") .. " einzuladen.")
-end
-
--- „name“ ist der Absender genau so, wie das Spiel ihn liefert (Forever: „Vorname Nachname“)
+-- Nur eine Hinweiszeile in den Chat schreiben – das Chatfeld selbst bleibt unberührt
 function Recruit:Invite(name)
     if not name then return end
-    OpenChat("/ginvite " .. name, ns.ShortName(name) or name)
+    local link = "|Hplayer:" .. name .. "|h|cff3fc7eb[" .. name .. "]|r|h"
+    ns.Print("Einladen: Rechtsklick auf " .. link .. " → „In Gilde einladen“ – oder tippe |cfff3dc9a/ginvite " .. name .. "|r")
 end
 
 function Recruit:InviteNext()

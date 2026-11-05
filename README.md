@@ -102,10 +102,10 @@ Wer das Addon hat, aber noch nicht in der Gilde ist, sieht im Start-Reiter den K
 Technisch läuft das über einen versteckten, passwortgeschützten Chat-Kanal („ElternabendTreff“), dem das Addon im Hintergrund beitritt; im Chat ist er nicht zu sehen.
 
 ## Gildeneinladung per Flüstern
-Wer dich mit `ginv` anflüstert (Stichwörter im Reiter **Invite** einstellbar, den nur sieht, wer in die Gilde einladen darf), bekommt mit Klick und Enter eine Gildeneinladung.
-- Bei jeder Anfrage erscheint ein kleines Fenster mit „Einladen“ und „Verwerfen“. „Einladen“ öffnet den Chat mit dem fertigen Befehl, Enter schickt ihn ab.
+Wer dich mit `ginv` anflüstert (Stichwörter im Reiter **Invite** einstellbar, den nur sieht, wer in die Gilde einladen darf), bekommt nach einem Rechtsklick auf seinen Namen („In Gilde einladen“) eine Gildeneinladung.
+- Bei jeder Anfrage erscheint ein kleines Fenster mit „Einladen“ und „Verwerfen“. „Einladen“ schreibt den Namen zum Rechtsklicken in den Chat.
 - Noch schneller: In den Tastaturbelegungen unter **AddOns → Elternabend** eine Taste für „Nächste Gildenanfrage einladen“ festlegen.
-- WoW Forever behält Gildeneinladungen der Blizzard-Oberfläche vor – weder Addons noch Makros dürfen einladen. Ein Klick auf „Einladen“ öffnet deshalb das Chatfeld mit `/ginvite Vorname Nachname`; **Enter** drücken schickt die Einladung ab. Danach räumt das Addon die Anfrage selbst weg und flüstert die Antwort.
+- WoW Forever behält Gildeneinladungen der Blizzard-Oberfläche vor – weder Addons noch Makros dürfen einladen. Auch das Chatfeld darf das Addon nicht anfassen. Ein Klick auf „Einladen“ schreibt deshalb den Namen in den Chat: **Rechtsklick darauf → „In Gilde einladen“** oder `/ginvite Vorname Nachname` selbst tippen. Sobald WoW „Ihr habt … eingeladen“ meldet, räumt das Addon die Anfrage weg und flüstert die Antwort.
 - Nach der Einladung bekommt die Person eine Antwort per Flüstern; wer beitritt, wird nach etwa 10 Sekunden im Gildenchat begrüßt (beides abschaltbar).
 - Man braucht einen Gildenrang, der einladen darf. Das Addon „InviteOnWhisper“ sollte nicht gleichzeitig auf `ginv` reagieren, sonst kommen doppelte Fenster.
 
