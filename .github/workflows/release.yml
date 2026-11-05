@@ -110,6 +110,11 @@ jobs:
           ref: ${{ needs.release.outputs.tag }}
           fetch-depth: 0
 
+      # Den Packager direkt aufrufen statt als fertige Action: Bei einem Push auf main
+      # bricht er sonst ab („Found future tag“), weil er auf einen eigenen Tag-Lauf wartet.
+      # Unser Tag entsteht aber erst in diesem Workflow und löst keinen neuen Lauf aus.
       - name: Zu CurseForge hochladen
         if: steps.check.outputs.go == 'true'
-        uses: BigWigsMods/packager@v2
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/BigWigsMods/packager/v2/release.sh -o "$RUNNER_TEMP/release.sh"
+          GITHUB_EVENT_NAME=workflow_dispatch bash "$RUNNER_TEMP/release.sh"
