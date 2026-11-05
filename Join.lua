@@ -82,10 +82,13 @@ function Join:CanReceive()
     return IsInGuild() and CanGuildInvite() and ns.db.recruit.enabled
 end
 
+-- Im Kanal sind: alle, die einladen dürfen – und alle, die noch nicht in der Gilde sind.
+-- Letztere schon vor dem Klick: WoW lässt Addons nur im Moment eines Klicks in einen
+-- Kanal schreiben. Müsste man erst beitreten, wäre der Klick vorbei und die Anfrage weg.
 function Join:UpdateMembership()
-    if self:CanReceive() then
+    if self:CanReceive() or not IsInGuild() then
         self:EnsureChannel()
-    elseif IsInGuild() then
+    else
         self:LeaveChannel()
     end
 end
@@ -103,17 +106,20 @@ function Join:Request()
     -- Zuverlässiger Weg: „ginv“ an alle Einladenden flüstern
     self:WhisperInviters()
     -- Zusätzlich der alte Weg über den Kanal (klappt, wo Forever ihn zulässt)
+    -- Klartext „ginv“ in den Kanal: Alle Mitglieder mit Addon sitzen darin und sehen die Anfrage.
+    -- Muss direkt im Klick passieren (kein Timer, keine Warteschlange), sonst verwirft WoW es.
     self.posted = false
-    local function SendChannel()
-        local id = self:ChannelId()
-        if not id then return end
-        -- Klartext „ginv“ in den Kanal: Alle Mitglieder mit Addon sitzen darin und sehen die Anfrage
-        ns.WhenChatFree(function() C_ChatInfo.SendChatMessage(Join.CHANNEL_TEXT, "CHANNEL", nil, id) end)
-        self.posted = true
+    local id = self:ChannelId()
+    if id then
+        local ok = pcall(C_ChatInfo.SendChatMessage, Join.CHANNEL_TEXT, "CHANNEL", nil, id)
+        self.posted = ok
         -- Alter Weg als Addon-Nachricht (für ältere Addon-Versionen)
         ns.Comm:Send("JOINREQ", ns.UnitFullName("player"), "CHANNEL", id)
+    else
+        -- Noch nicht im Kanal (z. B. direkt nach dem Einloggen): jetzt beitreten, nächster Klick klappt
+        self:EnsureChannel()
+        ns.Print("Einen Moment – bitte in ein paar Sekunden nochmal auf „Der Gilde beitreten“ klicken.")
     end
-    if self:EnsureChannel() then SendChannel() else C_Timer.After(2, SendChannel) end
     C_Timer.After(ANSWER_WAIT, function()
         if self.state == "sending" then
             if next(self.acks) or self:ReachedCount() > 0 then
