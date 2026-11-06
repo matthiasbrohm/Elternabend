@@ -171,12 +171,19 @@ local function Row(parent, x, y, buttons)
 end
 
 -- Hauptfenster ---------------------------------------------------------------
+-- Fensterbreite; Inhalt = Breite minus 2 × 18 Rand
+local WIN_W = 1120
+local CONTENT_W = WIN_W - 36
+
 function UI:Create()
     if self.frame then return end
     local c = T.colors
 
     local f = CreateFrame("Frame", "ElternabendFrame", UIParent, "BackdropTemplate")
-    f:SetSize(940, 600 + SUBNAV_H)
+    f:SetSize(WIN_W, 600 + SUBNAV_H)
+    -- Auf kleinen Bildschirmen passend verkleinern
+    local screenW = UIParent:GetWidth()
+    if screenW and screenW > 0 and screenW < WIN_W + 40 then f:SetScale((screenW - 40) / WIN_W) end
     f:SetPoint("CENTER")
     f:SetFrameStrata("HIGH")
     f:SetToplevel(true)
@@ -717,7 +724,7 @@ function UI:CreateMembersPanel()
     end)
     p.stand = T.Text(p, "muted")
     p.stand:SetPoint("LEFT", check, "RIGHT", 12, 0)
-    p.stand:SetWidth(904 - rightWidth - 12 - 120 - 8 - 120 - 12)
+    p.stand:SetWidth(CONTENT_W - rightWidth - 12 - 120 - 8 - 120 - 12)
     p.stand:SetWordWrap(false)
 
     local columns = {
@@ -954,7 +961,7 @@ function UI:CreateRaidPanel()
 
     -- Vier Kacheln wie auf der Startseite der Webseite
     local cards = {}
-    local cardW = (904 - 3 * 12) / 4
+    local cardW = (CONTENT_W - 3 * 12) / 4
     for i, label in ipairs({ "Raid", "Anwesend", "Beute", "Soft-Reserves" }) do
         local card = T.Card(p, label)
         card:SetSize(cardW, 66)
@@ -1546,7 +1553,7 @@ end
 
 function UI:CreateWebPanel()
     local p = self:NewPanel()
-    local half = (904 - 16) / 2
+    local half = (CONTENT_W - 16) / 2
 
     local left = InfoCard(p, "Vom Raidplaner", "Raid ins Spiel holen",
         "1.  Auf " .. ns.WEBSITE .. " den Raidplaner öffnen.\n" ..
@@ -1968,7 +1975,7 @@ function UI:CreateGroupsPanel()
     local p = self:NewPanel()
     local G = ns.Groups
     local rightWidth = 330
-    local leftWidth = 904 - rightWidth - 12
+    local leftWidth = CONTENT_W - rightWidth - 12
     local SENT = { sent = { "gemeldet", "goldBright" }, invited = { "Einladung kommt", "green" }, full = { "schon voll", "red" } }
 
     -- Links: offene Gesuche der Gilde
@@ -2212,7 +2219,7 @@ function UI:CreateProfessionsPanel()
     local p = self:NewPanel()
     local P, M = ns.Professions, ns.Members
     local rightWidth = 330
-    local leftWidth = 904 - rightWidth - 12
+    local leftWidth = CONTENT_W - rightWidth - 12
 
     local FILTER_W, VIEW_W = 180, 136
     local search = T.EditBox(p, leftWidth - FILTER_W - VIEW_W - 16, "Rezept oder Gegenstand suchen …")
@@ -2329,10 +2336,10 @@ function UI:CreateProfessionsPanel()
 
     -- Suchergebnisse: wer kann das herstellen?
     local hitList = CreateList(p, {
-        { key = "recipe", label = "Rezept", x = 4, w = 220 },
-        { key = "char", label = "Wer kann es?", x = 226, w = 120 },
-        { key = "prof", label = "Beruf", x = 348, w = 100 },
-        { key = "status", label = "Status", x = 450 },
+        { key = "recipe", label = "Rezept", x = 4, w = 300 },
+        { key = "char", label = "Wer kann es?", x = 306, w = 160 },
+        { key = "prof", label = "Beruf", x = 468, w = 130 },
+        { key = "status", label = "Status", x = 600 },
     })
     hitList.panel:SetPoint("TOPLEFT", 0, -36)
     hitList.panel:SetPoint("BOTTOMRIGHT", -(rightWidth + 12), 30)
@@ -2355,9 +2362,9 @@ function UI:CreateProfessionsPanel()
 
     -- Ohne Suche: Übersicht, wer welche Berufe hat
     local allList = CreateList(p, {
-        { key = "char", label = "Charakter", x = 4, w = 130 },
-        { key = "profs", label = "Berufe", x = 136, w = 342 },
-        { key = "status", label = "Status", x = 480 },
+        { key = "char", label = "Charakter", x = 4, w = 160 },
+        { key = "profs", label = "Berufe", x = 166, w = 452 },
+        { key = "status", label = "Status", x = 620 },
     })
     allList.panel:SetPoint("TOPLEFT", 0, -36)
     allList.panel:SetPoint("BOTTOMRIGHT", -(rightWidth + 12), 30)
@@ -2382,9 +2389,9 @@ function UI:CreateProfessionsPanel()
 
     -- Nach Rezepten: jedes Rezept einmal, daneben alle, die es herstellen können
     local recipeList = CreateList(p, {
-        { key = "recipe", label = "Rezept", x = 4, w = 224 },
-        { key = "who", label = "Wer kann es?", x = 230, w = 236 },
-        { key = "prof", label = "Beruf", x = 468 },
+        { key = "recipe", label = "Rezept", x = 4, w = 290 },
+        { key = "who", label = "Wer kann es?", x = 296, w = 320 },
+        { key = "prof", label = "Beruf", x = 620 },
     })
     recipeList.panel:SetPoint("TOPLEFT", 0, -36)
     recipeList.panel:SetPoint("BOTTOMRIGHT", -(rightWidth + 12), 30)
@@ -2609,9 +2616,9 @@ function UI:CreateProfessionsPanel()
         viewBtn:SetText(p.byRecipe and T.Hex("goldBright", "Nach Rezepten") or "Nach Personen")
         local text = strtrim(search:GetText() or "")
         local searching = text ~= ""
-        local detail = not p.byRecipe and not searching and p.detail and ns.db.professions[p.detail]
+        local detail = not p.byRecipe and not searching and p.detail and ns.db.professions[p.detail] or nil
         if not detail then p.detail = nil end
-        local recipeDetail = p.byRecipe and p.detailRecipe
+        local recipeDetail = p.byRecipe and p.detailRecipe or nil
         local recipeView = p.byRecipe and not recipeDetail
         hitList.panel:SetShown(not recipeView and (searching or detail ~= nil or recipeDetail ~= nil))
         allList.panel:SetShown(not p.byRecipe and not searching and not detail)
