@@ -398,6 +398,29 @@ local function Schematic(id)
     return out
 end
 
+-- Für die Anzeige im Addon (zwischengespeichert)
+local schematicCache = {}
+function Prof:Schematic(id)
+    if schematicCache[id] == nil then schematicCache[id] = Schematic(id) or false end
+    return schematicCache[id] or nil
+end
+
+-- Farbcode der Qualität des hergestellten Gegenstands (oder nil)
+function Prof:RecipeColor(id)
+    local sch = self:Schematic(id)
+    if not sch or not sch.item then return nil end
+    local _, quality = GetItemInfoCompat(sch.item)
+    if not quality then RequestItem(sch.item) return nil end
+    local c = ITEM_QUALITY_COLORS and ITEM_QUALITY_COLORS[quality]
+    return c and c.hex or nil
+end
+
+function Prof:ItemName(id)
+    local name = GetItemInfoCompat(id)
+    if not name then RequestItem(id) end
+    return name
+end
+
 local scanTip
 local function ItemLines(itemID)
     local lines = {}

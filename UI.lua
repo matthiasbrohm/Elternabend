@@ -2214,11 +2214,14 @@ function UI:CreateProfessionsPanel()
     local rightWidth = 330
     local leftWidth = 904 - rightWidth - 12
 
-    local FILTER_W = 200
-    local search = T.EditBox(p, leftWidth - FILTER_W - 8, "Was suchst du? Rezept oder Gegenstand, z. B. „Heiltrank“")
+    local FILTER_W, VIEW_W = 180, 136
+    local search = T.EditBox(p, leftWidth - FILTER_W - VIEW_W - 16, "Rezept oder Gegenstand suchen …")
     T.AddClearButton(search)
     search:SetPoint("TOPLEFT", 0, 0)
-    search:HookScript("OnTextChanged", function() p:Refresh() end)
+    search:HookScript("OnTextChanged", function(_, userInput)
+        if userInput then p.detailRecipe = nil end
+        p:Refresh()
+    end)
 
     -- Filter nach Beruf: zeigt nur Charaktere (bzw. Rezepte) mit diesem Beruf
     p.profFilter = nil
@@ -2260,7 +2263,7 @@ function UI:CreateProfessionsPanel()
             b:SetText(e.value == p.profFilter and T.Hex("goldBright", e.label) or e.label)
             b:SetScript("OnClick", function()
                 p.profFilter = e.value
-                p.detail = nil -- zurück zur Übersicht mit allen, die diesen Beruf haben
+                p.detail, p.detailRecipe = nil, nil -- zurück zur Übersicht mit allen, die diesen Beruf haben
                 menu:Hide()
                 p:Refresh()
             end)
@@ -2273,6 +2276,17 @@ function UI:CreateProfessionsPanel()
     filterBtn:SetScript("OnClick", function()
         if menu:IsShown() then menu:Hide() else OpenMenu() end
     end)
+
+    -- Ansicht umschalten: nach Personen (wer hat welche Berufe) oder nach Rezepten (wer kann was)
+    p.byRecipe = false
+    local viewBtn = T.Button(p, "Nach Rezepten", VIEW_W)
+    viewBtn:SetPoint("LEFT", filterBtn, "RIGHT", 8, 0)
+    viewBtn:SetScript("OnClick", function()
+        p.byRecipe = not p.byRecipe
+        p.detail, p.detailRecipe = nil, nil
+        menu:Hide()
+        p:Refresh()
+    end)
     p:HookScript("OnHide", function() menu:Hide() end)
 
     local function Online(key)
@@ -2281,6 +2295,36 @@ function UI:CreateProfessionsPanel()
         if m and m.online then return T.Hex("green", "online") end
         if main and main.onlineAs then return T.Hex("green", "als " .. main.onlineAs.display) end
         return ""
+    end
+
+    -- Tooltip zu einem Rezept: hergestellter Gegenstand wie im Spiel, sonst der Zauber; dazu Materialien
+    local function RecipeTooltip(owner, id, crafters, hint)
+        GameTooltip:SetOwner(owner, "ANCHOR_RIGHT")
+        local sch = P:Schematic(id)
+        if sch and sch.item and GameTooltip.SetItemByID then
+            GameTooltip:SetItemByID(sch.item)
+        elseif GameTooltip.SetSpellByID then
+            GameTooltip:SetSpellByID(id)
+        else
+            GameTooltip:AddLine(P:RecipeName(id) or ("Rezept " .. id))
+        end
+        if sch and #sch.reagents > 0 then
+            GameTooltip:AddLine(" ")
+            GameTooltip:AddLine("Materialien", 0.84, 0.69, 0.35)
+            for _, r in ipairs(sch.reagents) do
+                GameTooltip:AddLine(r[2] .. "× " .. (P:ItemName(r[1]) or ("Gegenstand " .. r[1])), 1, 1, 1)
+            end
+        end
+        if crafters and #crafters > 0 then
+            GameTooltip:AddLine(" ")
+            GameTooltip:AddLine("Hergestellt von", 0.84, 0.69, 0.35)
+            GameTooltip:AddLine(crafters, 1, 1, 1, true)
+        end
+        if hint then
+            GameTooltip:AddLine(" ")
+            GameTooltip:AddLine(hint, 0.84, 0.69, 0.35)
+        end
+        GameTooltip:Show()
     end
 
     -- Suchergebnisse: wer kann das herstellen?
@@ -2293,11 +2337,7 @@ function UI:CreateProfessionsPanel()
     hitList.panel:SetPoint("TOPLEFT", 0, -36)
     hitList.panel:SetPoint("BOTTOMRIGHT", -(rightWidth + 12), 30)
     hitList.onEnter = function(row, h)
-        GameTooltip:SetOwner(row, "ANCHOR_RIGHT")
-        if GameTooltip.SetSpellByID then GameTooltip:SetSpellByID(h.id) else GameTooltip:AddLine(h.recipe) end
-        GameTooltip:AddLine(" ")
-        GameTooltip:AddLine("Klick: Auftrag an " .. ns.ShortName(h.char) .. "  ·  Rechtsklick: anflüstern", 0.84, 0.69, 0.35)
-        GameTooltip:Show()
+        RecipeTooltip(row, h.id, nil, "Klick: Auftrag an " .. ns.ShortName(h.char) .. "  ·  Rechtsklick: anflüstern")
     end
     hitList.onClick = function(_, h, button)
         if button == "RightButton" then
@@ -2340,11 +2380,31 @@ function UI:CreateProfessionsPanel()
         end
     end
 
+    -- Nach Rezepten: jedes Rezept einmal, daneben alle, die es herstellen können
+    local recipeList = CreateList(p, {
+        { key = "recipe", label = "Rezept", x = 4, w = 224 },
+        { key = "who", label = "Wer kann es?", x = 230, w = 236 },
+        { key = "prof", label = "Beruf", x = 468 },
+    })
+    recipeList.panel:SetPoint("TOPLEFT", 0, -36)
+    recipeList.panel:SetPoint("BOTTOMRIGHT", -(rightWidth + 12), 30)
+    recipeList.onEnter = function(row, r)
+        RecipeTooltip(row, r.id, r.whoText, "Klick: alle Hersteller mit Auftrag  ·  Rechtsklick: " .. (r.firstOnline and (ns.ShortName(r.firstOnline) .. " anflüstern") or "anflüstern"))
+    end
+    recipeList.onClick = function(_, r, button)
+        if button == "RightButton" then
+            Whisper(r.firstOnline or r.crafters[1].name)
+        else
+            p.detailRecipe = r.id
+            p:Refresh()
+        end
+    end
+
     -- Unten: zurück zur Übersicht (nur in der Rezeptliste eines Charakters) und Zusammenfassung
     local back = T.Button(p, "« Alle Berufe", 120)
     back:SetPoint("BOTTOMLEFT", 0, 0)
     back:SetScript("OnClick", function()
-        p.detail = nil
+        p.detail, p.detailRecipe = nil, nil
         p:Refresh()
     end)
     p.summary = T.Text(p, "muted")
@@ -2546,17 +2606,107 @@ function UI:CreateProfessionsPanel()
         local filter = p.profFilter
         filterBtn:SetText(filter and T.Hex("goldBright", filter) or "Alle Berufe")
 
+        viewBtn:SetText(p.byRecipe and T.Hex("goldBright", "Nach Rezepten") or "Nach Personen")
         local text = strtrim(search:GetText() or "")
         local searching = text ~= ""
-        local detail = not searching and p.detail and ns.db.professions[p.detail]
+        local detail = not p.byRecipe and not searching and p.detail and ns.db.professions[p.detail]
         if not detail then p.detail = nil end
-        hitList.panel:SetShown(searching or detail ~= nil)
-        allList.panel:SetShown(not searching and not detail)
-        back:SetShown(detail and true or false)
+        local recipeDetail = p.byRecipe and p.detailRecipe
+        local recipeView = p.byRecipe and not recipeDetail
+        hitList.panel:SetShown(not recipeView and (searching or detail ~= nil or recipeDetail ~= nil))
+        allList.panel:SetShown(not p.byRecipe and not searching and not detail)
+        recipeList.panel:SetShown(recipeView)
+        back:SetText(recipeDetail and "« Alle Rezepte" or "« Alle Berufe")
+        back:SetShown((detail or recipeDetail) and true or false)
         p.summary:ClearAllPoints()
-        if detail then p.summary:SetPoint("LEFT", back, "RIGHT", 12, 0) else p.summary:SetPoint("BOTTOMLEFT", 2, 8) end
+        if detail or recipeDetail then p.summary:SetPoint("LEFT", back, "RIGHT", 12, 0) else p.summary:SetPoint("BOTTOMLEFT", 2, 8) end
 
-        if detail then
+        local function Colored(id, name)
+            local hex = P:RecipeColor(id)
+            return hex and (hex .. name .. "|r") or T.Hex("goldBright", name)
+        end
+        local function IsOnline(key)
+            local m = M.byKey[key]
+            local main = m and (m.main or m)
+            return (m and m.online) or (main and main.onlineAs) and true or false
+        end
+
+        if recipeView then
+            -- Alle Rezepte der Gilde (gefiltert nach Beruf und Suchtext), je Rezept alle Hersteller
+            local byId, rows = {}, {}
+            local needle = ns.Lower(text)
+            for key, c in pairs(ns.db.professions) do
+                if #M.list == 0 or M.byKey[key] then
+                    for _, pr in ipairs(c.profs) do
+                        if not filter or pr.name == filter then
+                            for _, id in ipairs(pr.recipes or {}) do
+                                local name = P:RecipeName(id)
+                                if name and (needle == "" or ns.Lower(name):find(needle, 1, true)) then
+                                    local r = byId[id]
+                                    if not r then
+                                        r = { id = id, recipe = name, prof = pr.name, crafters = {} }
+                                        byId[id] = r
+                                        table.insert(rows, r)
+                                    end
+                                    table.insert(r.crafters, { name = c.name, key = key, online = IsOnline(key) })
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+            for _, r in ipairs(rows) do
+                table.sort(r.crafters, function(a, b)
+                    if a.online ~= b.online then return a.online end
+                    return a.name < b.name
+                end)
+                local parts = {}
+                for _, cr in ipairs(r.crafters) do
+                    if cr.online and not r.firstOnline then r.firstOnline = cr.name end
+                    table.insert(parts, cr.online and T.Hex("green", ns.ShortName(cr.name)) or ns.ShortName(cr.name))
+                end
+                r.who = table.concat(parts, ", ")
+                r.whoText = r.who
+            end
+            table.sort(rows, function(a, b)
+                if a.prof ~= b.prof then return a.prof < b.prof end
+                return a.recipe < b.recipe
+            end)
+            recipeList:SetData(rows, function(row, r)
+                row.cols.recipe:SetText(Colored(r.id, r.recipe))
+                row.cols.who:SetText(r.who)
+                row.cols.prof:SetText(T.Hex("muted", r.prof))
+            end)
+            p.summary:SetText(#rows == 0 and T.Hex("orange", "Kein passendes Rezept gefunden.")
+                or (#rows .. (#rows == 1 and " Rezept" or " Rezepte") .. (filter and (" in " .. T.Hex("goldBright", filter)) or "")
+                    .. "  ·  " .. T.Hex("green", "grün") .. " = online  ·  Klick zeigt alle Hersteller"))
+        elseif recipeDetail then
+            -- Alle Hersteller eines Rezepts, mit Auftrag per Klick
+            local rows, name = {}, P:RecipeName(recipeDetail) or ("Rezept " .. recipeDetail)
+            for key, c in pairs(ns.db.professions) do
+                if #M.list == 0 or M.byKey[key] then
+                    for _, pr in ipairs(c.profs) do
+                        for _, id in ipairs(pr.recipes or {}) do
+                            if id == recipeDetail then
+                                table.insert(rows, { recipe = name, id = id, char = c.name, key = key, prof = pr.name, online = IsOnline(key) })
+                            end
+                        end
+                    end
+                end
+            end
+            table.sort(rows, function(a, b)
+                if a.online ~= b.online then return a.online end
+                return a.char < b.char
+            end)
+            hitList:SetData(rows, function(row, h)
+                local m = M.byKey[h.key]
+                row.cols.recipe:SetText(Colored(h.id, h.recipe))
+                row.cols.char:SetText(m and ("|c" .. ClassHex(m.classFile) .. ns.ShortName(h.char) .. "|r") or ns.ShortName(h.char))
+                row.cols.prof:SetText(T.Hex("muted", h.prof))
+                row.cols.status:SetText(Online(h.key))
+            end)
+            p.summary:SetText(Colored(recipeDetail, name) .. "  ·  " .. #rows .. (#rows == 1 and " Hersteller" or " Hersteller") .. "  ·  Klick schickt einen Auftrag")
+        elseif detail then
             -- Alle Rezepte eines Charakters, nach Beruf und Name
             local rows = {}
             for _, pr in ipairs(detail.profs) do
