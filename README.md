@@ -150,6 +150,7 @@ Der Reiter erscheint nur für Plündermeister, Leitung und Assistenten – oder 
 ## Berufe
 Im Reiter **Berufe** siehst du, wer in der Gilde welche Berufe hat – und suchst gezielt: „Heiltrank“ eintippen zeigt alle, die ihn herstellen können, und wer davon online ist. Ein Klick auf einen Charakter zeigt alle seine Rezepte, ein Rechtsklick öffnet ein Flüsterfenster.
 - Rechts neben der Suche filterst du nach einem **Beruf**: Wähle z. B. „Lederverarbeitung“, dann siehst du alle, die ihn haben, mit Stufe und Anzahl der Rezepte – die höchste Stufe zuerst. Der Filter gilt auch für die Suche und die Rezeptliste eines Charakters.
+- **Für die Webseite exportieren** (rechts unter „Meine Berufe“): erstellt einen Text mit allen Berufen, Stufen und Rezepten der Gilde – samt Materialien und Werten der hergestellten Gegenstände. Offiziere fügen ihn auf [gilde-elternabend.de/berufe.php](https://www.gilde-elternabend.de/berufe.php) unter „Aus dem Addon importieren“ ein.
 - Deine Rezepte liest das Addon aus, sobald du **einmal dein Berufsfenster öffnest**, und teilt sie über den Gildenkanal. Jedes Addon speichert, was es empfängt – auch Rezepte von Mitgliedern, die gerade offline sind.
 - Sammelberufe (Angeln, Kräuterkunde, Bergbau, Kürschnerei) werden nicht angezeigt.
 - „Berufe der Gilde neu anfragen“ bittet alle, die gerade online sind, ihre Berufe zu schicken.

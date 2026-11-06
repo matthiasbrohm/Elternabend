@@ -354,6 +354,170 @@ function Prof:Search(text, limit)
     return hits
 end
 
+-- Export für die Webseite (gilde-elternabend.de/berufe.php → „Aus dem Addon importieren“)
+-- Eine Zeile ohne „|“ (das ist in Eingabefeldern ein Steuerzeichen). Teile mit „^“ getrennt:
+--   EAB2^Zeit^Exporteur^Anzahl
+--   C~Name~Beruf~Stufe~Max~Stand~Rezept-ID,Rezept-ID,…             (ein Beruf eines Charakters)
+--   R~Rezept-ID~Name~Gegenstand~Menge~Item*Anzahl,Item*Anzahl~Text   (was das Rezept braucht und ergibt)
+--   I~Item-ID~Qualität~Name~Farbe¦Links¦Rechts`Farbe¦Links¦Rechts     (Werte wie im Tooltip)
+local BAR = "\194\166" -- ¦
+local function Clean(s)
+    s = tostring(s or "")
+    s = s:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""):gsub("|T.-|t", ""):gsub("|A.-|a", ""):gsub("|n", " "):gsub("|", "")
+    s = s:gsub("[%^~`]", " "):gsub(BAR, " "):gsub("%s+", " ")
+    return (s:gsub("^ ", ""):gsub(" $", ""))
+end
+
+local function GetItemInfoCompat(id)
+    local f = (C_Item and C_Item.GetItemInfo) or GetItemInfo
+    if not f then return end
+    local ok, name, _, quality = pcall(f, id)
+    if ok and name and not ns.IsSecret(name) then return name, quality end
+end
+
+local function IsCached(id)
+    if C_Item and C_Item.IsItemDataCachedByID then return C_Item.IsItemDataCachedByID(id) end
+    return GetItemInfoCompat(id) ~= nil
+end
+
+local function RequestItem(id)
+    if C_Item and C_Item.RequestLoadItemDataByID then pcall(C_Item.RequestLoadItemDataByID, id) else GetItemInfoCompat(id) end
+end
+
+-- Was ein Rezept braucht und ergibt (aus den Spieldaten, klappt auch für fremde Rezepte)
+local function Schematic(id)
+    if not (C_TradeSkillUI and C_TradeSkillUI.GetRecipeSchematic) then return nil end
+    local ok, sch = pcall(C_TradeSkillUI.GetRecipeSchematic, id, false)
+    if not ok or type(sch) ~= "table" then return nil end
+    local out = { item = sch.outputItemID, qty = sch.quantityMin or 1, reagents = {} }
+    for _, slot in ipairs(sch.reagentSlotSchematics or {}) do
+        local r = slot.reagents and slot.reagents[1]
+        local basic = slot.required or slot.reagentType == nil or slot.reagentType == 1
+        if r and r.itemID and basic then table.insert(out.reagents, { r.itemID, slot.quantityRequired or 1 }) end
+    end
+    return out
+end
+
+local scanTip
+local function ItemLines(itemID)
+    local lines = {}
+    local function Add(hex, left, right)
+        if ns.IsSecret(left) or ns.IsSecret(right) then return end
+        left, right = Clean(left), Clean(right)
+        if left == "" and right == "" then return end
+        if left:find("^Verkaufspreis") or left:find("^Sell Price") then return end
+        if #lines < 24 then table.insert(lines, hex .. BAR .. left .. BAR .. right) end
+    end
+    local function Hex(r, g, b) return string.format("%02x%02x%02x", (r or 1) * 255, (g or 1) * 255, (b or 1) * 255) end
+    if C_TooltipInfo and C_TooltipInfo.GetItemByID then
+        local ok, data = pcall(C_TooltipInfo.GetItemByID, itemID)
+        if ok and type(data) == "table" and data.lines then
+            for i, l in ipairs(data.lines) do
+                if i > 1 then
+                    local c = l.leftColor
+                    Add(c and Hex(c.r, c.g, c.b) or "ffffff", l.leftText, l.rightText)
+                end
+            end
+            return lines
+        end
+    end
+    -- Ältere Clients: verstecktes Tooltip auslesen
+    scanTip = scanTip or CreateFrame("GameTooltip", "ElternabendScanTooltip", nil, "GameTooltipTemplate")
+    scanTip:SetOwner(UIParent, "ANCHOR_NONE")
+    local ok = pcall(scanTip.SetItemByID, scanTip, itemID)
+    if ok then
+        for i = 2, scanTip:NumLines() do
+            local L, R = _G["ElternabendScanTooltipTextLeft" .. i], _G["ElternabendScanTooltipTextRight" .. i]
+            Add(Hex(L:GetTextColor()), L:GetText(), (R and R:IsShown()) and R:GetText() or "")
+        end
+    end
+    scanTip:Hide()
+    return lines
+end
+
+local function SpellText(id)
+    if C_Spell and C_Spell.GetSpellDescription then
+        local ok, d = pcall(C_Spell.GetSpellDescription, id)
+        if ok and d and not ns.IsSecret(d) then return Clean(d) end
+    elseif GetSpellDescription then
+        local ok, d = pcall(GetSpellDescription, id)
+        if ok and d then return Clean(d) end
+    end
+    return ""
+end
+
+-- only: erlaubte Schlüssel (z. B. aktuelle Gildenmitglieder) oder nil für alle.
+-- Lädt zuerst die nötigen Gegenstandsdaten (bis zu 12 Sekunden) und ruft dann done(text, anzahl) auf;
+-- progress(geladen, gesamt) meldet den Zwischenstand.
+function Prof:PrepareExport(only, progress, done)
+    local chars, recipeIDs, seen = {}, {}, {}
+    for key, char in pairs(DB()) do
+        if not only or only[key] then
+            for _, p in ipairs(char.profs) do
+                table.insert(chars, { char = char, prof = p })
+                for _, id in ipairs(p.recipes or {}) do
+                    if not seen[id] then seen[id] = true; table.insert(recipeIDs, id) end
+                end
+            end
+        end
+    end
+    local schematics, itemIDs, needItem, isOutput = {}, {}, {}, {}
+    for _, id in ipairs(recipeIDs) do
+        local sch = Schematic(id)
+        schematics[id] = sch
+        if sch then
+            if sch.item then isOutput[sch.item] = true end
+            if sch.item and not needItem[sch.item] then needItem[sch.item] = true; table.insert(itemIDs, sch.item) end
+            for _, r in ipairs(sch.reagents) do
+                if not needItem[r[1]] then needItem[r[1]] = true; table.insert(itemIDs, r[1]) end
+            end
+        end
+    end
+    for _, id in ipairs(itemIDs) do if not IsCached(id) then RequestItem(id) end end
+
+    local function Build()
+        local parts = {}
+        table.sort(chars, function(a, b)
+            if a.char.name ~= b.char.name then return a.char.name < b.char.name end
+            return (a.prof.name or "") < (b.prof.name or "")
+        end)
+        for _, e in ipairs(chars) do
+            local p = e.prof
+            table.insert(parts, table.concat({ "C", Clean(ns.ShortName(e.char.name) or e.char.name), Clean(p.name), p.level or 0, p.max or 0,
+                e.char.time or 0, table.concat(p.recipes or {}, ",") }, "~"))
+        end
+        for _, id in ipairs(recipeIDs) do
+            local sch = schematics[id]
+            local reag = {}
+            if sch then for _, r in ipairs(sch.reagents) do table.insert(reag, r[1] .. "*" .. r[2]) end end
+            local item = sch and sch.item or 0
+            table.insert(parts, table.concat({ "R", id, Clean(self:RecipeName(id) or ""), item, sch and sch.qty or 1,
+                table.concat(reag, ","), (item == 0) and SpellText(id) or "" }, "~"))
+        end
+        for _, id in ipairs(itemIDs) do
+            local name, quality = GetItemInfoCompat(id)
+            if name then
+                -- Werte nur für hergestellte Gegenstände, bei Materialien reicht der Name
+                local lines = isOutput[id] and table.concat(ItemLines(id), "`") or ""
+                table.insert(parts, table.concat({ "I", id, quality or 1, Clean(name), lines }, "~"))
+            end
+        end
+        local head = table.concat({ "EAB2", time(), Clean(ns.ShortName(ns.UnitFullName("player")) or "?"), #chars }, "^")
+        done(head .. (#parts > 0 and ("^" .. table.concat(parts, "^")) or ""), #chars)
+    end
+
+    local waited = 0
+    local function Check()
+        local ready = 0
+        for _, id in ipairs(itemIDs) do if IsCached(id) then ready = ready + 1 end end
+        if progress then progress(ready, #itemIDs) end
+        if ready >= #itemIDs or waited >= 12 or not C_Timer then Build() return end
+        waited = waited + 0.5
+        C_Timer.After(0.5, Check)
+    end
+    Check()
+end
+
 function Prof:Count()
     local chars, recipes = 0, 0
     for _, char in pairs(DB()) do

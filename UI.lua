@@ -2350,16 +2350,71 @@ function UI:CreateProfessionsPanel()
     p.summary = T.Text(p, "muted")
 
     -- Rechts: eigene Berufe und Erklärung
-    local mine = StartCard(p, "Meine Berufe", 180)
+    local mine = StartCard(p, "Meine Berufe", 214)
     mine:SetPoint("TOPRIGHT")
     mine:SetWidth(rightWidth)
     p.mine = T.Text(mine, "small")
     p.mine:SetPoint("TOPLEFT", mine.kicker, "BOTTOMLEFT", 0, -6)
     p.mine:SetWidth(rightWidth - 32)
     p.mine:SetSpacing(3)
+    local export = T.Button(mine, "Für die Webseite exportieren", rightWidth - 32)
+    export:SetPoint("BOTTOMLEFT", 16, 12)
     local ask = T.Button(mine, "Berufe der Gilde neu anfragen", rightWidth - 32)
-    ask:SetPoint("BOTTOMLEFT", 16, 12)
+    ask:SetPoint("BOTTOMLEFT", export, "TOPLEFT", 0, 8)
     ask:SetScript("OnClick", function() P:RequestAll() end)
+
+    -- Export: Addons dürfen nicht in die Zwischenablage schreiben, also markiert
+    -- ins Feld legen – Strg+C bzw. Cmd+C, dann auf der Webseite einfügen
+    local box = T.Panel(p)
+    box:SetFrameStrata("DIALOG")
+    box:SetSize(560, 168)
+    box:SetPoint("CENTER", p, "CENTER", 0, 40)
+    box:EnableMouse(true)
+    box:Hide()
+    box.kicker = T.Text(box, "kicker")
+    box.kicker:SetPoint("TOPLEFT", 16, -14)
+    box.kicker:SetText("EXPORT FÜR DIE WEBSEITE")
+    box.info = T.Text(box, "small")
+    box.info:SetPoint("TOPLEFT", box.kicker, "BOTTOMLEFT", 0, -8)
+    box.info:SetWidth(528)
+    box.info:SetSpacing(3)
+    box.edit = T.EditBox(box, 528)
+    box.edit:SetPoint("TOPLEFT", 16, -88)
+    box.edit:SetMaxLetters(0)
+    box.edit:HookScript("OnEditFocusGained", function(self) self:HighlightText() end)
+    box.edit:SetScript("OnMouseUp", function(self) self:HighlightText() end)
+    box.edit:HookScript("OnTextChanged", function(self, userInput)
+        if userInput then
+            self:SetText(box.value or "")
+            self:HighlightText()
+        end
+    end)
+    local close = T.Button(box, "Schließen", 120)
+    close:SetPoint("BOTTOMRIGHT", -16, 14)
+    close:SetScript("OnClick", function() box:Hide() end)
+    p:HookScript("OnHide", function() box:Hide() end)
+    export:SetScript("OnClick", function()
+        if export.busy then return end
+        local only
+        if #M.list > 0 then only = M.byKey end
+        export.busy = true
+        export:SetText("Gegenstände werden geladen …")
+        P:PrepareExport(only, function(ready, total)
+            export:SetText("Gegenstände werden geladen … " .. ready .. "/" .. total)
+        end, function(text, count)
+            export.busy = false
+            export:SetText("Für die Webseite exportieren")
+            box.value = text
+            box.info:SetText(count .. (count == 1 and " Beruf" or " Berufe") .. " von Gildenmitgliedern, mit Werten und Materialien. "
+                .. "Text kopieren (Strg+C bzw. Cmd+C) und auf " .. T.Hex("goldBright", "gilde-elternabend.de/berufe.php")
+                .. " unter „Aus dem Addon importieren“ einfügen.")
+            box.edit:SetText(text)
+            box.edit:SetCursorPosition(0)
+            box:Show()
+            box.edit:SetFocus()
+            box.edit:HighlightText()
+        end)
+    end)
 
     -- Aufträge: an mich (mit Knöpfen) und von mir
     local orders = StartCard(p, "Aufträge", 0)
