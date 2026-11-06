@@ -180,9 +180,17 @@ function Away:CreateButton()
     return f
 end
 
+-- Wirklich mit anderen in einer Gruppe? IsInGroup() allein reicht nicht: Wer
+-- jemanden einlädt, ist schon vor dem Annehmen „in einer Gruppe“ (nur mit sich
+-- selbst), und beim Verlassen meldet der Client kurz noch die alte Gruppe.
+local function HasGroupmates()
+    if IsInRaid() then return GetNumGroupMembers() > 1 end
+    return IsInGroup() and UnitExists("party1")
+end
+
 function Away:UpdateButton()
     local s = Settings()
-    local visible = s.showButton and (IsInGroup() or self.me ~= nil)
+    local visible = s.showButton and (HasGroupmates() or self.me ~= nil)
     if not visible then
         if self.button then self.button:Hide() end
         return
@@ -233,4 +241,6 @@ ns:On("PLAYER_LOGIN", function() Away:UpdateButton() end)
 ns:On("GROUP_LEFT", function()
     wipe(Away.others)
     Away:UpdateButton()
+    -- Der Client räumt die Gruppe nicht immer im selben Moment auf: kurz danach nachsehen
+    C_Timer.After(0.5, function() Away:UpdateButton() end)
 end)
