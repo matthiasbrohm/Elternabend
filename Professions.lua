@@ -40,6 +40,54 @@ local function StripHidden(char)
     return #char.profs == 0
 end
 
+-- Berufsnamen kommen in der Sprache des Spielers, der sie schickt („Blacksmithing“ aus
+-- einem englischen Client). Für Anzeige, Filter und Suche immer in die eigene Sprache übersetzen.
+local PROF_NAMES = {
+    { de = "Alchimie", en = "Alchemy" },
+    { de = "Schmiedekunst", en = "Blacksmithing" },
+    { de = "Verzauberkunst", en = "Enchanting" },
+    { de = "Ingenieurskunst", en = "Engineering" },
+    { de = "Lederverarbeitung", en = "Leatherworking" },
+    { de = "Schneiderei", en = "Tailoring" },
+    { de = "Juwelierskunst", en = "Jewelcrafting" },
+    { de = "Inschriftenkunde", en = "Inscription" },
+    { de = "Kochkunst", en = "Cooking" },
+    { de = "Erste Hilfe", en = "First Aid" },
+    { de = "Archäologie", en = "Archaeology" },
+}
+local localNames
+function Prof.LocalName(profName)
+    if not profName then return profName end
+    if not localNames then
+        local field = (GetLocale and GetLocale() == "deDE") and "de" or "en"
+        localNames = {}
+        for _, n in ipairs(PROF_NAMES) do
+            for _, v in pairs(n) do localNames[ns.Lower(v)] = n[field] end
+        end
+    end
+    return localNames[ns.Lower(profName)] or profName
+end
+
+-- Namen übersetzen und doppelte Einträge zusammenführen (das mit mehr Rezepten bleibt)
+local function Normalize(char)
+    local list, byName = {}, {}
+    for _, p in ipairs(char.profs) do
+        p.name = Prof.LocalName(p.name)
+        local o = byName[p.name]
+        if not o then
+            byName[p.name] = p
+            table.insert(list, p)
+        else
+            local np, no = #(p.recipes or {}), #(o.recipes or {})
+            if np > no or (np == no and (p.level or 0) > (o.level or 0)) then
+                for k in pairs(o) do o[k] = nil end
+                for k, v in pairs(p) do o[k] = v end
+            end
+        end
+    end
+    char.profs = list
+end
+
 -- Rezeptname aus der Zauber-ID (zwischengespeichert)
 function Prof:RecipeName(id)
     local name = self.names[id]
@@ -257,6 +305,7 @@ local function Receive(sender, parts, compact)
     end
     local char = Prof:Parse(data, compact)
     if not char or StripHidden(char) then return end
+    Normalize(char)
     local key = ns.NameKey(char.name)
     local old = DB()[key]
     if old and old.mine then return end -- eigene Charaktere kennt man selbst am besten
@@ -317,7 +366,7 @@ end
 -- Gespeicherte Daten aus älteren Versionen bereinigen
 ns:Listen("INIT", function()
     for key, char in pairs(DB()) do
-        if StripHidden(char) then DB()[key] = nil end
+        if StripHidden(char) then DB()[key] = nil else Normalize(char) end
     end
 end)
 
