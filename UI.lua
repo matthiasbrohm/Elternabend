@@ -711,6 +711,62 @@ function UI:CreateMembersPanel()
     T.AddClearButton(search)
     search:SetPoint("TOPRIGHT", -(rightWidth + 12), 0)
     search:HookScript("OnTextChanged", function() p:Refresh() end)
+
+    -- Filter: alle, nur wer online ist, oder ein Rang
+    p.filter = nil -- nil = alle, "online" oder ein Rangname
+    local FILTER_W = 170
+    local filterBtn = T.Button(p, "Alle Spieler", FILTER_W)
+    filterBtn:SetPoint("RIGHT", search, "LEFT", -8, 0)
+    local menu = T.Panel(p)
+    menu:SetFrameStrata("DIALOG")
+    menu:SetPoint("TOPLEFT", filterBtn, "BOTTOMLEFT", 0, -2)
+    menu:SetWidth(FILTER_W)
+    menu:EnableMouse(true)
+    menu:Hide()
+    menu.buttons = {}
+    local function OpenMenu()
+        local online, ranks, order = 0, {}, {}
+        for _, m in ipairs(M.mains) do
+            if m.onlineAs then online = online + 1 end
+        end
+        for _, e in ipairs(M.list) do
+            local r = e.rank
+            if r and r ~= "" then
+                if not ranks[r] then ranks[r] = 0; table.insert(order, { name = r, index = e.rankOrder or 99 }) end
+                ranks[r] = ranks[r] + 1
+            end
+        end
+        table.sort(order, function(a, b)
+            if a.index ~= b.index then return a.index < b.index end
+            return a.name < b.name
+        end)
+        local entries = { { label = "Alle Spieler" }, { label = "Nur online  (" .. online .. ")", value = "online" } }
+        for _, r in ipairs(order) do table.insert(entries, { label = r.name .. "  (" .. ranks[r.name] .. ")", value = r.name }) end
+        for i, e in ipairs(entries) do
+            local b = menu.buttons[i]
+            if not b then
+                b = T.Button(menu, "", FILTER_W - 12)
+                b:SetHeight(22)
+                b:SetPoint("TOPLEFT", 6, -6 - (i - 1) * 24)
+                menu.buttons[i] = b
+            end
+            b:SetText(e.value == p.filter and T.Hex("goldBright", e.label) or e.label)
+            b:SetScript("OnClick", function()
+                p.filter = e.value
+                menu:Hide()
+                p:Refresh()
+            end)
+            b:Show()
+        end
+        for i = #entries + 1, #menu.buttons do menu.buttons[i]:Hide() end
+        menu:SetHeight(10 + #entries * 24)
+        menu:Show()
+    end
+    filterBtn:SetScript("OnClick", function()
+        if menu:IsShown() then menu:Hide() else OpenMenu() end
+    end)
+    p:HookScript("OnHide", function() menu:Hide() end)
+
     -- Unter der Liste: Aktualisieren und der Stand der Twink-Zuordnung
     local reload = T.Button(p, "Aktualisieren", 120)
     reload:SetPoint("BOTTOMLEFT", 0, 0)
@@ -859,6 +915,9 @@ function UI:CreateMembersPanel()
         local map = ns.db.twinkMap
         list.panel:SetShown(IsInGuild())
         search:SetShown(IsInGuild())
+        filterBtn:SetShown(IsInGuild())
+        filterBtn:SetText(p.filter == "online" and T.Hex("goldBright", "Nur online")
+            or p.filter and T.Hex("goldBright", p.filter) or "Alle Spieler")
         reload:SetShown(IsInGuild())
         p.stand:SetShown(IsInGuild())
         noAccess:SetShown(not IsInGuild())
@@ -891,18 +950,35 @@ function UI:CreateMembersPanel()
             p.stand:SetText(T.Hex("orange", "Twinks noch unbekannt – kommen, sobald ein Offizier mit Addon online ist."))
         end
 
-        -- Mains mit ihren Twinks darunter; Suche findet die ganze Gruppe
+        -- Mains mit ihren Twinks darunter; Suche findet die ganze Gruppe.
+        -- „Nur online“: Spieler, die mit Main oder Twink online sind (Twinks nur, wenn online).
+        -- Rang: Spieler, bei denen Main oder ein Twink diesen Rang hat.
         local filter = ns.Lower(strtrim(search:GetText() or ""))
-        local rows = {}
+        local only = p.filter
+        local rows, shown = {}, 0
         for _, m in ipairs(M.mains) do
             local match = filter == "" or m.key:find(filter, 1, true)
             for _, t in ipairs(m.twinks) do
                 if not match and t.key:find(filter, 1, true) then match = true end
             end
+            if match and only == "online" then
+                match = m.onlineAs ~= nil
+            elseif match and only then
+                local hit = m.rank == only
+                for _, t in ipairs(m.twinks) do if t.rank == only then hit = true end end
+                match = hit
+            end
             if match then
                 table.insert(rows, m)
-                for _, t in ipairs(m.twinks) do table.insert(rows, t) end
+                shown = shown + 1
+                for _, t in ipairs(m.twinks) do
+                    if only ~= "online" or t.online then table.insert(rows, t) end
+                end
             end
+        end
+        if only then
+            p.summary:SetText(string.format("%d von %d Spielern  ·  %s", shown, #M.mains,
+                only == "online" and T.Hex("green", "gerade online") or T.Hex("goldBright", only)))
         end
 
         list:SetData(rows, function(row, e)
