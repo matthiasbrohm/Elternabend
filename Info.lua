@@ -29,10 +29,30 @@ function Info:IsOurGuild()
     return guild ~= nil and self.GUILD_NAMES[guild] == true
 end
 
+-- Nachricht des Tages: kommt mit dem Event GUILD_MOTD (beim Einloggen und bei jeder Änderung).
+-- GetGuildRosterMOTD() selbst rufen wir nicht mehr auf – in WoW Forever wird der Aufruf
+-- aus Addons teils blockiert (ADDON_ACTION_BLOCKED). Gemerkt wird sie pro Gilde.
+local function GuildKey()
+    local guild = IsInGuild() and GetGuildInfo("player")
+    if not guild or ns.IsSecret(guild) then return nil end
+    return guild
+end
+
+function Info:SetMOTD(text)
+    if text == nil or ns.IsSecret(text) then return end
+    self.current = text -- beim Einloggen kennt der Client den Gildennamen manchmal noch nicht
+    local key = GuildKey()
+    if not key then return end
+    ns.db.motd = ns.db.motd or {}
+    ns.db.motd[key] = text
+end
+
 function Info:MOTD()
-    local motd = IsInGuild() and GetGuildRosterMOTD() or ""
-    if ns.IsSecret(motd) then return "" end
-    return motd or ""
+    local key = GuildKey()
+    if not IsInGuild() then return "" end
+    local motd = self.current or (key and ns.db.motd and ns.db.motd[key])
+    if not motd or ns.IsSecret(motd) then return "" end
+    return motd
 end
 
 -- Begrüßung einmal pro Charakter: beim ersten Start und nach dem Gildenbeitritt
@@ -47,4 +67,7 @@ end
 
 ns:On("PLAYER_LOGIN", function() C_Timer.After(6, function() Info:MaybeWelcome() end) end)
 ns:On("PLAYER_GUILD_UPDATE", function() C_Timer.After(2, function() Info:MaybeWelcome() end) end)
-ns:On("GUILD_MOTD", function() ns:Fire("INFO_UPDATE") end)
+ns:On("GUILD_MOTD", function(text)
+    Info:SetMOTD(text)
+    ns:Fire("INFO_UPDATE")
+end)

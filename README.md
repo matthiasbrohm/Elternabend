@@ -138,7 +138,7 @@ Fällt ein Raidboss zum ersten Mal in einer Gildengruppe (mindestens die Hälfte
 
 ## Kind wach, gleich zurück
 Solange du in einer Gruppe bist, steht der **Elternknopf** auf dem Bildschirm (verschiebbar):
-- „Kind wach · 5 Min“, „10“ oder „15“: Die Gruppe sieht, dass du kurz weg bist, mit Timer – am Elternknopf und im Raid-Reiter. Für Spieler ohne Addon geht zusätzlich eine Zeile in den Gruppenchat.
+- Kleiner Knopf „Kind wach“: **Linksklick 5 Minuten, Rechtsklick 10 Minuten**. Während du weg bist, zeigt er die Restzeit – Linksklick „wieder da“, Rechtsklick 5 Minuten mehr. Die Gruppe sieht, dass du kurz weg bist, mit Timer – am Elternknopf und im Raid-Reiter. Für Spieler ohne Addon geht zusätzlich eine Zeile in den Gruppenchat.
 - „+5“ verlängert, „Wieder da“ beendet. Nach Ablauf zeigt der Timer „überfällig“.
 - Wer später in die Gruppe kommt, sieht deinen Status trotzdem.
 - Eigene Taste: Tastaturbelegungen → AddOns → Elternabend → „Kind wach (5 Min) / Wieder da“.
