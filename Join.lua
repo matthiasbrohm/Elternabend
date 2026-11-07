@@ -63,6 +63,44 @@ function Join:LeaveChannel()
     if self:ChannelId() then LeaveChannelByName(CHANNEL) end
 end
 
+-- Kanalnummer: WoW vergibt beim Beitreten die kleinste freie Nummer. Tritt das Addon
+-- früher bei als Allgemein/Handel, landet unser Kanal auf 1 und schiebt die anderen nach
+-- hinten. Eine feste Nummer (etwa 40) lässt WoW nicht zu (höchstens 20 Kanäle), aber man
+-- darf Kanäle tauschen: Wir schieben unseren Kanal Schritt für Schritt hinter alle anderen,
+-- so behalten Allgemein, Handel usw. ihre gewohnte Reihenfolge.
+local moveTries = 0
+function Join:MoveChannelToEnd()
+    local swap = C_ChatInfo and C_ChatInfo.SwapChatChannelsByChannelIndex
+    local id = self:ChannelId()
+    if not swap or not id or moveTries >= 3 or InCombatLockdown() then return end
+    local others = {}
+    local list = { GetChannelList() } -- Nummer, Name, gesperrt, Nummer, Name, …
+    for i = 1, #list, 3 do
+        local n = tonumber(list[i])
+        if n and n > id then others[#others + 1] = n end
+    end
+    if #others == 0 then return end -- schon ganz hinten
+    table.sort(others)
+    moveTries = moveTries + 1
+    local pos = id
+    for _, n in ipairs(others) do
+        if not pcall(swap, pos, n) then return end
+        pos = n
+    end
+end
+
+local moveQueued
+local function QueueMove()
+    if moveQueued then return end
+    moveQueued = true
+    C_Timer.After(3, function()
+        moveQueued = false
+        Join:MoveChannelToEnd()
+    end)
+end
+ns:On("CHANNEL_UI_UPDATE", QueueMove)
+ns:On("CHAT_MSG_CHANNEL_NOTICE", QueueMove)
+
 -- Hinweise wie „Kanal betreten: ElternabendTreff“ nicht im Chat anzeigen
 local function FilterNotice(_, _, ...)
     for i = 1, select("#", ...) do

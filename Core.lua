@@ -21,6 +21,7 @@ local defaults = {
         autoSession = true,  -- Raid-Protokoll beim Betreten einer Raid-Instanz starten
         minimapAngle = 220,
         minimapHidden = false,
+        guildButtonHidden = false,
     },
     softres = { items = {} },
     recruit = {      -- Gildeneinladung per Flüstern
@@ -320,6 +321,7 @@ local function Help()
     print("  /ea quality <0-5> – Mindestqualität im Plündermeister-Reiter")
     print("  /ea rw – Schlachtzugswarnung an/aus")
     print("  /ea minimap – Minimap-Button ein/aus")
+    print("  /ea gildenknopf – Knopf am Gildenfenster von Blizzard ein/aus")
     print("  /ea diagnose – zeigt, welche Addon-Nachrichten gesendet und empfangen wurden")
     print("  /ea ping – testet, ob Addon-Nachrichten in der Gilde ankommen")
 end
@@ -412,6 +414,10 @@ SlashCmdList.ELTERNABENDRAID = function(input)
     elseif cmd == "minimap" then
         s.minimapHidden = not s.minimapHidden
         ns.UI:UpdateMinimapButton()
+    elseif cmd == "gildenknopf" then
+        s.guildButtonHidden = not s.guildButtonHidden
+        ns.GuildButton:Refresh()
+        ns.Print("Knopf am Gildenfenster: " .. (s.guildButtonHidden and "aus" or "an"))
     else
         Help()
     end

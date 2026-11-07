@@ -23,7 +23,7 @@ Am besten installieren es alle Raidmitglieder: Dann sehen alle die Soft-Reserves
 3. Fertig: Die GitHub-Action legt automatisch das Release `4.2.2` an und hängt `Elternabend-4.2.2.zip` und `Elternabend-4.2.2-forever.zip` (für WowUp) an. WowUp meldet das Update danach bei allen.
 
 ## Bedienung
-`/ea` oder ein Klick auf das Wappen an der Minimap öffnet das Fenster (Rechtsklick: direkt die Gilde).
+`/ea` oder ein Klick auf das Wappen an der Minimap öffnet das Fenster (Rechtsklick: direkt die Gilde). Auch am Blizzard-Fenster „Gilde & Communitys“ hängt rechts unter den Reitern ein Wappen-Knopf: Linksklick öffnet den Reiter Gilde, Rechtsklick die Startseite.
 
 „Raid“ fasst Übersicht, Soft-Reserve, Plündermeister, Loot, Taktik und Ruhmeshalle zusammen; sie liegen als Unterreiter in einer zweiten Leiste. Den Reiter „Webseite“ sehen nur Offiziere und Gildenleitung.
 
@@ -98,7 +98,7 @@ Ein Addon kann keine Bilder aus dem Internet laden oder verschicken. Die Bilder 
 „Dem Raid zeigen“ verschickt nur die Kennung des Bildes. Wer eine ältere Addon-Version hat, bekommt den Hinweis, das Addon zu aktualisieren.
 
 ## Der Gilde beitreten per Knopf
-Wer das Addon hat, aber noch nicht in der Gilde ist, sieht im Start-Reiter den Knopf **„Der Gilde beitreten“**. Ein Klick schreibt `ginv` in einen versteckten, passwortgeschützten Chat-Kanal („ElternabendTreff“). Alle Mitglieder mit Addon, die einladen dürfen, sitzen im Hintergrund darin; bei ihnen erscheint das Gildenanfrage-Fenster mit dem Befehl zum Kopieren. Im Chat sieht man den Kanal nicht. Sobald die Person beigetreten ist, verschwindet die Anfrage bei allen.
+Wer das Addon hat, aber noch nicht in der Gilde ist, sieht im Start-Reiter den Knopf **„Der Gilde beitreten“**. Ein Klick schreibt `ginv` in einen versteckten, passwortgeschützten Chat-Kanal („ElternabendTreff“). Alle Mitglieder mit Addon, die einladen dürfen, sitzen im Hintergrund darin; bei ihnen erscheint das Gildenanfrage-Fenster mit dem Befehl zum Kopieren. Im Chat sieht man den Kanal nicht. Sobald die Person beigetreten ist, verschwindet die Anfrage bei allen. Landet der Kanal beim Einloggen vor Allgemein und Handel (etwa auf Nummer 1), schiebt das Addon ihn automatisch ans Ende der Kanalliste.
 
 Zusätzlich flüstert der Knopf `ginv` an die Namen in `Join.INVITERS` (oben in `Join.lua`) – als Rückfallebene. Wer davon offline ist, bekommt nichts; die Meldung „Kein Spieler namens …“ blendet das Addon aus.
 
@@ -212,6 +212,7 @@ Das Wappen erscheint im Addon-Menü, oben links im Fenster und am Minimap-Button
 | `/ea quality 3` | Mindestqualität im Plündermeister-Reiter (3 = Selten, 4 = Episch) |
 | `/ea rw` | Schlachtzugswarnung an/aus |
 | `/ea minimap` | Minimap-Button ein/aus |
+| `/ea gildenknopf` | Wappen-Knopf am Blizzard-Gildenfenster ein/aus |
 | `/ea sync` | Soft-Reserves erneut an die Gruppe senden |
 
 ## Namen mit Vor- und Nachnamen
