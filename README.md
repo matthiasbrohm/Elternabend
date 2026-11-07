@@ -179,6 +179,9 @@ Der Reiter **Gilde** zeigt allen Gildenmitgliedern, wer welche Twinks hat. Offiz
 
 **Alle Gildenmitglieder** sehen die Übersicht ebenfalls. Offiziersnotizen kann das Spiel nur Offizieren zeigen; deshalb verteilt das Addon der Gildenleitung und der Offiziere die Zuordnung über den Gildenkanal (bei Änderungen sofort, sonst höchstens alle 15 Minuten, und auf Nachfrage beim Einloggen). Die anderen speichern den letzten Stand und sehen oben, von wann er ist. Angenommen wird eine Zuordnung nur von den obersten drei Gildenrängen (Rang 1 bis 3). Zuordnen, Vorschläge und Hinweise auf Unstimmigkeiten gibt es nur für Offiziere. Twinks auf einem anderen Battle.net-Account erkennt das Addon nicht; die tragen Offiziere von Hand ein.
 
+- **Filter** neben der Namenssuche: „Nur online“ (alphabetisch) oder ein Rang, z. B. alle Initianden.
+- **Rechtsklick** auf einen Namen: anflüstern oder in die Gruppe einladen – ist jemand mit einem Twink online, geht beides an diesen Twink.
+
 ## Gildenwappen
 Das Wappen erscheint im Addon-Menü, oben links im Fenster und am Minimap-Button. Es liegt als `Media/Wappen.tga` im Addon. Ein neues Wappen: Bild als `Grafik/wappen.webp` ablegen und `python3 Grafik/wappen.py` ausführen.
 
