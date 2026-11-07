@@ -119,7 +119,7 @@ end
 -- Elternknopf auf dem Bildschirm -------------------------------------------------
 -- Ein kleiner Knopf: Linksklick 5 Min, Rechtsklick 10 Min. Ist man weg, zeigt er die
 -- Restzeit: Linksklick „Wieder da“, Rechtsklick +5 Min. Ziehen verschiebt ihn.
-local BTN_W, BTN_H = 132, 30
+local BTN_W, BTN_H = 100, 24
 
 local function ShowTooltip(f)
     GameTooltip:SetOwner(f, "ANCHOR_BOTTOM")
@@ -158,12 +158,12 @@ function Away:CreateButton()
     T.Backdrop(f, T.colors.navy, 0.92, 0.7)
 
     f.icon = f:CreateTexture(nil, "ARTWORK")
-    f.icon:SetSize(BTN_H - 6, BTN_H - 6)
-    f.icon:SetPoint("LEFT", 4, 0)
+    f.icon:SetSize(BTN_H - 4, BTN_H - 4)
+    f.icon:SetPoint("LEFT", 2, 0)
     f.icon:SetTexture(ns.LOGO)
     f.label = T.Text(f, "small")
-    f.label:SetPoint("LEFT", f.icon, "RIGHT", 6, 0)
-    f.label:SetPoint("RIGHT", -6, 0)
+    f.label:SetPoint("LEFT", f.icon, "RIGHT", 4, 0)
+    f.label:SetPoint("RIGHT", -4, 0)
     f.label:SetJustifyH("LEFT")
     f.label:SetWordWrap(false)
 
@@ -225,7 +225,10 @@ function Away:UpdateButton()
 
     if self.me then
         local left = self:Left()
-        f.label:SetText(T.Hex(left >= 0 and "goldBright" or "orange", Away.FormatLeft(left)))
+        -- kurz halten: „4:32“, überfällig „+1:20“
+        local sec = math.abs(math.floor(left + 0.5))
+        f.label:SetText(T.Hex(left >= 0 and "goldBright" or "orange",
+            string.format("%s%d:%02d", left >= 0 and "" or "+", math.floor(sec / 60), sec % 60)))
         f:SetBackdropColor(0.35, 0.22, 0.05, 0.95)
     else
         f.label:SetText("Kind wach")
