@@ -672,6 +672,23 @@ function UI:CreateStartPanel()
 end
 
 -- Reiter: Mitglieder (Mains und Twinks) ------------------------------------------
+-- Flüsterfenster an einen Spieler öffnen
+local function Whisper(name)
+    if ChatFrame_SendTell then
+        ChatFrame_SendTell(name)
+    elseif ChatFrameUtil and ChatFrameUtil.SendTell then
+        ChatFrameUtil.SendTell(name)
+    end
+end
+
+-- In die Gruppe einladen (Gruppeneinladungen sind Addons erlaubt, Gildeneinladungen nicht)
+local function InviteToGroup(name)
+    local invite = (C_PartyInfo and C_PartyInfo.InviteUnit) or InviteUnit
+    if not invite then return ns.Print("Einladen geht hier leider nicht – bitte /einladen " .. ns.ShortName(name)) end
+    invite(name)
+    ns.Print("Gruppeneinladung an " .. ns.ShortName(name) .. " geschickt.")
+end
+
 function UI:CreateMembersPanel()
     local p = self:NewPanel()
     local M = ns.Members
@@ -798,7 +815,70 @@ function UI:CreateMembersPanel()
     end)
     list.panel:SetPoint("TOPLEFT", 0, -36)
     list.panel:SetPoint("BOTTOMRIGHT", -(rightWidth + 12), 36)
-    list.onClick = function(_, e)
+    -- Rechtsklick-Menü: anflüstern, in die Gruppe einladen, Charaktere zeigen
+    local catcher = CreateFrame("Button", nil, UIParent)
+    catcher:SetAllPoints(UIParent)
+    catcher:SetFrameStrata("DIALOG")
+    catcher:RegisterForClicks("AnyUp")
+    catcher:Hide()
+    local ctx = T.Panel(catcher)
+    ctx:SetFrameStrata("DIALOG")
+    ctx:SetFrameLevel(catcher:GetFrameLevel() + 10)
+    ctx:SetWidth(200)
+    ctx:EnableMouse(true)
+    ctx.title = T.Text(ctx, "small")
+    ctx.title:SetPoint("TOPLEFT", 10, -9)
+    ctx.title:SetPoint("RIGHT", -10, 0)
+    ctx.title:SetWordWrap(false)
+    ctx.buttons = {}
+    catcher:SetScript("OnClick", function() catcher:Hide() end)
+    p:HookScript("OnHide", function() catcher:Hide() end)
+    local function OpenContext(e)
+        -- Wer ist erreichbar? Der Charakter selbst, sonst (beim Main) der Twink, mit dem der Spieler online ist
+        local target = e.online and e or (not e.main and e.onlineAs) or nil
+        ctx.title:SetText("|c" .. ClassHex(e.classFile) .. e.display .. "|r"
+            .. (target and target ~= e and T.Hex("green", "  als " .. target.display) or target and T.Hex("green", "  online") or T.Hex("dim", "  offline")))
+        local entries = {}
+        if target then
+            table.insert(entries, { "Anflüstern", function() Whisper(target.name) end })
+            if not ns.SameName(target.name, ns.PlayerKey()) then
+                table.insert(entries, { "In Gruppe einladen", function() InviteToGroup(target.name) end })
+            end
+        else
+            table.insert(entries, { T.Hex("dim", "Gerade nicht online"), nil })
+        end
+        table.insert(entries, { "Charaktere anzeigen", function()
+            p.selected = (e.main or e).key
+            p:Refresh()
+        end })
+        for i, en in ipairs(entries) do
+            local b = ctx.buttons[i]
+            if not b then
+                b = T.Button(ctx, "", 180)
+                b:SetHeight(22)
+                b:SetPoint("TOPLEFT", 10, -28 - (i - 1) * 26)
+                ctx.buttons[i] = b
+            end
+            b:SetText(en[1])
+            b:SetEnabled(en[2] ~= nil)
+            b:SetScript("OnClick", function()
+                catcher:Hide()
+                if en[2] then en[2]() end
+            end)
+            b:Show()
+        end
+        for i = #entries + 1, #ctx.buttons do ctx.buttons[i]:Hide() end
+        ctx:SetHeight(36 + #entries * 26)
+        local x, y = GetCursorPosition()
+        local scale = UIParent:GetEffectiveScale()
+        ctx:ClearAllPoints()
+        ctx:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", x / scale + 4, y / scale - 4)
+        ctx:SetClampedToScreen(true)
+        catcher:Show()
+    end
+
+    list.onClick = function(_, e, button)
+        if button == "RightButton" then return OpenContext(e) end
         p.selected = (p.selected ~= e.key) and e.key or nil
         p:Refresh()
     end
@@ -816,6 +896,7 @@ function UI:CreateMembersPanel()
         if not M:CanView() and not ns.db.twinkMap then
             GameTooltip:AddLine("Wer wessen Twink ist, kommt automatisch, sobald ein Offizier mit Addon online ist.", 0.78, 0.75, 0.68, true)
         end
+        GameTooltip:AddLine("Klick: Charaktere zeigen  ·  Rechtsklick: anflüstern, einladen", 0.84, 0.69, 0.35)
         if M:CanView() then
             if e.note ~= "" then GameTooltip:AddLine("Offiziersnotiz: " .. e.note, 0.6, 0.6, 0.6) end
             for _, issue in ipairs(e.issues) do GameTooltip:AddLine(issue.long, 1, 0.7, 0.35, true) end
@@ -2282,14 +2363,6 @@ function UI:CreateGroupsPanel()
 end
 
 -- Reiter: Berufe ---------------------------------------------------------------
--- Flüsterfenster an einen Spieler öffnen
-local function Whisper(name)
-    if ChatFrame_SendTell then
-        ChatFrame_SendTell(name)
-    elseif ChatFrameUtil and ChatFrameUtil.SendTell then
-        ChatFrameUtil.SendTell(name)
-    end
-end
 
 function UI:CreateProfessionsPanel()
     local p = self:NewPanel()
