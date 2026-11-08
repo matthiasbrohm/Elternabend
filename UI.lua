@@ -853,13 +853,81 @@ function UI:CreateMembersPanel()
     local ctx = T.Panel(catcher)
     ctx:SetFrameStrata("DIALOG")
     ctx:SetFrameLevel(catcher:GetFrameLevel() + 10)
-    ctx:SetWidth(200)
+    ctx:SetWidth(240)
     ctx:EnableMouse(true)
     ctx.title = T.Text(ctx, "small")
     ctx.title:SetPoint("TOPLEFT", 10, -9)
     ctx.title:SetPoint("RIGHT", -10, 0)
     ctx.title:SetWordWrap(false)
     ctx.buttons = {}
+    -- Rang ändern: Blizzard erlaubt Addons GuildPromote() nicht direkt, wohl aber den Chatbefehl
+    -- /gpromote bzw. /gdemote, wenn ihn der Spieler selbst auslöst. Dafür liegen über den Rang-Zeilen
+    -- unsichtbare sichere Knöpfe (SecureActionButton mit Makro) – der Klick zählt als eigene Aktion.
+    -- Sie hängen an UIParent (nicht am Addon-Fenster), damit das Fenster im Kampf frei bleibt.
+    local rankOverlays = {}
+    local function HideOverlays()
+        if InCombatLockdown() then return end
+        for _, o in ipairs(rankOverlays) do
+            o:Hide()
+            o:ClearAllPoints() -- Anker lösen, sonst wäre das Menü im Kampf nicht verschiebbar
+        end
+    end
+    local function RankOverlay(i)
+        local o = rankOverlays[i]
+        if o then return o end
+        o = CreateFrame("Button", nil, UIParent, "SecureActionButtonTemplate")
+        o:SetFrameStrata("FULLSCREEN_DIALOG")
+        o:RegisterForClicks("AnyUp", "AnyDown")
+        o:SetAttribute("type", "macro")
+        o:HookScript("OnClick", function(self, _, down)
+            -- Registriert für Drücken und Loslassen; das Makro läuft nur bei einem davon – Meldung auch nur einmal
+            if (down and true or false) ~= (GetCVarBool and GetCVarBool("ActionButtonUseKeyDown") or false) then return end
+            if self.visual then self.visual:UnlockHighlight() end
+            if not InCombatLockdown() then catcher:Hide() end
+            if self.message then ns.Print(self.message) end
+            C_Timer.After(1.5, function() if IsInGuild() then C_GuildInfo.GuildRoster() end end)
+        end)
+        o:SetScript("OnEnter", function(self) if self.visual then self.visual:LockHighlight() end end)
+        o:SetScript("OnLeave", function(self) if self.visual then self.visual:UnlockHighlight() end end)
+        o:Hide()
+        rankOverlays[i] = o
+        return o
+    end
+    catcher:HookScript("OnHide", HideOverlays)
+    -- Kampfbeginn: Menü schließen, solange sichere Knöpfe noch ausgeblendet werden dürfen
+    ns:On("PLAYER_REGEN_DISABLED", function()
+        for _, o in ipairs(rankOverlays) do
+            o:Hide()
+            o:ClearAllPoints()
+        end
+        catcher:Hide()
+    end)
+
+    -- Ränge, auf die ich diesen Charakter setzen darf (nur unter meinem eigenen Rang)
+    local function RankEntries(e)
+        if not IsInGuild() or InCombatLockdown() or not e.rankOrder then return {} end
+        local canUp = CanGuildPromote and CanGuildPromote() or false
+        local canDown = CanGuildDemote and CanGuildDemote() or false
+        if not canUp and not canDown then return {} end
+        local myRank = select(3, GetGuildInfo("player"))
+        local current = e.rankOrder - 1
+        if not myRank or current <= myRank or ns.SameName(e.name, ns.UnitFullName("player")) then return {} end
+        local num = GuildControlGetNumRanks and GuildControlGetNumRanks() or 0
+        -- Pro Klick genau eine Stufe (mehrere Befehle auf einmal rechnet der Server alle vom alten Rang aus)
+        local list = {}
+        local function Add(r, up)
+            local rankName = GuildControlGetRankName(r + 1) or ("Rang " .. (r + 1))
+            table.insert(list, {
+                label = (up and "Befördern: " or "Zurückstufen: ") .. rankName,
+                macro = (up and "/gpromote " or "/gdemote ") .. e.name,
+                message = ns.ShortName(e.name) .. " wird " .. (up and "befördert" or "zurückgestuft") .. " – neuer Rang: " .. rankName .. ".",
+            })
+        end
+        if canUp and current - 1 > myRank then Add(current - 1, true) end
+        if canDown and current + 1 <= num - 1 then Add(current + 1, false) end
+        return list
+    end
+
     catcher:SetScript("OnClick", function() catcher:Hide() end)
     p:HookScript("OnHide", function() catcher:Hide() end)
     local function OpenContext(e)
@@ -880,21 +948,33 @@ function UI:CreateMembersPanel()
             p.selected = (e.main or e).key
             p:Refresh()
         end })
+        local ranks = RankEntries(e)
+        local firstRank = #entries + 1
+        for _, r in ipairs(ranks) do table.insert(entries, { r.label, function() end, rank = r }) end
+        HideOverlays()
         for i, en in ipairs(entries) do
             local b = ctx.buttons[i]
             if not b then
-                b = T.Button(ctx, "", 180)
+                b = T.Button(ctx, "", 220)
                 b:SetHeight(22)
                 b:SetPoint("TOPLEFT", 10, -28 - (i - 1) * 26)
                 ctx.buttons[i] = b
             end
-            b:SetText(en[1])
+            b:SetText(en.rank and T.Hex("goldBright", en[1]) or en[1])
             b:SetEnabled(en[2] ~= nil)
             b:SetScript("OnClick", function()
                 catcher:Hide()
                 if en[2] then en[2]() end
             end)
             b:Show()
+            if en.rank then
+                local o = RankOverlay(i - firstRank + 1)
+                o.visual, o.message = b, en.rank.message
+                o:SetAttribute("macrotext", en.rank.macro)
+                o:ClearAllPoints()
+                o:SetAllPoints(b)
+                o:Show()
+            end
         end
         for i = #entries + 1, #ctx.buttons do ctx.buttons[i]:Hide() end
         ctx:SetHeight(36 + #entries * 26)
@@ -925,7 +1005,8 @@ function UI:CreateMembersPanel()
         if not M:CanView() and not ns.db.twinkMap then
             GameTooltip:AddLine("Wer wessen Twink ist, kommt automatisch, sobald ein Offizier mit Addon online ist.", 0.78, 0.75, 0.68, true)
         end
-        GameTooltip:AddLine("Klick: Charaktere zeigen  ·  Rechtsklick: anflüstern, einladen", 0.84, 0.69, 0.35)
+        GameTooltip:AddLine("Klick: Charaktere zeigen  ·  Rechtsklick: anflüstern, einladen"
+            .. (((CanGuildPromote and CanGuildPromote()) or (CanGuildDemote and CanGuildDemote())) and ", Rang ändern" or ""), 0.84, 0.69, 0.35)
         if M:CanView() then
             if e.note ~= "" then GameTooltip:AddLine("Offiziersnotiz: " .. e.note, 0.6, 0.6, 0.6) end
             for _, issue in ipairs(e.issues) do GameTooltip:AddLine(issue.long, 1, 0.7, 0.35, true) end

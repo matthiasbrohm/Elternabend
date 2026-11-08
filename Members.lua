@@ -69,11 +69,33 @@ function Members:Scan()
     end
 
     local twinkRank = self:TwinkRank()
+    -- Main zur Offiziersnotiz finden – über Nachschlagetabellen statt jeder-gegen-jeden
+    -- (gleiche Regeln wie ns.SameName: gleicher Name, oder Vorname, wenn eine Seite nur den Vornamen hat)
+    local byFirst = {}
+    for _, e in ipairs(self.list) do
+        e.first = ns.FirstKey(e.key) or e.key
+        byFirst[e.first] = byFirst[e.first] or {}
+        table.insert(byFirst[e.first], e)
+    end
     for _, e in ipairs(self.list) do
         if e.note ~= "" then
-            local matches = {}
-            for _, other in ipairs(self.list) do
-                if other ~= e and ns.SameName(other.name, e.note) then table.insert(matches, other) end
+            local matches, seen = {}, {}
+            local function Add(other)
+                if other and other ~= e and not seen[other] then
+                    seen[other] = true
+                    table.insert(matches, other)
+                end
+            end
+            local nk = ns.NameKey(e.note)
+            if nk then
+                Add(self.byKey[nk])
+                local nf = ns.FirstKey(nk) or nk
+                if nf == nk then
+                    for _, other in ipairs(byFirst[nk] or {}) do Add(other) end -- Notiz nur mit Vornamen
+                else
+                    local other = self.byKey[nf]
+                    if other and other.key == other.first then Add(other) end -- Mitglied heißt nur mit Vornamen
+                end
             end
             if #matches == 1 then
                 e.main = matches[1]
@@ -302,15 +324,40 @@ function Members:Suggestions()
 end
 
 -- Events -------------------------------------------------------------------------
-ns:On("GUILD_ROSTER_UPDATE", function()
+-- Die Gildenliste meldet sich in großen Gilden alle paar Sekunden. Auswerten höchstens alle
+-- 5 Sekunden (gesammelt), damit es beim Spielen nicht ruckelt.
+local SCAN_GAP = 5
+Members.perf = { scans = 0, events = 0, lastMs = 0, maxMs = 0, since = 0 }
+local lastScan, scanQueued = -SCAN_GAP, false
+local function RunScan()
+    scanQueued = false
+    lastScan = GetTime()
+    local start = debugprofilestop and debugprofilestop()
     Members:Scan()
     Members:RememberMe()
     Members:AnnounceMine()
     Members:Share()
     Members:RequestMap()
     ns:Fire("MEMBERS_UPDATE")
+    if start then
+        local ms = debugprofilestop() - start
+        local p = Members.perf
+        p.scans, p.lastMs, p.maxMs = p.scans + 1, ms, math.max(p.maxMs, ms)
+    end
+end
+ns:On("GUILD_ROSTER_UPDATE", function()
+    Members.perf.events = Members.perf.events + 1
+    if scanQueued then return end
+    local wait = lastScan + SCAN_GAP - GetTime()
+    if wait <= 0 then
+        RunScan()
+    else
+        scanQueued = true
+        C_Timer.After(wait, RunScan)
+    end
 end)
 ns:On("PLAYER_LOGIN", function()
+    Members.perf.since = GetTime()
     Members:RememberMe()
     C_Timer.After(8, function()
         if IsInGuild() then C_GuildInfo.GuildRoster() end

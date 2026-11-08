@@ -208,12 +208,25 @@ function ns.UnitFullName(unit)
 end
 
 -- Vergleichsschlüssel: ohne Realm, kleingeschrieben, Vor- und Nachname mit einem Leerzeichen
+-- Zwischenspeicher: NameKey läuft beim Auswerten der Gildenliste tausendfach mit denselben
+-- Namen; jede Umwandlung kostet ein Dutzend gsub-Aufrufe (Ruckler bei großen Gilden)
+local nameKeyCache, nameKeyCount = {}, 0
 function ns.NameKey(name)
+    if name == nil then return nil end
+    local cached = nameKeyCache[name]
+    if cached ~= nil then return cached or nil end
     local short = ns.ShortName(name)
-    if not short or short == "" then return nil end
-    local key = ns.Lower(strtrim(short))
-    if SURNAME_SEPARATOR ~= " " then key = key:gsub((SURNAME_SEPARATOR:gsub("%W", "%%%0")), " ") end
-    key = key:gsub("%s+", " ")
+    local key
+    if short and short ~= "" then
+        key = ns.Lower(strtrim(short))
+        if SURNAME_SEPARATOR ~= " " then key = key:gsub((SURNAME_SEPARATOR:gsub("%W", "%%%0")), " ") end
+        key = key:gsub("%s+", " ")
+    end
+    if type(name) == "string" then
+        if nameKeyCount > 3000 then wipe(nameKeyCache); nameKeyCount = 0 end
+        nameKeyCache[name] = key or false
+        nameKeyCount = nameKeyCount + 1
+    end
     return key
 end
 
@@ -420,6 +433,16 @@ SlashCmdList.ELTERNABENDRAID = function(input)
     elseif cmd == "minimap" then
         s.minimapHidden = not s.minimapHidden
         ns.UI:UpdateMinimapButton()
+    elseif cmd == "leistung" then
+        local p = ns.Members.perf
+        local mins = math.max(1, (GetTime() - (p.since or 0)) / 60)
+        local kb = 0
+        if UpdateAddOnMemoryUsage and GetAddOnMemoryUsage then
+            UpdateAddOnMemoryUsage()
+            kb = GetAddOnMemoryUsage("Elternabend") or 0
+        end
+        ns.Print(string.format("Gildenliste: %d Meldungen vom Server, %d ausgewertet (%.1f pro Minute) – zuletzt %.1f ms, höchstens %.1f ms. Speicher: %.0f KB.",
+            p.events, p.scans, p.scans / mins, p.lastMs, p.maxMs, kb))
     elseif cmd == "gildenknopf" then
         s.guildButtonHidden = not s.guildButtonHidden
         ns.GuildButton:Refresh()

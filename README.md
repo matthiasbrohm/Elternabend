@@ -196,6 +196,7 @@ Der Reiter **Gilde** zeigt allen Gildenmitgliedern, wer welche Twinks hat. Offiz
 
 - **Filter** neben der Namenssuche: „Nur online“ (alphabetisch) oder ein Rang, z. B. alle Initianden.
 - **Rechtsklick** auf einen Namen: anflüstern oder in die Gruppe einladen – ist jemand mit einem Twink online, geht beides an diesen Twink.
+- **Rang ändern** (nur wer im Spiel befördern bzw. zurückstufen darf): Im Rechtsklick-Menü stehen „Befördern: …“ und „Zurückstufen: …“ mit dem jeweils nächsten Rang – pro Klick eine Stufe. Blizzard erlaubt Addons das Befördern nicht direkt – der Menüpunkt löst deshalb `/gpromote` bzw. `/gdemote` aus, als hättest du es selbst eingetippt. Im Kampf ist der Menüpunkt ausgeblendet.
 
 ## Gildenwappen
 Das Wappen erscheint im Addon-Menü, oben links im Fenster und am Minimap-Button. Es liegt als `Media/Wappen.tga` im Addon. Ein neues Wappen: Bild als `Grafik/wappen.webp` ablegen und `python3 Grafik/wappen.py` ausführen.
@@ -228,6 +229,7 @@ Das Wappen erscheint im Addon-Menü, oben links im Fenster und am Minimap-Button
 | `/ea rw` | Schlachtzugswarnung an/aus |
 | `/ea minimap` | Minimap-Button ein/aus |
 | `/ea gildenknopf` | Wappen-Knopf am Blizzard-Gildenfenster ein/aus |
+| `/ea leistung` | Zeigt, wie oft und wie lange das Addon die Gildenliste auswertet (bei Rucklern) |
 | `/ea pinnwand` | Pinnwand öffnen (auch `/ea zettel`) |
 | `/ea sync` | Soft-Reserves erneut an die Gruppe senden |
 
