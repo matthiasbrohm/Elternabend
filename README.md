@@ -166,6 +166,7 @@ Das schwarze Brett der Gilde (`/ea pinnwand`). Jedes Mitglied heftet Zettel an �
 
 - Andere melden sich mit einem Klick („Bin dabei“, „Ich helfe“, „Interesse“ …) oder schreiben eine kurze Antwort dran.
 - Der Ersteller hakt ab oder nimmt den Zettel ab; Offiziere (Rang 1–3) können zusätzlich anpinnen und jeden Zettel abnehmen.
+- Offiziere können einen Zettel an alle mit **„Auf der Webseite dauerhaft behalten“** markieren (beim Anheften oder rechts im Zettel): Im Spiel läuft er normal ab, auf der Webseite bleibt er hängen, bis ihn ein Offizier dort abnimmt.
 - Pro Spieler sind höchstens 5 Zettel gleichzeitig offen (Offiziere 10).
 - Persönliche Zettel sehen nur Absender und Empfänger; der Empfänger bekommt ihn auch, wenn er gerade offline ist.
 - Beim Einloggen gibt es einen Hinweis auf neue Zettel, im Start-Reiter steht, was hängt.

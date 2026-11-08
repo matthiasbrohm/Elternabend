@@ -107,6 +107,8 @@ end
 
 -- Serialisieren -----------------------------------------------------------------------
 local BODY = { "id", "author", "created", "updated", "expires", "cat", "to", "when", "pinned", "state", "editedBy", "title", "text" }
+-- Danach optional: keep („1“ = bleibt dauerhaft auf der Webseite). Nur angehängt, wenn gesetzt,
+-- damit Zettel ohne Markierung genauso aussehen wie bei älteren Addon-Versionen.
 
 local function BodyString(n)
     local f = {}
@@ -116,7 +118,7 @@ local function BodyString(n)
         if k == "text" then v = Encode(v) end
         f[i] = tostring(v or "")
     end
-    return "N^" .. table.concat(f, "^")
+    return "N^" .. table.concat(f, "^") .. (n.keep and "^1" or "")
 end
 
 function Board:Serialize(n)
@@ -163,6 +165,7 @@ function Board:Parse(data)
     for i, k in ipairs(BODY) do n[k] = f[i + 1] end
     for _, k in ipairs({ "created", "updated", "expires", "when" }) do n[k] = tonumber(n[k]) end
     n.pinned = n.pinned == "1"
+    n.keep = f[#BODY + 2] == "1" or nil
     if n.when == 0 then n.when = nil end
     if not n.id or n.id == "" or not n.author or n.author == "" or not n.created or not n.updated or not n.expires then return nil end
     if not self.CAT[n.cat] then n.cat = "info" end
@@ -286,14 +289,14 @@ local function BodyAllowed(old, new)
     local byAuthor = Board:SamePerson(editor, new.author)
     local byOfficer = Board:IsOfficer(editor)
     if not old then
-        if new.pinned and not Board:IsOfficer(new.author) and not byOfficer then return false end
+        if (new.pinned or new.keep) and not Board:IsOfficer(new.author) and not byOfficer then return false end
         return true
     end
     if old.author ~= new.author or old.created ~= new.created then return false end
     local contentChanged = old.title ~= new.title or old.text ~= new.text or old.cat ~= new.cat or old.to ~= new.to
         or old.when ~= new.when or old.expires ~= new.expires
     if contentChanged and not byAuthor then return false end
-    if old.pinned ~= new.pinned and not byOfficer then return false end
+    if (old.pinned ~= new.pinned or (old.keep or false) ~= (new.keep or false)) and not byOfficer then return false end
     if old.state ~= new.state and not byAuthor and not byOfficer then return false end
     return true
 end
@@ -315,7 +318,7 @@ function Board:Merge(incoming, fromNetwork)
             if total >= MAX_NOTES then return nil end
             if incoming.state ~= "entfernt" and CountOpen(incoming.author) >= OFFICER_OPEN + 2 then return nil end
         end
-        if not BodyAllowed(nil, incoming) then incoming.pinned = false end
+        if not BodyAllowed(nil, incoming) then incoming.pinned, incoming.keep = false, nil end
         notes[incoming.id] = incoming
         return "neu"
     end
@@ -326,6 +329,7 @@ function Board:Merge(incoming, fromNetwork)
         or (incoming.updated == local_.updated and BodyString(incoming) > BodyString(local_))
     if newer and BodyAllowed(local_, incoming) then
         for _, k in ipairs(BODY) do local_[k] = incoming[k] end
+        local_.keep = incoming.keep
     end
     -- Reaktionen: pro Person die jüngste
     for key, r in pairs(incoming.reacts or {}) do
@@ -384,6 +388,7 @@ function Board:Post(opts)
         id = NewId(), author = me, created = now, updated = now, expires = expires,
         cat = self.CAT[opts.cat] and opts.cat or "info", to = opts.to or "all", when = when,
         pinned = opts.pinned and self:AmOfficer() or false, state = "offen", editedBy = "",
+        keep = (opts.keep and self:AmOfficer()) or nil,
         title = title, text = Clean(opts.text, TEXT_MAX, true), reacts = {}, replies = {},
     }
     DB().notes[n.id] = n
@@ -406,6 +411,16 @@ function Board:SetState(id, state)
     local n = DB().notes[id]
     if not n or not self:CanManage(n) then return end
     n.state = state
+    Touch(n)
+    self:Broadcast(n)
+    ns:Fire("BOARD_UPDATE")
+end
+
+-- Offiziere: Zettel dauerhaft auf der Webseite behalten (im Spiel läuft er trotzdem ab)
+function Board:SetKeep(id, keep)
+    local n = DB().notes[id]
+    if not n or not self:AmOfficer() then return end
+    n.keep = keep and true or nil
     Touch(n)
     self:Broadcast(n)
     ns:Fire("BOARD_UPDATE")
@@ -608,6 +623,7 @@ end
 local function Copy(n)
     local c = {}
     for _, k in ipairs(BODY) do c[k] = n[k] end
+    c.keep = n.keep
     c.reacts, c.replies = {}, {}
     for k, r in pairs(n.reacts) do c.reacts[k] = { name = r.name, v = r.v, t = r.t } end
     for k, a in pairs(n.replies) do c.replies[k] = { author = a.author, time = a.time, state = a.state, text = a.text } end
@@ -737,7 +753,7 @@ function Board:ExportForWeb()
         if n.to == "all" then
             count = count + 1
             table.insert(lines, table.concat({ "N", n.id, n.author, n.created, n.expires, n.cat, n.when or 0,
-                n.pinned and 1 or 0, n.state, n.title, Encode(n.text) }, "^"))
+                n.pinned and 1 or 0, n.state, n.title, Encode(n.text), n.keep and 1 or 0 }, "^"))
             for _, r in ipairs(self:Reactions(n)) do
                 table.insert(lines, table.concat({ "R", n.id, r.name }, "^"))
             end

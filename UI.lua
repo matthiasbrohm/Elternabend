@@ -2596,7 +2596,17 @@ function UI:CreateBoardPanel()
     -- Mitte: Text, Rückmeldungen und Antworten (scrollbar)
     local sf = T.Scroll(detail)
     sf:SetPoint("TOPLEFT", p.dMeta, "BOTTOMLEFT", 0, -10)
-    sf:SetPoint("BOTTOMRIGHT", -10, 106)
+    sf:SetPoint("BOTTOMRIGHT", -10, 132)
+
+    -- Dauerhaft auf der Webseite: Offiziere schalten um, alle anderen sehen nur den Hinweis
+    p.dKeep = T.Checkbox(detail, "Auf der Webseite dauerhaft behalten")
+    p.dKeep:SetPoint("BOTTOMLEFT", 16, 104)
+    p.dKeep.onChange = function(checked)
+        if p.selected then B:SetKeep(p.selected, checked) end
+    end
+    p.dKeepHint = T.Text(detail, "muted")
+    p.dKeepHint:SetPoint("BOTTOMLEFT", 16, 108)
+    p.dKeepHint:SetText("Bleibt dauerhaft auf der Webseite.")
     p.dBody = T.Text(sf.content, "body")
     p.dBody:SetPoint("TOPLEFT")
     p.dBody:SetWidth(inner - 8)
@@ -2607,7 +2617,7 @@ function UI:CreateBoardPanel()
     p.dNone:SetWidth(inner)
     p.dNone:SetSpacing(3)
     p.dNone:SetText("Links einen Zettel anklicken – oder oben mit „Neuer Zettel“ selbst etwas anheften.")
-    p.detailParts = { p.dTitle, p.dMeta, sf, reply, send, p.react, p.whisper, p.done, p.remove, p.pin }
+    p.detailParts = { p.dTitle, p.dMeta, sf, reply, send, p.react, p.whisper, p.done, p.remove, p.pin, p.dKeep, p.dKeepHint }
 
     -- Rechts (statt Detail): neuer Zettel ---------------------------------------------------
     local form = StartCard(p, "Neuer Zettel", 0)
@@ -2777,7 +2787,9 @@ function UI:CreateBoardPanel()
     p.durLabel = T.Text(form, "small")
     p.durLabel:SetText("Hängt")
 
-    p.pinBox = T.Checkbox(form, "Oben anpinnen (Offiziere)")
+    p.pinBox = T.Checkbox(form, "Oben anpinnen")
+    -- Offiziere: auf der Webseite dauerhaft behalten (im Spiel läuft der Zettel trotzdem ab)
+    p.keepBox = T.Checkbox(form, "Bleibt auf der Webseite")
     p.formError = T.Text(form, "muted")
     p.formError:SetWidth(inner)
     p.formError:SetSpacing(3)
@@ -2822,7 +2834,7 @@ function UI:CreateBoardPanel()
             end
         end
         local ok, err = B:Post({ cat = p.newCat, to = to, title = p.newTitle:GetText(), text = p.newText:GetText(),
-            days = p.newDays, when = when, pinned = p.pinBox:GetChecked() })
+            days = p.newDays, when = when, pinned = p.pinBox:GetChecked(), keep = p.keepBox:GetChecked() })
         if not ok then
             p.formError:SetText(T.Hex("red", err))
             return
@@ -2831,6 +2843,7 @@ function UI:CreateBoardPanel()
         p.newText:SetText("")
         p.person:SetText("")
         p.pinBox:SetChecked(false)
+        p.keepBox:SetChecked(false)
         p.formError:SetText("")
         p.selected = err.id
         p.mode = "detail"
@@ -2872,8 +2885,10 @@ function UI:CreateBoardPanel()
         end
         local officer = B:AmOfficer()
         p.pinBox:SetShown(officer)
+        p.keepBox:SetShown(officer)
         if officer then
             p.pinBox:SetPoint("TOPLEFT", 16, y - 4)
+            p.keepBox:SetPoint("TOPLEFT", 16 + math.floor(inner * 0.42), y - 4)
             y = y - 28
         end
         p.formError:SetPoint("TOPLEFT", 16, y - 4)
@@ -2991,6 +3006,11 @@ function UI:CreateBoardPanel()
         local officer = B:AmOfficer()
         p.pin:SetEnabled(officer)
         p.pin:SetText(n.pinned and "Lösen" or "Anpinnen")
+        -- Webseite: nur Zettel an alle landen dort
+        local web = n.to == "all"
+        p.dKeep:SetShown(officer and web)
+        p.dKeep:SetChecked(n.keep and true or false)
+        p.dKeepHint:SetShown(not officer and web and n.keep and true or false)
     end
 
     p:HookScript("OnHide", function() p.fresh = nil end)
