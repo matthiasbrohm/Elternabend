@@ -160,6 +160,19 @@ Im Reiter **Berufe** siehst du, wer in der Gilde welche Berufe hat – und suchs
 ### Aufträge
 Klick auf ein Rezept (in der Suche oder in der Rezeptliste eines Charakters) schickt dem Hersteller einen Auftrag mit kurzer Notiz. Ist der Charakter nicht online, geht der Auftrag an einen anderen Charakter desselben Spielers – oder wartet, bis einer online kommt. Der Hersteller sieht seine Aufträge in der Karte „Aufträge“, nimmt sie an, lehnt ab oder meldet „fertig“. Erledigte Aufträge verschwinden nach 14 Tagen.
 
+## Pinnwand
+Das schwarze Brett der Gilde (`/ea pinnwand`). Jedes Mitglied heftet Zettel an – als **Info**, **Aktion** (mit Termin), **Suche**, **Biete**, **Hilfe gesucht** oder **Danke** – und wählt, an wen er geht: alle, Offiziere, einen Rang, eine Klasse oder eine einzelne Person. Zettel hängen 1 Tag bis 2 Wochen (Aktionen bis kurz nach dem Termin) und verschwinden dann von selbst.
+
+- Andere melden sich mit einem Klick („Bin dabei“, „Ich helfe“, „Interesse“ …) oder schreiben eine kurze Antwort dran.
+- Der Ersteller hakt ab oder nimmt den Zettel ab; Offiziere (Rang 1–3) können zusätzlich anpinnen und jeden Zettel abnehmen.
+- Pro Spieler sind höchstens 5 Zettel gleichzeitig offen (Offiziere 10).
+- Persönliche Zettel sehen nur Absender und Empfänger; der Empfänger bekommt ihn auch, wenn er gerade offline ist.
+- Beim Einloggen gibt es einen Hinweis auf neue Zettel, im Start-Reiter steht, was hängt.
+
+**So funktioniert es ohne Server:** Neue Zettel gehen sofort über den Gildenkanal an alle mit Addon. Beim Einloggen gleicht das Addon seine Zettel mit einem anderen Mitglied ab und holt, was fehlt. Ein Zettel erreicht also auch Leute, die später einloggen – solange jemand online ist, der ihn kennt. Die Daten sind nicht verschlüsselt; wer das Addon hat, könnte sie technisch auslesen.
+
+**Webseite:** Offiziere klicken unten auf „Für die Webseite“ und fügen den Text auf `gilde-elternabend.de/pinnwand.php` mit dem Offizierspasswort ein. Übernommen werden nur Zettel an alle.
+
 ## Notizen
 Im Reiter **Notizen** lassen sich beliebig viele Notizen anlegen. Jede kann als kleines Fenster auf den Bildschirm geheftet werden und bleibt dort, auch wenn das Addon-Fenster zu ist – auch nach dem Neu-Einloggen.
 - Verschieben mit der Maus, Größe über die Ecke unten rechts.
@@ -213,6 +226,7 @@ Das Wappen erscheint im Addon-Menü, oben links im Fenster und am Minimap-Button
 | `/ea rw` | Schlachtzugswarnung an/aus |
 | `/ea minimap` | Minimap-Button ein/aus |
 | `/ea gildenknopf` | Wappen-Knopf am Blizzard-Gildenfenster ein/aus |
+| `/ea pinnwand` | Pinnwand öffnen (auch `/ea zettel`) |
 | `/ea sync` | Soft-Reserves erneut an die Gruppe senden |
 
 ## Namen mit Vor- und Nachnamen

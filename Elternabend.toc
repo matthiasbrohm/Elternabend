@@ -2,7 +2,7 @@
 ## Title: |cfff3dc9aElternabend|r
 ## Notes: Das Gilden-Addon von Elternabend: Raid, Soft-Reserve, Gruppensuche, Berufe, Ruhmeshalle und mehr – arbeitet mit gilde-elternabend.de zusammen
 ## Author: Gilde Elternabend
-## Version: 4.3.4
+## Version: 4.4.0
 ## X-Curse-Project-ID: 1784859
 ## SavedVariables: ElternabendDB
 ## IconTexture: Interface\AddOns\Elternabend\Media\Wappen
@@ -27,6 +27,7 @@ Pause.lua
 Ready.lua
 Groups.lua
 Orders.lua
+Board.lua
 Fame.lua
 UI.lua
 GuildButton.lua

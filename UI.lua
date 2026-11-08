@@ -9,6 +9,7 @@ local ROW_H = 22
 local TABS = {
     { key = "start", label = "Start" },
     { key = "mitglieder", label = "Gilde" },
+    { key = "pinnwand", label = "Pinnwand" },
     { key = "berufe", label = "Berufe" },
     { key = "gruppen", label = "Gruppen" },
     { key = "notizen", label = "Notizen" },
@@ -272,6 +273,7 @@ function UI:Create()
     self.panels.gruppen = self:CreateGroupsPanel()
     self.panels.gilde = self:CreateGuildPanel()
     self.panels.mitglieder = self:CreateMembersPanel()
+    self.panels.pinnwand = self:CreateBoardPanel()
     self.panels.berufe = self:CreateProfessionsPanel()
     self.panels.notizen = self:CreateNotesPanel()
     self.panels.history = self:CreateHistoryPanel()
@@ -401,7 +403,7 @@ function UI:QueueRefresh()
 end
 
 for _, msg in ipairs({ "ROSTER_UPDATE", "SR_UPDATE", "LOOT_UPDATE", "ROLL_UPDATE", "HISTORY_UPDATE", "SESSION_UPDATE", "NOTES_UPDATE", "INFO_UPDATE", "MEMBERS_UPDATE", "JOIN_UPDATE", "PROF_UPDATE",
-    "GROUPS_UPDATE", "ORDERS_UPDATE", "FAME_UPDATE", "READY_UPDATE" }) do
+    "GROUPS_UPDATE", "ORDERS_UPDATE", "FAME_UPDATE", "READY_UPDATE", "BOARD_UPDATE" }) do
     ns:Listen(msg, function() UI:QueueRefresh() end)
 end
 ns:On("GET_ITEM_INFO_RECEIVED", function() UI:QueueRefresh() end)
@@ -521,6 +523,7 @@ function UI:CreateStartPanel()
     now:SetPoint("BOTTOMRIGHT")
     local NOW_ROWS = {
         { key = "online", title = "Gilde", button = "Öffnen", tab = "mitglieder" },
+        { key = "board", title = "Pinnwand", button = "Öffnen", tab = "pinnwand" },
         { key = "orders", title = "Aufträge", button = "Öffnen", tab = "berufe" },
         { key = "groups", title = "Gruppen", button = "Öffnen", tab = "gruppen" },
         { key = "fame", title = "Ruhmeshalle", button = "Öffnen", tab = "fame" },
@@ -601,6 +604,11 @@ function UI:CreateStartPanel()
             row.extra:SetText("")
             row.text:SetText("Gerade sucht niemand eine Gruppe.")
         end
+
+        local unread, open = ns.Board:UnreadCount(), #ns.Board:List()
+        p.now.board.extra:SetText(unread > 0 and T.Hex("goldBright", unread == 1 and "1 neuer Zettel" or (unread .. " neue Zettel")) or "")
+        p.now.board.text:SetText(open == 0 and "Noch hängt nichts – heft doch was an."
+            or (open == 1 and "1 Zettel hängt an der Pinnwand." or (open .. " Zettel hängen an der Pinnwand.")))
 
         local orders = ns.Orders:OpenCount()
         p.now.orders.text:SetText(orders > 0 and T.Hex("goldBright", orders == 1 and "1 offener Auftrag an dich"
@@ -2359,6 +2367,568 @@ function UI:CreateGroupsPanel()
         end
     end)
 
+    return p
+end
+
+-- Reiter: Pinnwand -----------------------------------------------------------------
+local WEEKDAYS = { "So", "Mo", "Di", "Mi", "Do", "Fr", "Sa" }
+
+local function DayLabel(t)
+    local today = date("%Y%m%d")
+    local d = date("%Y%m%d", t)
+    if d == today then return "heute" end
+    if d == date("%Y%m%d", time() + 86400) then return "morgen" end
+    return WEEKDAYS[tonumber(date("%w", t)) + 1] .. " " .. date("%d.%m.", t)
+end
+
+local function WhenLabel(t)
+    return DayLabel(t) .. " " .. date("%H:%M", t)
+end
+
+-- „noch 3 Tage“ / „noch 5 Std.“
+local function LeftLabel(expires)
+    local left = expires - ns.Board.Now()
+    if left <= 0 then return "abgelaufen" end
+    if left < 3600 then return "noch " .. math.max(1, math.floor(left / 60)) .. " Min." end
+    if left < 86400 then return "noch " .. math.floor(left / 3600) .. " Std." end
+    local days = math.floor(left / 86400)
+    return "noch " .. days .. (days == 1 and " Tag" or " Tage")
+end
+
+function UI:CreateBoardPanel()
+    local p = self:NewPanel()
+    local B = ns.Board
+    local rightWidth = 360
+    local leftWidth = CONTENT_W - rightWidth - 12
+    local inner = rightWidth - 32
+    p.mode = "detail"
+
+    local function CatText(cat)
+        local c = B.CAT[cat] or B.CAT.info
+        return T.Hex(c.color, c.label)
+    end
+
+    -- Oben links: Filter und Zähler ---------------------------------------------------
+    local FILTER_W = 160
+    p.filter = nil
+    local filterBtn = T.Button(p, "Alle Zettel", FILTER_W)
+    filterBtn:SetPoint("TOPLEFT", 0, 0)
+    local menu = T.Panel(p)
+    menu:SetFrameStrata("DIALOG")
+    menu:SetPoint("TOPLEFT", filterBtn, "BOTTOMLEFT", 0, -2)
+    menu:SetWidth(FILTER_W)
+    menu:EnableMouse(true)
+    menu:Hide()
+    menu.buttons = {}
+    local FILTERS = { { label = "Alle Zettel" }, { label = "An mich", value = "mine" }, { label = "Von mir", value = "own" } }
+    for _, c in ipairs(B.CATS) do table.insert(FILTERS, { label = c.label, value = c.key }) end
+    local function FilterLabel(v)
+        for _, f in ipairs(FILTERS) do if f.value == v then return f.label end end
+        return "Alle Zettel"
+    end
+    for i, f in ipairs(FILTERS) do
+        local b = T.Button(menu, f.label, FILTER_W - 12)
+        b:SetHeight(22)
+        b:SetPoint("TOPLEFT", 6, -6 - (i - 1) * 24)
+        b:SetScript("OnClick", function()
+            p.filter = f.value
+            menu:Hide()
+            p:Refresh()
+        end)
+        menu.buttons[i] = b
+    end
+    menu:SetHeight(10 + #FILTERS * 24)
+    filterBtn:SetScript("OnClick", function() menu:SetShown(not menu:IsShown()) end)
+    p:HookScript("OnHide", function() menu:Hide() end)
+
+    p.summary = T.Text(p, "muted")
+    p.summary:SetPoint("LEFT", filterBtn, "RIGHT", 12, 0)
+    p.summary:SetWidth(leftWidth - FILTER_W - 12 - 150)
+    p.summary:SetWordWrap(false)
+
+    local newBtn = T.Button(p, "Neuer Zettel", 140, "primary")
+    newBtn:SetPoint("TOPRIGHT", -(rightWidth + 12), 0)
+    newBtn:SetScript("OnClick", function()
+        p.mode = (p.mode == "new") and "detail" or "new"
+        p:Refresh()
+    end)
+
+    -- Liste ------------------------------------------------------------------------------
+    local list = CreateList(p, {
+        { key = "mark", x = 2, w = 16 },
+        { key = "cat", label = "Art", x = 18, w = 84 },
+        { key = "title", label = "Zettel", x = 104, w = 248 },
+        { key = "from", label = "Von", x = 354, w = 100 },
+        { key = "to", label = "An", x = 456, w = 84 },
+        { key = "when", label = "Wann", x = 542, w = 92 },
+        { key = "echo", label = "Echo", x = 636 },
+    })
+    list.panel:SetPoint("TOPLEFT", 0, -36)
+    list.panel:SetPoint("BOTTOMRIGHT", -(rightWidth + 12), 36)
+    list.onClick = function(_, n, button)
+        if button == "RightButton" then
+            if ChatFrame_SendTell then ChatFrame_SendTell(n.author) elseif ChatFrameUtil and ChatFrameUtil.SendTell then ChatFrameUtil.SendTell(n.author) end
+            return
+        end
+        p.selected = n.id
+        p.mode = "detail"
+        p:Refresh()
+    end
+    list.onEnter = function(row, n)
+        GameTooltip:SetOwner(row, "ANCHOR_RIGHT")
+        GameTooltip:AddLine(n.title, 0.95, 0.86, 0.6, true)
+        if n.text ~= "" then GameTooltip:AddLine(n.text, 1, 1, 1, true) end
+        GameTooltip:AddLine("Klick: lesen  ·  Rechtsklick: " .. (ns.ShortName(n.author) or "") .. " anflüstern", 0.84, 0.69, 0.35)
+        GameTooltip:Show()
+    end
+    p.empty = T.Text(list.panel, "muted", "CENTER")
+    p.empty:SetPoint("CENTER")
+    p.empty:SetWidth(leftWidth - 80)
+    p.empty:SetSpacing(3)
+
+    -- Unten links: Hinweis, alles gelesen, Export für die Webseite
+    local readAll = T.Button(p, "Alles gelesen", 120)
+    readAll:SetPoint("BOTTOMLEFT", 0, 0)
+    readAll:SetScript("OnClick", function()
+        p.fresh = {}
+        B:MarkAllSeen()
+    end)
+    local export = T.Button(p, "Für die Webseite", 140)
+    export:SetPoint("LEFT", readAll, "RIGHT", 8, 0)
+    export:SetScript("OnClick", function()
+        local text, count = B:ExportForWeb()
+        UI:TextDialog("Pinnwand für die Webseite",
+            count .. " Zettel an alle (persönliche Zettel und Gruppenzettel bleiben im Spiel). Mit Strg+C kopieren und auf "
+            .. ns.WEBSITE .. "/pinnwand.php unter „Für die Gildenleitung“ einfügen.", text)
+    end)
+    p.export = export
+    p.hint = T.Text(p, "muted")
+    p.hint:SetPoint("LEFT", export, "RIGHT", 12, 0)
+    p.hint:SetPoint("RIGHT", list.panel, "RIGHT")
+    p.hint:SetWordWrap(false)
+    p.hint:SetText("Zettel wandern von Addon zu Addon – sichtbar für alle mit Addon.")
+
+    -- Rechts: gewählter Zettel ------------------------------------------------------------
+    local detail = StartCard(p, "Zettel", 0)
+    detail:SetPoint("TOPRIGHT")
+    detail:SetPoint("BOTTOMRIGHT")
+    detail:SetWidth(rightWidth)
+    p.dTitle = T.Text(detail, "heading")
+    p.dTitle:SetPoint("TOPLEFT", 16, -28)
+    p.dTitle:SetWidth(inner)
+    p.dTitle:SetSpacing(2)
+    p.dMeta = T.Text(detail, "muted")
+    p.dMeta:SetPoint("TOPLEFT", p.dTitle, "BOTTOMLEFT", 0, -6)
+    p.dMeta:SetWidth(inner)
+    p.dMeta:SetSpacing(3)
+
+    -- Unten: Knöpfe und Antwortfeld
+    local reply = T.EditBox(detail, inner - 100, "Antworten …")
+    reply:SetPoint("BOTTOMLEFT", 16, 72)
+    reply:SetMaxLetters(160)
+    local send = T.Button(detail, "Senden", 92)
+    send:SetPoint("LEFT", reply, "RIGHT", 8, 0)
+    local function SendReply()
+        if p.selected and B:Reply(p.selected, reply:GetText()) then reply:SetText("") end
+        reply:ClearFocus()
+    end
+    send:SetScript("OnClick", SendReply)
+    reply:SetScript("OnEnterPressed", SendReply)
+
+    p.react = T.Button(detail, "", (inner - 8) / 2, "primary")
+    p.react:SetPoint("BOTTOMLEFT", 16, 42)
+    p.react:SetScript("OnClick", function() if p.selected then B:React(p.selected) end end)
+    p.whisper = T.Button(detail, "Anflüstern", (inner - 8) / 2)
+    p.whisper:SetPoint("LEFT", p.react, "RIGHT", 8, 0)
+    p.whisper:SetScript("OnClick", function()
+        local n = p.selected and ns.db.board.notes[p.selected]
+        if not n then return end
+        if ChatFrame_SendTell then ChatFrame_SendTell(n.author) elseif ChatFrameUtil and ChatFrameUtil.SendTell then ChatFrameUtil.SendTell(n.author) end
+    end)
+    local third = (inner - 16) / 3
+    p.done = T.Button(detail, "Erledigt", third)
+    p.done:SetPoint("BOTTOMLEFT", 16, 12)
+    p.done:SetScript("OnClick", function()
+        local n = p.selected and ns.db.board.notes[p.selected]
+        if n then B:SetState(n.id, n.state == "erledigt" and "offen" or "erledigt") end
+    end)
+    p.remove = T.Button(detail, "Abnehmen", third)
+    p.remove:SetPoint("LEFT", p.done, "RIGHT", 8, 0)
+    p.remove:SetScript("OnClick", function()
+        -- Zweiter Klick bestätigt
+        if p.removeArmed == p.selected and GetTime() - (p.removeAt or 0) < 4 then
+            B:SetState(p.selected, "entfernt")
+            p.removeArmed, p.selected = nil, nil
+        else
+            p.removeArmed, p.removeAt = p.selected, GetTime()
+            C_Timer.After(4.1, function() if p:IsShown() then p:Refresh() end end)
+        end
+        p:Refresh()
+    end)
+    p.pin = T.Button(detail, "Anpinnen", third)
+    p.pin:SetPoint("LEFT", p.remove, "RIGHT", 8, 0)
+    p.pin:SetScript("OnClick", function()
+        local n = p.selected and ns.db.board.notes[p.selected]
+        if n then B:SetPinned(n.id, not n.pinned) end
+    end)
+
+    -- Mitte: Text, Rückmeldungen und Antworten (scrollbar)
+    local sf = T.Scroll(detail)
+    sf:SetPoint("TOPLEFT", p.dMeta, "BOTTOMLEFT", 0, -10)
+    sf:SetPoint("BOTTOMRIGHT", -10, 106)
+    p.dBody = T.Text(sf.content, "body")
+    p.dBody:SetPoint("TOPLEFT")
+    p.dBody:SetWidth(inner - 8)
+    p.dBody:SetSpacing(3)
+    p.dBody:SetJustifyV("TOP")
+    p.dNone = T.Text(detail, "muted", "CENTER")
+    p.dNone:SetPoint("CENTER", 0, 20)
+    p.dNone:SetWidth(inner)
+    p.dNone:SetSpacing(3)
+    p.dNone:SetText("Links einen Zettel anklicken – oder oben mit „Neuer Zettel“ selbst etwas anheften.")
+    p.detailParts = { p.dTitle, p.dMeta, sf, reply, send, p.react, p.whisper, p.done, p.remove, p.pin }
+
+    -- Rechts (statt Detail): neuer Zettel ---------------------------------------------------
+    local form = StartCard(p, "Neuer Zettel", 0)
+    form:SetPoint("TOPRIGHT")
+    form:SetPoint("BOTTOMRIGHT")
+    form:SetWidth(rightWidth)
+    form:Hide()
+    p.form = form
+    p.newCat, p.newTo, p.newDays, p.newDay = "info", "all", 3, 1
+
+    local catButtons = {}
+    local catW = (inner - 16) / 3
+    for i, c in ipairs(B.CATS) do
+        local b = T.Button(form, c.label, catW)
+        b:SetHeight(22)
+        local col, row = (i - 1) % 3, math.floor((i - 1) / 3)
+        b:SetPoint("TOPLEFT", 16 + col * (catW + 8), -30 - row * 26)
+        b:SetScript("OnClick", function()
+            p.newCat = c.key
+            p:Refresh()
+        end)
+        catButtons[c.key] = b
+    end
+
+    local toLabel = T.Text(form, "small")
+    toLabel:SetPoint("TOPLEFT", 16, -96)
+    toLabel:SetText("An")
+    local toBtn = T.Button(form, "Alle", inner - 40)
+    toBtn:SetPoint("LEFT", toLabel, "LEFT", 40, 0)
+    local toMenu = T.Panel(form)
+    toMenu:SetFrameStrata("DIALOG")
+    toMenu:SetPoint("TOPLEFT", toBtn, "BOTTOMLEFT", 0, -2)
+    toMenu:SetWidth(inner - 40)
+    toMenu:EnableMouse(true)
+    toMenu:Hide()
+    toMenu.buttons = {}
+    local function OpenToMenu()
+        local entries = { { "Alle", "all" }, { "Offiziere", "off" } }
+        local ranks, seenRank, classes, seenClass = {}, {}, {}, {}
+        for _, e in ipairs(ns.Members.list) do
+            if e.rank and e.rank ~= "" and not seenRank[e.rank] then
+                seenRank[e.rank] = true
+                table.insert(ranks, { name = e.rank, order = e.rankOrder or 99 })
+            end
+            if e.classFile and not seenClass[e.classFile] then
+                seenClass[e.classFile] = true
+                table.insert(classes, e.classFile)
+            end
+        end
+        table.sort(ranks, function(a, b) return a.order < b.order end)
+        for _, r in ipairs(ranks) do table.insert(entries, { "Rang " .. r.name, "rank:" .. r.name }) end
+        table.sort(classes)
+        for _, cf in ipairs(classes) do table.insert(entries, { B:ToLabel("class:" .. cf), "class:" .. cf }) end
+        table.insert(entries, { "Eine Person …", "person" })
+        -- Zwei Spalten, damit das Menü nicht aus dem Fenster ragt
+        local colW = (inner - 40 - 18) / 2
+        local rows = math.ceil(#entries / 2)
+        for i, en in ipairs(entries) do
+            local b = toMenu.buttons[i]
+            if not b then
+                b = T.Button(toMenu, "", colW)
+                b:SetHeight(22)
+                toMenu.buttons[i] = b
+            end
+            local col, row = math.floor((i - 1) / rows), (i - 1) % rows
+            b:ClearAllPoints()
+            b:SetPoint("TOPLEFT", 6 + col * (colW + 6), -6 - row * 24)
+            b:SetText(en[1])
+            b:SetScript("OnClick", function()
+                p.newTo = en[2]
+                toMenu:Hide()
+                p:Refresh()
+                if en[2] == "person" then p.person:SetFocus() end
+            end)
+            b:Show()
+        end
+        for i = #entries + 1, #toMenu.buttons do toMenu.buttons[i]:Hide() end
+        toMenu:SetHeight(10 + rows * 24)
+        toMenu:Show()
+    end
+    toBtn:SetScript("OnClick", function()
+        if toMenu:IsShown() then toMenu:Hide() else OpenToMenu() end
+    end)
+    form:HookScript("OnHide", function() toMenu:Hide() end)
+
+    p.person = T.EditBox(form, inner - 40, "Name, z. B. Anna Sturmwind")
+    p.person:SetPoint("TOPLEFT", toBtn, "BOTTOMLEFT", 0, -6)
+
+    p.newTitle = T.EditBox(form, inner, "Überschrift (Pflicht)")
+    p.newTitle:SetMaxLetters(60)
+    p.newText = T.EditBox(form, inner, "Text, z. B. was, wann, wo")
+    p.newText:SetMaxLetters(300)
+
+    -- Termin (nur bei Aktionen): Tag durchklicken, Uhrzeit eintippen
+    p.dayBtn = T.Button(form, "", inner - 108)
+    p.dayBtn:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+    p.dayBtn:SetScript("OnClick", function(_, button)
+        p.newDay = (p.newDay + (button == "RightButton" and -1 or 1)) % 14
+        p:Refresh()
+    end)
+    p.dayBtn:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_BOTTOM")
+        GameTooltip:AddLine("Klick: nächster Tag  ·  Rechtsklick: zurück")
+        GameTooltip:Show()
+    end)
+    p.dayBtn:SetScript("OnLeave", GameTooltip_Hide)
+    p.timeBox = T.EditBox(form, 100, "21:00")
+    p.timeBox:SetMaxLetters(5)
+    p.timeBox:SetPoint("LEFT", p.dayBtn, "RIGHT", 8, 0)
+
+    -- Laufzeit
+    p.durButtons = {}
+    local durW = (inner - 24) / 4
+    for i, d in ipairs(B.DURATIONS) do
+        local b = T.Button(form, d.label, durW)
+        b:SetHeight(22)
+        b:SetScript("OnClick", function()
+            p.newDays = d.days
+            p:Refresh()
+        end)
+        p.durButtons[i] = b
+    end
+    p.durLabel = T.Text(form, "small")
+    p.durLabel:SetText("Hängt")
+
+    p.pinBox = T.Checkbox(form, "Oben anpinnen (Offiziere)")
+    p.formError = T.Text(form, "muted")
+    p.formError:SetWidth(inner)
+    p.formError:SetSpacing(3)
+
+    local post = T.Button(form, "Anheften", inner - 108, "primary")
+    post:SetPoint("BOTTOMLEFT", 16, 12)
+    local cancel = T.Button(form, "Abbrechen", 100)
+    cancel:SetPoint("LEFT", post, "RIGHT", 8, 0)
+    cancel:SetScript("OnClick", function()
+        p.mode = "detail"
+        p:Refresh()
+    end)
+
+    local function TermTime()
+        local h, m = strtrim(p.timeBox:GetText()):match("^(%d%d?)[:%.]?(%d%d)$")
+        if not h then h, m = strtrim(p.timeBox:GetText()):match("^(%d%d?)$"), "00" end
+        h, m = tonumber(h), tonumber(m)
+        if not h or h > 23 or m > 59 then return nil end
+        local t = date("*t", time() + p.newDay * 86400)
+        t.hour, t.min, t.sec = h, m, 0
+        return time(t)
+    end
+
+    post:SetScript("OnClick", function()
+        p.newTitle:ClearFocus()
+        p.newText:ClearFocus()
+        local to = p.newTo
+        if to == "person" then
+            local e = ns.Members:Find(strtrim(p.person:GetText()))
+            if not e then
+                p.formError:SetText(T.Hex("red", "Diesen Namen gibt es in der Gilde nicht."))
+                return
+            end
+            to = "p:" .. e.name
+        end
+        local when
+        if B.CAT[p.newCat].date then
+            when = TermTime()
+            if not when then
+                p.formError:SetText(T.Hex("red", "Bitte eine Uhrzeit wie 21:00 eingeben."))
+                return
+            end
+        end
+        local ok, err = B:Post({ cat = p.newCat, to = to, title = p.newTitle:GetText(), text = p.newText:GetText(),
+            days = p.newDays, when = when, pinned = p.pinBox:GetChecked() })
+        if not ok then
+            p.formError:SetText(T.Hex("red", err))
+            return
+        end
+        p.newTitle:SetText("")
+        p.newText:SetText("")
+        p.person:SetText("")
+        p.pinBox:SetChecked(false)
+        p.formError:SetText("")
+        p.selected = err.id
+        p.mode = "detail"
+        p:Refresh()
+    end)
+
+    -- Formular je nach Art und Empfänger anordnen
+    local function LayoutForm()
+        local y = -96
+        toLabel:SetPoint("TOPLEFT", 16, y - 6)
+        toBtn:ClearAllPoints()
+        toBtn:SetPoint("TOPLEFT", 56, y)
+        y = y - 32
+        p.person:SetShown(p.newTo == "person")
+        if p.newTo == "person" then y = y - 32 end
+        p.newTitle:SetPoint("TOPLEFT", 16, y)
+        y = y - 32
+        p.newText:SetPoint("TOPLEFT", 16, y)
+        y = y - 40
+        local isDate = B.CAT[p.newCat].date
+        p.dayBtn:SetShown(isDate)
+        p.timeBox:SetShown(isDate)
+        for _, b in ipairs(p.durButtons) do b:SetShown(not isDate) end
+        p.durLabel:ClearAllPoints()
+        p.durLabel:SetPoint("TOPLEFT", 16, y)
+        if isDate then
+            p.durLabel:SetText("Termin")
+            y = y - 18
+            p.dayBtn:SetPoint("TOPLEFT", 16, y)
+            y = y - 32
+        else
+            p.durLabel:SetText("Hängt")
+            y = y - 18
+            for i, b in ipairs(p.durButtons) do
+                b:ClearAllPoints()
+                b:SetPoint("TOPLEFT", 16 + (i - 1) * (durW + 8), y)
+            end
+            y = y - 30
+        end
+        local officer = B:AmOfficer()
+        p.pinBox:SetShown(officer)
+        if officer then
+            p.pinBox:SetPoint("TOPLEFT", 16, y - 4)
+            y = y - 28
+        end
+        p.formError:SetPoint("TOPLEFT", 16, y - 4)
+    end
+
+    function p:Refresh()
+        local notes = B:List(p.filter)
+        filterBtn:SetText(FilterLabel(p.filter))
+
+        -- Was beim Öffnen neu war, bleibt markiert, solange der Reiter offen ist
+        p.fresh = p.fresh or {}
+        local unread = 0
+        for _, n in ipairs(B:List()) do
+            if B:IsUnread(n) then
+                p.fresh[n.id] = true
+                B:MarkSeen(n)
+                unread = unread + 1
+            end
+        end
+        local freshCount = 0
+        for _, n in ipairs(notes) do if p.fresh[n.id] then freshCount = freshCount + 1 end end
+        p.summary:SetText(#notes .. (#notes == 1 and " Zettel" or " Zettel")
+            .. (freshCount > 0 and ("  ·  " .. T.Hex("goldBright", freshCount .. " neu")) or ""))
+
+        if not p.selected or not ns.db.board.notes[p.selected] or not B:IsVisible(ns.db.board.notes[p.selected]) then
+            p.selected = notes[1] and notes[1].id or nil
+        end
+
+        p.empty:SetShown(#notes == 0)
+        p.empty:SetText(p.filter and "Hier hängt gerade nichts." or
+            "Die Pinnwand ist noch leer.\n\nHefte mit „Neuer Zettel“ etwas an: eine Aktion mit Termin, ein Gesuch, ein Dankeschön – oder eine Nachricht an jemanden, der gerade offline ist.")
+        list:SetData(notes, function(row, n)
+            local sel = n.id == p.selected
+            local done = n.state == "erledigt"
+            row.cols.mark:SetText(sel and T.Hex("goldBright", "»") or (p.fresh[n.id] and T.Hex("goldBright", "•") or ""))
+            row.cols.cat:SetText(done and T.Hex("dim", (B.CAT[n.cat] or B.CAT.info).label) or CatText(n.cat))
+            local title = (n.pinned and T.Hex("gold", "[Angepinnt] ") or "") .. (done and T.Hex("dim", n.title .. " (erledigt)") or n.title)
+            row.cols.title:SetText(title)
+            row.cols.from:SetText(ns.ShortName(n.author) or "")
+            row.cols.to:SetText(n.to == "all" and T.Hex("muted", "Alle") or T.Hex("goldBright", B:ToLabel(n.to)))
+            row.cols.when:SetText(n.when and T.Hex("goldBright", WhenLabel(n.when)) or T.Hex("muted", LeftLabel(n.expires)))
+            local reacts, replies = #B:Reactions(n), #B:Replies(n)
+            local echo = {}
+            if reacts > 0 then table.insert(echo, reacts .. ((n.cat == "aktion") and " dabei" or " Rückm.")) end
+            if replies > 0 then table.insert(echo, replies .. " Antw.") end
+            row.cols.echo:SetText(T.Hex("muted", table.concat(echo, " · ")))
+        end)
+        export:SetShown(B:AmOfficer())
+
+        -- Rechts: Formular oder Detail
+        local isNew = p.mode == "new"
+        form:SetShown(isNew)
+        detail:SetShown(not isNew)
+        newBtn:SetText(isNew and "Zurück zur Liste" or "Neuer Zettel")
+        if isNew then
+            for key, b in pairs(catButtons) do
+                b:SetText(key == p.newCat and T.Hex("goldBright", "» " .. B.CAT[key].label) or B.CAT[key].label)
+            end
+            toBtn:SetText(p.newTo == "person" and "Eine Person …" or B:ToLabel(p.newTo))
+            local t = date("*t", time() + p.newDay * 86400)
+            p.dayBtn:SetText(DayLabel(time(t)))
+            for i, b in ipairs(p.durButtons) do
+                local d = B.DURATIONS[i]
+                b:SetText(d.days == p.newDays and T.Hex("goldBright", d.label) or d.label)
+            end
+            LayoutForm()
+            return
+        end
+
+        local n = p.selected and ns.db.board.notes[p.selected]
+        for _, part in ipairs(p.detailParts) do part:SetShown(n ~= nil) end
+        p.dNone:SetShown(n == nil)
+        detail.kicker:SetText(n and ((B.CAT[n.cat] or B.CAT.info).label:upper() .. (n.pinned and "  ·  ANGEPINNT" or "")) or "ZETTEL")
+        if not n then return end
+        p.dTitle:SetText(n.title)
+        local meta = { "von " .. T.Hex("cream", ns.ShortName(n.author) or "?") .. "  ·  an " .. T.Hex("cream", B:ToLabel(n.to))
+            .. "  ·  " .. date("%d.%m. %H:%M", n.created) }
+        if n.when then table.insert(meta, "Termin: " .. T.Hex("goldBright", WhenLabel(n.when) .. " Uhr")) end
+        table.insert(meta, (n.state == "erledigt" and (T.Hex("green", "Erledigt") .. "  ·  ") or "") .. "hängt " .. LeftLabel(n.expires))
+        p.dMeta:SetText(table.concat(meta, "\n"))
+
+        local body = {}
+        if n.text ~= "" then table.insert(body, n.text) end
+        local reacts = B:Reactions(n)
+        if #reacts > 0 then
+            local names = {}
+            for _, r in ipairs(reacts) do table.insert(names, ns.ShortName(r.name) or "?") end
+            table.insert(body, T.Hex("green", ((n.cat == "aktion") and "Dabei" or B.CAT[n.cat].react) .. " (" .. #reacts .. "):")
+                .. " " .. table.concat(names, ", "))
+        end
+        local replies = B:Replies(n)
+        if #replies > 0 then
+            table.insert(body, T.Hex("gold", "ANTWORTEN"))
+            for _, a in ipairs(replies) do
+                table.insert(body, T.Hex("goldBright", ns.ShortName(a.author) or "?") .. T.Hex("dim", "  " .. date("%d.%m. %H:%M", a.time))
+                    .. "\n" .. a.text)
+            end
+        end
+        if #body == 0 then table.insert(body, T.Hex("muted", "Kein weiterer Text.")) end
+        p.dBody:SetText(table.concat(body, "\n\n"))
+        sf.content:SetHeight(math.max(1, p.dBody:GetStringHeight() + 6))
+        sf.UpdateThumb()
+
+        local cat = B.CAT[n.cat] or B.CAT.info
+        local reacted = B:HasReacted(n)
+        p.react:SetText(reacted and ("Nicht mehr: " .. cat.react) or cat.react)
+        p.react:SetEnabled(n.state ~= "erledigt" or reacted)
+        p.whisper:SetEnabled(not B:IsMine(n.author))
+        local manage = B:CanManage(n)
+        p.done:SetEnabled(manage)
+        p.done:SetText(n.state == "erledigt" and "Wieder offen" or "Erledigt")
+        p.remove:SetEnabled(manage)
+        local armed = p.removeArmed == n.id and GetTime() - (p.removeAt or 0) < 4
+        p.remove:SetText(armed and T.Hex("red", "Wirklich?") or "Abnehmen")
+        local officer = B:AmOfficer()
+        p.pin:SetEnabled(officer)
+        p.pin:SetText(n.pinned and "Lösen" or "Anpinnen")
+    end
+
+    p:HookScript("OnHide", function() p.fresh = nil end)
     return p
 end
 
