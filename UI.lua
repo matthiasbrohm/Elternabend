@@ -2350,7 +2350,8 @@ function UI:CreateGroupsPanel()
         local applicants = G:Applicants()
         if mine then
             p.ownState:SetText(T.Hex("green", "Läuft") .. "  ·  seit " .. math.floor((GetTime() - mine.started) / 60) ..
-                " Min  ·  noch " .. G.NeedText(mine.need))
+                " Min  ·  noch " .. G.NeedText(mine.need)
+                .. (mine.target and ("\n" .. T.Hex("muted", "Schließt von selbst, sobald die Gruppe " .. mine.target .. " Spieler hat.")) or ""))
         else
             p.ownState:SetText("Die Gilde sieht dein Gesuch sofort.")
         end

@@ -129,7 +129,7 @@ Jedes Addon prüft den eigenen Charakter: Fläschchen (oder Elixier/Phiole), Ess
 Wer einen Raid aus dem Raidplaner einfügt, verteilt dessen Termin an die Gilde. 15 Minuten vor Beginn erinnert das Addon alle mit einer Bildschirmmeldung und sagt dir, was dir noch fehlt.
 
 ## Gruppensuche
-Im Reiter **Gruppen** einträgst du, wofür du Mitspieler suchst und wie viele Tanks, Heiler und DDs (Klick: mehr, Rechtsklick: weniger). Die Gilde sieht das Gesuch sofort (auch im Chat, abschaltbar mit `/ea gruppenhinweis`). Andere wählen es aus und melden sich als Tank, Heiler oder DD; du siehst die Meldungen und lädst mit einem Klick ein. Gesuche verschwinden nach 90 Minuten, beim Ausloggen oder mit **Beenden**.
+Im Reiter **Gruppen** einträgst du, wofür du Mitspieler suchst und wie viele Tanks, Heiler und DDs (Klick: mehr, Rechtsklick: weniger). Die Gilde sieht das Gesuch sofort (auch im Chat, abschaltbar mit `/ea gruppenhinweis`). Andere wählen es aus und melden sich als Tank, Heiler oder DD; du siehst die Meldungen und lädst mit einem Klick ein. Gesuche verschwinden nach 90 Minuten, beim Ausloggen oder mit **Beenden** – und von selbst, sobald deine Gruppe voll ist: Das Addon merkt sich beim Start, wie groß die Gruppe werden soll (wer schon drin ist plus die gesuchten Plätze), und schließt das Gesuch, wenn so viele Spieler in der Gruppe sind – auch wenn du per Hand eingeladen hast.
 
 Mit dem Häkchen **„Auch im Gildenchat posten“** (standardmäßig an) schreibt das Addon beim Start einmal eine Zeile in den Gildenchat, z. B. „Suche Gruppe für DM: 1 Tank, 2 DD – gemütlich. Mit Addon über /ea gruppen melden, sonst anflüstern!“ So sehen auch Mitglieder ohne Addon das Gesuch und melden sich per Flüstern. Addon-Nutzer bekommen dann keine zweite Meldung.
 

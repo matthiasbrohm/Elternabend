@@ -55,7 +55,18 @@ function Groups:Post(what, need, note)
     mine.what, mine.note = what, strtrim(note or "")
     mine.need = { tank = need.tank or 0, heal = need.heal or 0, dd = need.dd or 0 }
     mine.started = mine.started or GetTime()
+    -- Zielgröße: wer jetzt schon in der Gruppe ist plus die gesuchten Plätze.
+    -- Ist die echte Gruppe so groß, endet das Gesuch von selbst (auch wenn per Hand eingeladen wurde).
+    local total = mine.need.tank + mine.need.heal + mine.need.dd
+    mine.target = math.max(1, GetNumGroupMembers()) + total
     self.mine = mine
+    if total == 0 then
+        if isNew then self.mine = nil; self.list[mine.id] = nil; ns.Print("Bitte mindestens einen freien Platz angeben.") return false end
+        self:Broadcast()
+        ns.Print("Keine Plätze mehr frei – dein Gesuch ist beendet.")
+        self:Close()
+        return true
+    end
     self.list[mine.id] = mine
     -- Nur beim Start einmal in den Gildenchat, nicht bei jeder Aktualisierung
     if isNew and ns.db.groups.chat then
@@ -216,6 +227,26 @@ ns.Comm.handlers.LFGANS = function(sender, parts)
     if parts[3] == "full" then ns.Print(ns.ShortName(sender) .. ": Die Gruppe ist leider schon voll.") end
     ns:Fire("GROUPS_UPDATE")
 end
+
+-- Gruppe voll? Dann das eigene Gesuch automatisch beenden – daran denkt man sonst nicht
+function Groups:CheckFull()
+    local m = self.mine
+    if not m or not m.target then return end
+    local members = GetNumGroupMembers()
+    if members >= m.target then
+        ns.Print(string.format("Deine Gruppe ist voll (%d Spieler) – das Gesuch für %s wird geschlossen.", members, m.what))
+        self:Close()
+    end
+end
+ns:On("GROUP_ROSTER_UPDATE", function()
+    -- kurz warten, falls mehrere gleichzeitig beitreten
+    if Groups.fullCheckQueued then return end
+    Groups.fullCheckQueued = true
+    C_Timer.After(1, function()
+        Groups.fullCheckQueued = false
+        Groups:CheckFull()
+    end)
+end)
 
 -- Beim Einloggen nach offenen Gesuchen fragen
 ns:On("PLAYER_LOGIN", function()
