@@ -33,7 +33,8 @@ local MAX_OPEN = 5           -- offene Zettel pro Spieler (Offiziere: OFFICER_OP
 local OFFICER_OPEN = 10
 local MAX_NOTES = 250        -- mehr speichert das Addon nicht
 local MAX_REPLIES = 25
-local TITLE_MAX, TEXT_MAX, REPLY_MAX = 60, 300, 160
+local TITLE_MAX, TEXT_MAX, REPLY_MAX = 80, 2000, 400 -- Zeichen (nicht Bytes)
+Board.TITLE_MAX, Board.TEXT_MAX, Board.REPLY_MAX = TITLE_MAX, TEXT_MAX, REPLY_MAX
 local OFFICER_RANKS = 3      -- Rang 1 bis 3 der Gilde zählt als Offizier
 
 Board.CATS = {
@@ -62,14 +63,37 @@ end
 local Now = Board.Now
 
 -- Texte von allem befreien, was das Format oder den Chat stört
-local function Clean(s, max)
-    s = tostring(s or ""):gsub("[\r\n\t]+", " "):gsub("[%^~|]", ""):gsub("%s+", " ")
-    s = strtrim(s)
-    if max and #s > max then
-        s = s:sub(1, max):gsub("[\192-\255][\128-\191]*$", "") -- nicht mitten im Umlaut abschneiden
+-- Nach max Zeichen abschneiden (UTF-8: Umlaute zählen als ein Zeichen)
+local function Cut(s, max)
+    local chars, i, n = 0, 1, #s
+    while i <= n do
+        local b = s:byte(i)
+        local len = b < 0x80 and 1 or (b >= 0xF0 and 4) or (b >= 0xE0 and 3) or (b >= 0xC0 and 2) or 1
+        chars = chars + 1
+        if chars > max then return s:sub(1, i - 1) end
+        i = i + len
     end
     return s
 end
+
+-- Zeilenumbruch beim Übertragen (Nachrichten und Webseiten-Export sind zeilenweise)
+local NL = "\194\166" -- „¦“
+
+-- Text säubern. lines = Zeilenumbrüche behalten (für Beschreibung und Antworten)
+local function Clean(s, max, lines)
+    s = tostring(s or ""):gsub(NL, "\n"):gsub("[%^~|]", ""):gsub("\t", " ")
+    if lines then
+        s = s:gsub("\r\n?", "\n"):gsub("[ ]+\n", "\n"):gsub("\n\n\n+", "\n\n"):gsub("[ ]+", " ")
+        s = s:gsub("^%s+", ""):gsub("%s+$", "")
+    else
+        s = strtrim((s:gsub("%s+", " ")))
+    end
+    if max then s = Cut(s, max) end
+    return s
+end
+Board.Clean = Clean
+local function Encode(s) return (tostring(s or ""):gsub("\n", NL)) end
+local function Decode(s) return (tostring(s or ""):gsub(NL, "\n")) end
 Board.Clean = Clean
 
 -- Prüfsumme (djb2, 32 Bit) als kurzer Text
@@ -89,6 +113,7 @@ local function BodyString(n)
     for i, k in ipairs(BODY) do
         local v = n[k]
         if k == "pinned" then v = v and "1" or "0" end
+        if k == "text" then v = Encode(v) end
         f[i] = tostring(v or "")
     end
     return "N^" .. table.concat(f, "^")
@@ -108,7 +133,7 @@ function Board:Serialize(n)
     table.sort(rids)
     for _, rid in ipairs(rids) do
         local a = n.replies[rid]
-        table.insert(parts, table.concat({ "A", rid, a.author, a.time, a.state or "", a.text }, "^"))
+        table.insert(parts, table.concat({ "A", rid, a.author, a.time, a.state or "", Encode(a.text) }, "^"))
     end
     return table.concat(parts, "~")
 end
@@ -143,14 +168,14 @@ function Board:Parse(data)
     if not self.CAT[n.cat] then n.cat = "info" end
     if n.state ~= "offen" and n.state ~= "erledigt" and n.state ~= "entfernt" then n.state = "offen" end
     n.title = Clean(n.title, TITLE_MAX)
-    n.text = Clean(n.text, TEXT_MAX)
+    n.text = Clean(Decode(n.text), TEXT_MAX, true)
     for i = 2, #records do
         local r = Split(records[i], "^")
         if r[1] == "R" and r[2] and r[2] ~= "" then
             local key = ns.NameKey(r[2])
             if key then n.reacts[key] = { name = r[2], v = tonumber(r[3]) == 1 and 1 or 0, t = tonumber(r[4]) or 0 } end
         elseif r[1] == "A" and r[2] and r[2] ~= "" and r[3] and r[3] ~= "" then
-            n.replies[r[2]] = { author = r[3], time = tonumber(r[4]) or 0, state = r[5] == "x" and "x" or "", text = Clean(r[6], REPLY_MAX) }
+            n.replies[r[2]] = { author = r[3], time = tonumber(r[4]) or 0, state = r[5] == "x" and "x" or "", text = Clean(Decode(r[6]), REPLY_MAX, true) }
         end
     end
     return n
@@ -359,7 +384,7 @@ function Board:Post(opts)
         id = NewId(), author = me, created = now, updated = now, expires = expires,
         cat = self.CAT[opts.cat] and opts.cat or "info", to = opts.to or "all", when = when,
         pinned = opts.pinned and self:AmOfficer() or false, state = "offen", editedBy = "",
-        title = title, text = Clean(opts.text, TEXT_MAX), reacts = {}, replies = {},
+        title = title, text = Clean(opts.text, TEXT_MAX, true), reacts = {}, replies = {},
     }
     DB().notes[n.id] = n
     DB().seen[n.id] = self:Digest(n)
@@ -427,7 +452,7 @@ end
 function Board:Reply(id, text)
     local n = DB().notes[id]
     if not n then return false end
-    text = Clean(text, REPLY_MAX)
+    text = Clean(text, REPLY_MAX, true)
     if text == "" then return false end
     local count = 0
     for _ in pairs(n.replies) do count = count + 1 end
@@ -514,7 +539,7 @@ function Board:MarkAllSeen()
 end
 
 -- Hinweise im Chat ------------------------------------------------------------------------
-local function Cut(text, max)
+local function Short(text, max)
     if #text <= max then return text end
     return (text:sub(1, max):gsub("[\192-\255][\128-\191]*$", "")) .. "…"
 end
@@ -533,14 +558,14 @@ function Board:Notify(n, kind, extra)
                 table.insert(fresh, it.n)
                 if Board:IsPersonal(it.n) then personal = true end
             else
-                ns.Print("|cfff3dc9aPinnwand:|r " .. it.extra .. ": „" .. Cut(it.n.title, 40) .. "“ – /ea pinnwand")
+                ns.Print("|cfff3dc9aPinnwand:|r " .. it.extra .. ": „" .. Short(it.n.title, 40) .. "“ – /ea pinnwand")
             end
         end
         if #fresh == 1 then
             local n = fresh[1]
             ns.Print("|cfff3dc9aPinnwand:|r Neuer Zettel von " .. (ns.ShortName(n.author) or "?")
                 .. (Board:IsPersonal(n) and " an dich" or (n.to ~= "all" and (" an " .. Board:ToLabel(n.to)) or ""))
-                .. ": „" .. Cut(n.title, 50) .. "“ – /ea pinnwand")
+                .. ": „" .. Short(n.title, 50) .. "“ – /ea pinnwand")
         elseif #fresh > 1 then
             ns.Print("|cfff3dc9aPinnwand:|r " .. #fresh .. " neue Zettel – /ea pinnwand")
         end
@@ -712,12 +737,12 @@ function Board:ExportForWeb()
         if n.to == "all" then
             count = count + 1
             table.insert(lines, table.concat({ "N", n.id, n.author, n.created, n.expires, n.cat, n.when or 0,
-                n.pinned and 1 or 0, n.state, n.title, n.text }, "^"))
+                n.pinned and 1 or 0, n.state, n.title, Encode(n.text) }, "^"))
             for _, r in ipairs(self:Reactions(n)) do
                 table.insert(lines, table.concat({ "R", n.id, r.name }, "^"))
             end
             for _, a in ipairs(self:Replies(n)) do
-                table.insert(lines, table.concat({ "A", n.id, a.author, a.time, a.text }, "^"))
+                table.insert(lines, table.concat({ "A", n.id, a.author, a.time, Encode(a.text) }, "^"))
             end
         end
     end

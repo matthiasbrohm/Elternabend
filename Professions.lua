@@ -415,6 +415,15 @@ function Prof:RecipeColor(id)
     return c and c.hex or nil
 end
 
+-- Sonderrezept? Liefert die Gegenstands-ID des Rezepts (Muster, Pläne …) oder nil,
+-- wenn man es beim Lehrer lernt.
+function Prof:SpecialItem(id)
+    return ns.SpecialRecipes and ns.SpecialRecipes[tonumber(id)] or nil
+end
+
+-- Kleines Rezept-Symbol vor Sonderrezepten
+Prof.SPECIAL_ICON = "|TInterface\\Icons\\INV_Scroll_03:14:14:0:0:64:64:5:59:5:59|t "
+
 function Prof:ItemName(id)
     local name = GetItemInfoCompat(id)
     if not name then RequestItem(id) end

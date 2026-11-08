@@ -316,6 +316,35 @@ function T.Stars(frame, count)
 end
 
 -- Runde Maske (für das Wappen)
+-- Zähler-Plakette (roter Punkt mit Zahl), z. B. oben rechts an einem Reiter
+function T.Badge(parent)
+    local f = CreateFrame("Frame", nil, parent)
+    f:SetSize(17, 17)
+    f:SetFrameLevel(parent:GetFrameLevel() + 6)
+    local ring = f:CreateTexture(nil, "BACKGROUND")
+    ring:SetAllPoints()
+    ring:SetColorTexture(Color(c.gold))
+    T.Round(ring, f)
+    local dot = f:CreateTexture(nil, "ARTWORK")
+    dot:SetPoint("TOPLEFT", 1.5, -1.5)
+    dot:SetPoint("BOTTOMRIGHT", -1.5, 1.5)
+    dot:SetColorTexture(0.72, 0.13, 0.10, 1)
+    T.Round(dot, f)
+    f.text = f:CreateFontString(nil, "OVERLAY")
+    f.text:SetFont(STANDARD_TEXT_FONT, 10, "OUTLINE")
+    f.text:SetPoint("CENTER", 0.5, 0)
+    f.text:SetTextColor(1, 1, 1)
+    function f:SetCount(n)
+        n = tonumber(n) or 0
+        self:SetShown(n > 0)
+        if n <= 0 then return end
+        self.text:SetText(n > 9 and "9+" or tostring(n))
+        self:SetWidth(n > 9 and 22 or 17)
+    end
+    f:Hide()
+    return f
+end
+
 function T.Round(texture, parent)
     local mask = parent:CreateMaskTexture()
     mask:SetTexture("Interface\\CHARACTERFRAME\\TempPortraitAlphaMask", "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")

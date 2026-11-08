@@ -153,6 +153,15 @@ function Groups:List()
     return list
 end
 
+-- Offene Gesuche anderer (für die Plakette am Reiter und an der Minimap)
+function Groups:OpenCount()
+    local count = 0
+    for _, g in ipairs(self:List()) do
+        if g ~= self.mine and (g.need.tank + g.need.heal + g.need.dd) > 0 then count = count + 1 end
+    end
+    return count
+end
+
 function Groups.NeedText(need)
     local parts = {}
     if need.tank > 0 then table.insert(parts, need.tank .. " Tank") end

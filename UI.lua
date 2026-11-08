@@ -232,8 +232,11 @@ function UI:Create()
         local b = T.NavButton(header, tab.label)
         -- „Raid“ öffnet den zuletzt benutzten Unterreiter
         b:SetScript("OnClick", function() UI:Show(tab.key == "raid" and UI.lastRaidTab or tab.key) end)
+        b.badge = T.Badge(b)
+        b.badge:SetPoint("TOPRIGHT", 4, 2)
         self.tabs[tab.key] = b
     end
+    f:HookScript("OnShow", function() UI:UpdateBadges() end)
     self.header = header
 
     local line = T.GoldLine(f, 0.9)
@@ -371,6 +374,7 @@ function UI:Show(key)
     self.subnav:SetShown(inRaid)
     self.frame:Show()
     self:Refresh()
+    self:UpdateBadges()
 end
 
 function UI:ShowFame()
@@ -406,6 +410,23 @@ for _, msg in ipairs({ "ROSTER_UPDATE", "SR_UPDATE", "LOOT_UPDATE", "ROLL_UPDATE
     "GROUPS_UPDATE", "ORDERS_UPDATE", "FAME_UPDATE", "READY_UPDATE", "BOARD_UPDATE" }) do
     ns:Listen(msg, function() UI:QueueRefresh() end)
 end
+
+-- Plaketten: offene Gruppensuchen (Reiter „Gruppen“ und Minimap) und neue Zettel (Reiter „Pinnwand“)
+function UI:UpdateBadges()
+    local groups = ns.Groups:OpenCount()
+    if self.minimapButton and self.minimapButton.badge then self.minimapButton.badge:SetCount(groups) end
+    if self.tabs.gruppen and self.tabs.gruppen.badge then self.tabs.gruppen.badge:SetCount(groups) end
+    if self.tabs.pinnwand and self.tabs.pinnwand.badge then
+        self.tabs.pinnwand.badge:SetCount(self.currentTab ~= "pinnwand" and ns.Board:UnreadCount() or 0)
+    end
+end
+for _, msg in ipairs({ "GROUPS_UPDATE", "BOARD_UPDATE", "MEMBERS_UPDATE" }) do
+    ns:Listen(msg, function() UI:UpdateBadges() end)
+end
+ns:Listen("INIT", function()
+    -- Gesuche laufen nach 90 Minuten ab, ohne dass jemand Bescheid sagt
+    C_Timer.NewTicker(30, function() UI:UpdateBadges() end)
+end)
 ns:On("GET_ITEM_INFO_RECEIVED", function() UI:QueueRefresh() end)
 
 -- Reiter: Start (Begrüßung, Gildeninfos, was das Addon kann) -----------------
@@ -2525,7 +2546,7 @@ function UI:CreateBoardPanel()
     -- Unten: Knöpfe und Antwortfeld
     local reply = T.EditBox(detail, inner - 100, "Antworten …")
     reply:SetPoint("BOTTOMLEFT", 16, 72)
-    reply:SetMaxLetters(160)
+    reply:SetMaxLetters(B.REPLY_MAX)
     local send = T.Button(detail, "Senden", 92)
     send:SetPoint("LEFT", reply, "RIGHT", 8, 0)
     local function SendReply()
@@ -2676,9 +2697,53 @@ function UI:CreateBoardPanel()
     p.person:SetPoint("TOPLEFT", toBtn, "BOTTOMLEFT", 0, -6)
 
     p.newTitle = T.EditBox(form, inner, "Überschrift (Pflicht)")
-    p.newTitle:SetMaxLetters(60)
-    p.newText = T.EditBox(form, inner, "Text, z. B. was, wann, wo")
-    p.newText:SetMaxLetters(300)
+    p.newTitle:SetMaxLetters(B.TITLE_MAX)
+
+    -- Beschreibung: mehrzeilig, mit Bildlauf und Zeichenzähler
+    local TEXT_H = 104
+    local textBox = T.Panel(form)
+    textBox:SetBackdropColor(T.colors.ink[1], T.colors.ink[2], T.colors.ink[3], 0.9)
+    textBox:SetSize(inner, TEXT_H)
+    local textSf = T.Scroll(textBox)
+    textSf:SetPoint("TOPLEFT", 8, -6)
+    textSf:SetPoint("BOTTOMRIGHT", -6, 6)
+    local newText = CreateFrame("EditBox", nil, textSf.content)
+    newText:SetPoint("TOPLEFT")
+    newText:SetPoint("RIGHT", textSf.content, "RIGHT")
+    newText:SetHeight(TEXT_H - 12)
+    newText:SetMultiLine(true)
+    newText:SetAutoFocus(false)
+    newText:SetMaxLetters(B.TEXT_MAX)
+    newText:SetFontObject(T.fonts.body)
+    newText:SetScript("OnEscapePressed", newText.ClearFocus)
+    local textHint = T.Text(textBox, "muted")
+    textHint:SetPoint("TOPLEFT", 8, -8)
+    textHint:SetText("Beschreibung: was, wann, wo, wer … (Enter = neue Zeile)")
+    local textCount = T.Text(form, "small")
+    textCount:SetPoint("TOPRIGHT", textBox, "BOTTOMRIGHT", 0, -3)
+    newText:SetScript("OnTextChanged", function(self)
+        textSf.content:SetHeight(math.max(self:GetHeight(), 1))
+        textSf.UpdateThumb()
+        local len = strlenutf8 and strlenutf8(self:GetText()) or #self:GetText()
+        textHint:SetShown(len == 0 and not self:HasFocus())
+        textCount:SetText(T.Hex(len >= B.TEXT_MAX and "orange" or "dim", len .. " / " .. B.TEXT_MAX))
+    end)
+    newText:SetScript("OnEditFocusGained", function() textHint:Hide() end)
+    newText:SetScript("OnEditFocusLost", function(self) textHint:SetShown(self:GetText() == "") end)
+    newText:SetScript("OnCursorChanged", function(_, _, y, _, h)
+        local offset, view, cur = -y, textSf:GetHeight(), textSf:GetVerticalScroll()
+        if offset < cur then
+            textSf:SetVerticalScroll(offset)
+        elseif offset + h > cur + view then
+            textSf:SetVerticalScroll(math.min(textSf:GetVerticalScrollRange(), offset + h - view))
+        end
+        textSf.UpdateThumb()
+    end)
+    textSf:SetScript("OnMouseDown", function() newText:SetFocus() end)
+    textBox:EnableMouse(true)
+    textBox:SetScript("OnMouseDown", function() newText:SetFocus() end)
+    p.newText, p.newTextBox = newText, textBox
+    textCount:SetText(T.Hex("dim", "0 / " .. B.TEXT_MAX))
 
     -- Termin (nur bei Aktionen): Tag durchklicken, Uhrzeit eintippen
     p.dayBtn = T.Button(form, "", inner - 108)
@@ -2783,8 +2848,8 @@ function UI:CreateBoardPanel()
         if p.newTo == "person" then y = y - 32 end
         p.newTitle:SetPoint("TOPLEFT", 16, y)
         y = y - 32
-        p.newText:SetPoint("TOPLEFT", 16, y)
-        y = y - 40
+        p.newTextBox:SetPoint("TOPLEFT", 16, y)
+        y = y - (TEXT_H + 24)
         local isDate = B.CAT[p.newCat].date
         p.dayBtn:SetShown(isDate)
         p.timeBox:SetShown(isDate)
@@ -2978,6 +3043,7 @@ function UI:CreateProfessionsPanel()
         local names, count = KnownProfessions()
         local entries = { { label = "Alle Berufe" } }
         for _, n in ipairs(names) do table.insert(entries, { label = n .. "  (" .. count[n] .. ")", value = n }) end
+        table.insert(entries, { label = (p.onlySpecial and "Alle Rezepte zeigen" or "Nur Sonderrezepte"), special = true })
         for i, e in ipairs(entries) do
             local b = menu.buttons[i]
             if not b then
@@ -2986,8 +3052,16 @@ function UI:CreateProfessionsPanel()
                 b:SetPoint("TOPLEFT", 6, -6 - (i - 1) * 24)
                 menu.buttons[i] = b
             end
-            b:SetText(e.value == p.profFilter and T.Hex("goldBright", e.label) or e.label)
+            b:SetText(e.special and (P.SPECIAL_ICON .. e.label) or (e.value == p.profFilter and T.Hex("goldBright", e.label) or e.label))
             b:SetScript("OnClick", function()
+                if e.special then
+                    -- Sonderrezepte gibt es nur in Rezeptlisten: dafür in die Ansicht „Nach Rezepten“ wechseln
+                    p.onlySpecial = not p.onlySpecial
+                    if p.onlySpecial and not p.detail then p.byRecipe = true end
+                    menu:Hide()
+                    p:Refresh()
+                    return
+                end
                 p.profFilter = e.value
                 p.detail, p.detailRecipe = nil, nil -- zurück zur Übersicht mit allen, die diesen Beruf haben
                 menu:Hide()
@@ -3040,6 +3114,15 @@ function UI:CreateProfessionsPanel()
             for _, r in ipairs(sch.reagents) do
                 GameTooltip:AddLine(r[2] .. "× " .. (P:ItemName(r[1]) or ("Gegenstand " .. r[1])), 1, 1, 1)
             end
+        end
+        local special = P:SpecialItem(id)
+        if special then
+            GameTooltip:AddLine(" ")
+            GameTooltip:AddLine(P.SPECIAL_ICON .. "Sonderrezept", 0.95, 0.86, 0.6)
+            local recipeName = P:ItemName(special)
+            GameTooltip:AddLine("Nicht beim Lehrer – man lernt es über "
+                .. (recipeName and ("„" .. recipeName .. "“") or "einen Rezept-Gegenstand")
+                .. " von einem Händler, als Beute oder aus einer Quest.", 1, 1, 1, true)
         end
         if crafters and #crafters > 0 then
             GameTooltip:AddLine(" ")
@@ -3330,7 +3413,8 @@ function UI:CreateProfessionsPanel()
         p:RefreshOrders()
 
         local filter = p.profFilter
-        filterBtn:SetText(filter and T.Hex("goldBright", filter) or "Alle Berufe")
+        filterBtn:SetText((p.onlySpecial and P.SPECIAL_ICON or "") .. (filter and T.Hex("goldBright", filter) or "Alle Berufe"))
+        local function Shown(id) return not p.onlySpecial or P:SpecialItem(id) ~= nil end
 
         viewBtn:SetText(p.byRecipe and T.Hex("goldBright", "Nach Rezepten") or "Nach Personen")
         local text = strtrim(search:GetText() or "")
@@ -3349,7 +3433,7 @@ function UI:CreateProfessionsPanel()
 
         local function Colored(id, name)
             local hex = P:RecipeColor(id)
-            return hex and (hex .. name .. "|r") or T.Hex("goldBright", name)
+            return (P:SpecialItem(id) and P.SPECIAL_ICON or "") .. (hex and (hex .. name .. "|r") or T.Hex("goldBright", name))
         end
         local function IsOnline(key)
             local m = M.byKey[key]
@@ -3367,7 +3451,7 @@ function UI:CreateProfessionsPanel()
                         if not filter or pr.name == filter then
                             for _, id in ipairs(pr.recipes or {}) do
                                 local name = P:RecipeName(id)
-                                if name and (needle == "" or ns.Lower(name):find(needle, 1, true)) then
+                                if name and Shown(id) and (needle == "" or ns.Lower(name):find(needle, 1, true)) then
                                     local r = byId[id]
                                     if not r then
                                         r = { id = id, recipe = name, prof = pr.name, crafters = {} }
@@ -3404,8 +3488,9 @@ function UI:CreateProfessionsPanel()
                 row.cols.prof:SetText(T.Hex("muted", r.prof))
             end)
             p.summary:SetText(#rows == 0 and T.Hex("orange", "Kein passendes Rezept gefunden.")
-                or (#rows .. (#rows == 1 and " Rezept" or " Rezepte") .. (filter and (" in " .. T.Hex("goldBright", filter)) or "")
-                    .. "  ·  " .. T.Hex("green", "grün") .. " = online  ·  Klick zeigt alle Hersteller"))
+                or (#rows .. (#rows == 1 and " Rezept" or " Rezepte") .. (p.onlySpecial and " (nur Sonderrezepte)" or "")
+                    .. (filter and (" in " .. T.Hex("goldBright", filter)) or "")
+                    .. "  ·  " .. T.Hex("green", "grün") .. " = online  ·  " .. P.SPECIAL_ICON .. "= Sonderrezept"))
         elseif recipeDetail then
             -- Alle Hersteller eines Rezepts, mit Auftrag per Klick
             local rows, name = {}, P:RecipeName(recipeDetail) or ("Rezept " .. recipeDetail)
@@ -3437,7 +3522,9 @@ function UI:CreateProfessionsPanel()
             local rows = {}
             for _, pr in ipairs(detail.profs) do
                 for _, id in ipairs((not filter or pr.name == filter) and pr.recipes or {}) do
-                    table.insert(rows, { recipe = P:RecipeName(id) or ("Rezept " .. id), id = id, char = detail.name, key = p.detail, prof = pr.name })
+                    if Shown(id) then
+                        table.insert(rows, { recipe = P:RecipeName(id) or ("Rezept " .. id), id = id, char = detail.name, key = p.detail, prof = pr.name })
+                    end
                 end
             end
             table.sort(rows, function(a, b)
@@ -3445,22 +3532,25 @@ function UI:CreateProfessionsPanel()
                 return a.recipe < b.recipe
             end)
             hitList:SetData(rows, function(row, h)
-                row.cols.recipe:SetText(T.Hex("goldBright", h.recipe))
+                row.cols.recipe:SetText((P:SpecialItem(h.id) and P.SPECIAL_ICON or "") .. T.Hex("goldBright", h.recipe))
                 row.cols.char:SetText(ns.ShortName(h.char))
                 row.cols.prof:SetText(T.Hex("muted", h.prof))
                 row.cols.status:SetText(Online(h.key))
             end)
-            p.summary:SetText("Rezepte von " .. T.Hex("goldBright", ns.ShortName(detail.name)) .. "  ·  " .. #rows .. " Rezepte")
+            p.summary:SetText("Rezepte von " .. T.Hex("goldBright", ns.ShortName(detail.name)) .. "  ·  " .. #rows .. " Rezepte"
+                .. (p.onlySpecial and " (nur Sonderrezepte)" or "") .. "  ·  " .. P.SPECIAL_ICON .. "= Sonderrezept")
         elseif searching then
             local hits = P:Search(text, 200)
-            if filter then
+            if filter or p.onlySpecial then
                 local only = {}
-                for _, h in ipairs(hits) do if h.prof == filter then table.insert(only, h) end end
+                for _, h in ipairs(hits) do
+                    if (not filter or h.prof == filter) and Shown(h.id) then table.insert(only, h) end
+                end
                 hits = only
             end
             hitList:SetData(hits, function(row, h)
                 local m = M.byKey[h.key]
-                row.cols.recipe:SetText(T.Hex("goldBright", h.recipe))
+                row.cols.recipe:SetText((P:SpecialItem(h.id) and P.SPECIAL_ICON or "") .. T.Hex("goldBright", h.recipe))
                 row.cols.char:SetText(m and ("|c" .. ClassHex(m.classFile) .. ns.ShortName(h.char) .. "|r") or ns.ShortName(h.char))
                 row.cols.prof:SetText(T.Hex("muted", h.prof))
                 row.cols.status:SetText(Online(h.key))
@@ -3899,11 +3989,19 @@ function UI:CreateMinimapButton()
         GameTooltip:AddLine("Linksklick: Fenster öffnen", 1, 1, 1)
         GameTooltip:AddLine("Rechtsklick: Gilde", 1, 1, 1)
         GameTooltip:AddLine("Ziehen: verschieben", 0.7, 0.7, 0.7)
+        local groups = ns.Groups:OpenCount()
+        if groups > 0 then
+            GameTooltip:AddLine(" ")
+            GameTooltip:AddLine(groups == 1 and "1 offene Gruppensuche in der Gilde" or (groups .. " offene Gruppensuchen in der Gilde"), 0.4, 0.85, 0.4)
+        end
         GameTooltip:Show()
     end)
     b:SetScript("OnLeave", GameTooltip_Hide)
+    b.badge = T.Badge(b)
+    b.badge:SetPoint("TOPRIGHT", 3, 3)
     self.minimapButton = b
     self:UpdateMinimapButton()
+    self:UpdateBadges()
 end
 
 ns:Listen("INIT", function() UI:CreateMinimapButton() end)
