@@ -57,6 +57,10 @@ local defaults = {
         notes = {},        -- alle bekannten Zettel
         seen = {},         -- gelesen (Prüfsumme beim Lesen)
     },
+    calendar = {     -- Kalender
+        raids = { version = 0, list = {} }, -- Raidtermine aus dem Raidplaner (in der Gilde verteilt)
+        show = {},         -- Filter: Art -> false = ausgeblendet
+    },
     plan = nil,      -- Raid aus dem Raidplaner der Webseite
     nextRaid = nil,  -- nächster Raidtermin, in der Gilde verteilt
     session = nil,   -- laufendes Raid-Protokoll (Anwesenheit, Bosse)
@@ -318,7 +322,7 @@ end)
 local function Help()
     ns.Print("Befehle:")
     print("  /ea – Fenster öffnen/schließen")
-    print("  /ea start | raid | sr | loot | beute | taktik | gruppen | gilde | pinnwand | berufe | notizen | invite – Bestimmten Reiter öffnen")
+    print("  /ea start | raid | sr | loot | beute | taktik | gruppen | gilde | kalender | pinnwand | berufe | notizen | invite – Bestimmten Reiter öffnen")
     print("  /ea ruhm – Ruhmeshalle: die Erstkills der Gilde")
     print("  /ea pause [Minuten] – Pause für den ganzen Raid (Leitung), /ea weiter beendet sie")
     print("  /ea vorbereitung – Fläschchen, Essen, Rüstung und Verzauberungen im Raid prüfen")
@@ -386,6 +390,8 @@ SlashCmdList.ELTERNABENDRAID = function(input)
         ns.UI:Show("berufe")
     elseif cmd == "notizen" or cmd == "notiz" then
         ns.UI:Show("notizen")
+    elseif cmd == "kalender" or cmd == "termine" then
+        ns.UI:Show("kalender")
     elseif cmd == "pinnwand" or cmd == "zettel" or cmd == "brett" then
         ns.UI:Show("pinnwand")
     elseif cmd == "gilde" or cmd == "mitglieder" or cmd == "twinks" then

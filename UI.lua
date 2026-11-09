@@ -9,6 +9,7 @@ local ROW_H = 22
 local TABS = {
     { key = "start", label = "Start" },
     { key = "mitglieder", label = "Gilde" },
+    { key = "kalender", label = "Kalender" },
     { key = "pinnwand", label = "Pinnwand" },
     { key = "berufe", label = "Berufe" },
     { key = "gruppen", label = "Gruppen" },
@@ -282,6 +283,7 @@ function UI:Create()
     self.panels.history = self:CreateHistoryPanel()
     self.panels.fame = self:CreateFamePanel()
     self.panels.web = self:CreateWebPanel()
+    self.panels.kalender = self:CreateCalendarPanel()
     -- Die Raid-Reiter beginnen unter der Unterleiste
     for key in pairs(IN_RAID_GROUP) do
         local p = self.panels[key]
@@ -407,7 +409,7 @@ function UI:QueueRefresh()
 end
 
 for _, msg in ipairs({ "ROSTER_UPDATE", "SR_UPDATE", "LOOT_UPDATE", "ROLL_UPDATE", "HISTORY_UPDATE", "SESSION_UPDATE", "NOTES_UPDATE", "INFO_UPDATE", "MEMBERS_UPDATE", "JOIN_UPDATE", "PROF_UPDATE",
-    "GROUPS_UPDATE", "ORDERS_UPDATE", "FAME_UPDATE", "READY_UPDATE", "BOARD_UPDATE" }) do
+    "GROUPS_UPDATE", "ORDERS_UPDATE", "FAME_UPDATE", "READY_UPDATE", "BOARD_UPDATE", "CALENDAR_UPDATE" }) do
     ns:Listen(msg, function() UI:QueueRefresh() end)
 end
 
@@ -544,6 +546,7 @@ function UI:CreateStartPanel()
     now:SetPoint("BOTTOMRIGHT")
     local NOW_ROWS = {
         { key = "online", title = "Gilde", button = "Öffnen", tab = "mitglieder" },
+        { key = "calendar", title = "Kalender", button = "Öffnen", tab = "kalender" },
         { key = "board", title = "Pinnwand", button = "Öffnen", tab = "pinnwand" },
         { key = "orders", title = "Aufträge", button = "Öffnen", tab = "berufe" },
         { key = "groups", title = "Gruppen", button = "Öffnen", tab = "gruppen" },
@@ -641,6 +644,18 @@ function UI:CreateStartPanel()
         end
         p.now.online.text:SetText(not IsInGuild() and "Du bist noch in keiner Gilde."
             or online == 1 and "1 Spieler gerade online" or (online .. " Spieler gerade online"))
+
+        -- Kalender: was gerade läuft (Jahrmarkt, PvP), nächster Raid
+        local running, nextRaid, nextDmf = ns.Calendar:Summary()
+        local calRow = p.now.calendar
+        calRow.extra:SetText(nextRaid and T.Hex("goldBright", "Raid " .. date("%d.%m. %H:%M", nextRaid.start)) or "")
+        if #running > 0 then
+            calRow.text:SetText(T.Hex("cream", "Jetzt: " .. table.concat(running, "  ·  ")))
+        elseif nextDmf then
+            calRow.text:SetText("Nächster Dunkelmond-Jahrmarkt ab " .. date("%d.%m.", nextDmf))
+        else
+            calRow.text:SetText("Raids, Jahrmarkt und PvP-Wochenenden auf einen Blick")
+        end
 
         local last = ns.Fame:List()[1]
         p.now.fame.text:SetText(last and ("Zuletzt: " .. last.name .. (last.diffName ~= "" and (" (" .. last.diffName .. ")") or "")
@@ -1887,6 +1902,282 @@ function UI:CreateWebPanel()
     end
 
     return p
+end
+
+-- Reiter: Kalender (Raids, Dunkelmond-Jahrmarkt, PvP-Wochenende, Feiertage) ----------
+local MONTHS = { "Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August",
+    "September", "Oktober", "November", "Dezember" }
+local WEEKDAYS = { "Sonntag", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag" }
+local KIND_HEX = { raid = "goldBright", dmf = "ffc79bf2", pvp = "red", guild = "green", other = "muted" }
+local KIND_RGB = {
+    raid = { 0.953, 0.863, 0.604 }, dmf = { 0.78, 0.61, 0.95 }, pvp = { 0.95, 0.45, 0.40 },
+    guild = { 0.55, 0.85, 0.50 }, other = { 0.78, 0.745, 0.678 },
+}
+
+local function DaysIn(year, month)
+    return date("*t", time({ year = year, month = month + 1, day = 0, hour = 12 })).day
+end
+
+function UI:CreateCalendarPanel()
+    local p = self:NewPanel()
+    local Cal = ns.Calendar
+    local gridW, cellH, headH = 650, 62, 54
+    local cellW = math.floor((gridW - 24) / 7)
+    local today = date("*t")
+    p.year, p.month, p.day = today.year, today.month, today.day
+
+    -- Links: Monatsansicht
+    local grid = T.Panel(p)
+    grid:SetPoint("TOPLEFT")
+    grid:SetPoint("BOTTOMLEFT")
+    grid:SetWidth(gridW)
+
+    local prev = T.Button(grid, "<", 30)
+    prev:SetPoint("TOPLEFT", 12, -12)
+    local nextB = T.Button(grid, ">", 30)
+    nextB:SetPoint("LEFT", prev, "RIGHT", 6, 0)
+    p.title = T.Text(grid, "heading")
+    p.title:SetPoint("LEFT", nextB, "RIGHT", 14, 0)
+    local todayB = T.Button(grid, "Heute", 80)
+    todayB:SetPoint("TOPRIGHT", -12, -12)
+    local function Move(delta)
+        local m = p.month + delta
+        p.year, p.month = p.year + math.floor((m - 1) / 12), (m - 1) % 12 + 1
+        p.day = (p.year == today.year and p.month == today.month) and today.day or 1
+        p:Refresh()
+    end
+    prev:SetScript("OnClick", function() Move(-1) end)
+    nextB:SetScript("OnClick", function() Move(1) end)
+    todayB:SetScript("OnClick", function()
+        local t = date("*t")
+        p.year, p.month, p.day = t.year, t.month, t.day
+        p:Refresh()
+    end)
+
+    for i, name in ipairs({ "Mo", "Di", "Mi", "Do", "Fr", "Sa", "So" }) do
+        local fs = T.Text(grid, "kicker", "CENTER")
+        fs:SetPoint("TOPLEFT", 12 + (i - 1) * cellW, -headH + 6)
+        fs:SetWidth(cellW)
+        fs:SetText(name:upper())
+    end
+
+    p.cells = {}
+    for i = 1, 42 do
+        local col, row = (i - 1) % 7, math.floor((i - 1) / 7)
+        local cell = CreateFrame("Button", nil, grid, "BackdropTemplate")
+        cell:SetSize(cellW - 2, cellH - 2)
+        cell:SetPoint("TOPLEFT", 12 + col * cellW, -headH - 10 - row * cellH)
+        T.Backdrop(cell, T.colors.ink, 0.5, 0.12)
+        cell.num = T.Text(cell, "small")
+        cell.num:SetPoint("TOPLEFT", 5, -4)
+        cell.lines = {}
+        for l = 1, 3 do
+            local bar = cell:CreateTexture(nil, "ARTWORK")
+            bar:SetSize(3, 10)
+            bar:SetPoint("TOPLEFT", 4, -6 - l * 12)
+            local fs = T.Text(cell, "muted")
+            fs:SetFont(fs:GetFont(), 9, "")
+            fs:SetPoint("LEFT", bar, "RIGHT", 3, 0)
+            fs:SetWidth(cellW - 14)
+            fs:SetWordWrap(false)
+            cell.lines[l] = { bar = bar, text = fs }
+        end
+        local hl = cell:CreateTexture(nil, "HIGHLIGHT")
+        hl:SetPoint("TOPLEFT", 1, -1)
+        hl:SetPoint("BOTTOMRIGHT", -1, 1)
+        hl:SetColorTexture(1, 1, 1, 0.06)
+        cell:SetScript("OnClick", function(self)
+            if self.day then
+                p.day = self.day
+                p:Refresh()
+            end
+        end)
+        p.cells[i] = cell
+    end
+
+    -- Rechts: der gewählte Tag, Filter, Raidtermine
+    local side = T.Panel(p)
+    side:SetPoint("TOPLEFT", grid, "TOPRIGHT", 12, 0)
+    side:SetPoint("BOTTOMRIGHT")
+    local k = T.Text(side, "kicker")
+    k:SetPoint("TOPLEFT", 16, -14)
+    k:SetText("TAG")
+    p.dayTitle = T.Text(side, "heading")
+    p.dayTitle:SetPoint("TOPLEFT", k, "BOTTOMLEFT", 0, -4)
+
+    local sf = T.Scroll(side)
+    sf:SetPoint("TOPLEFT", 16, -56)
+    sf:SetPoint("BOTTOMRIGHT", -12, 168)
+    p.detail = T.Text(sf.content, "small")
+    p.detail:SetPoint("TOPLEFT")
+    p.detail:SetPoint("RIGHT", sf.content, "RIGHT", -6, 0)
+    p.detail:SetSpacing(3)
+    p.detail:SetJustifyV("TOP")
+
+    local line = side:CreateTexture(nil, "ARTWORK")
+    line:SetHeight(1)
+    line:SetPoint("BOTTOMLEFT", 16, 160)
+    line:SetPoint("BOTTOMRIGHT", -16, 160)
+    line:SetColorTexture(T.colors.gold[1], T.colors.gold[2], T.colors.gold[3], 0.25)
+
+    local fk = T.Text(side, "kicker")
+    fk:SetPoint("TOPLEFT", line, "BOTTOMLEFT", 0, -10)
+    fk:SetText("ANZEIGEN")
+    p.filters = {}
+    local prevBox
+    for i, kind in ipairs(Cal.ORDER) do
+        local cb = T.Checkbox(side, T.Hex(KIND_HEX[kind], Cal.KINDS[kind].label))
+        if i == 1 then
+            cb:SetPoint("TOPLEFT", fk, "BOTTOMLEFT", 0, -6)
+        elseif i % 2 == 0 then
+            cb:SetPoint("LEFT", prevBox, "LEFT", 190, 0)
+        else
+            cb:SetPoint("TOPLEFT", p.filters[Cal.ORDER[i - 2]], "BOTTOMLEFT", 0, -4)
+        end
+        cb.onChange = function(checked)
+            ns.db.calendar.show[kind] = checked and nil or false
+            p:Refresh()
+        end
+        p.filters[kind] = cb
+        if i % 2 == 1 then prevBox = cb end
+    end
+
+    p.raidInfo = T.Text(side, "muted")
+    p.raidInfo:SetPoint("BOTTOMLEFT", 16, 44)
+    p.raidInfo:SetPoint("RIGHT", -16, 0)
+    p.raidInfo:SetSpacing(2)
+    p.importBtn = T.Button(side, "Raidtermine einfügen", 180, "primary")
+    p.importBtn:SetPoint("BOTTOMLEFT", 16, 12)
+    p.importBtn:SetScript("OnClick", function() UI:ShowCalendarImport() end)
+
+    -- Ein Ereignis für die Tagesansicht
+    local function Describe(e)
+        local hex = KIND_HEX[e.kind]
+        local out = {}
+        if e.kind == "raid" then
+            local r = e.raid
+            local finish = r.start + (r.dur or 120) * 60
+            table.insert(out, T.Hex(hex, "Raid  ·  " .. date("%H:%M", r.start) .. " – " .. date("%H:%M Uhr", finish)))
+            table.insert(out, T.Hex("cream", r.name) .. (r.status == "abgesagt" and ("  " .. T.Hex("red", "abgesagt")) or ""))
+            local slots = (r.slots or 0) > 0 and (" von " .. r.slots) or ""
+            table.insert(out, (r.yes or 0) .. slots .. " Zusagen  ·  Anmelden im Raidplaner auf " .. ns.WEBSITE)
+        else
+            local head = Cal.KINDS[e.kind].label
+            if e.kind == "pvp" or e.kind == "other" or e.kind == "guild" then head = e.title end
+            local span = ""
+            if e.start and e.finish and date("%d%m", e.start) ~= date("%d%m", e.finish) then
+                span = date("%d.%m.", e.start) .. " – " .. date("%d.%m.", e.finish)
+            elseif e.start and e.kind == "guild" then
+                span = date("%H:%M Uhr", e.start)
+            end
+            table.insert(out, T.Hex(hex, head) .. (span ~= "" and ("  ·  " .. span) or ""))
+            local text = e.text
+            if e.kind == "dmf" then
+                local place = Cal:Place(text)
+                if place then table.insert(out, "Ort: " .. T.Hex("cream", place)) end
+            end
+            if text then
+                if #text > 360 then text = (text:sub(1, 360):gsub("[\192-\255][\128-\191]*$", "")) .. "…" end
+                table.insert(out, T.Hex("dim", text))
+            end
+        end
+        return table.concat(out, "\n")
+    end
+
+    function p:Refresh()
+        today = date("*t")
+        p.title:SetText(MONTHS[p.month] .. " " .. p.year)
+        local days = Cal:Month(p.year, p.month)
+        local numDays = DaysIn(p.year, p.month)
+        if p.day > numDays then p.day = numDays end
+        local first = date("*t", time({ year = p.year, month = p.month, day = 1, hour = 12 })).wday
+        local lead = (first + 5) % 7 -- Montag = 0
+
+        for i, cell in ipairs(p.cells) do
+            local d = i - lead
+            if d >= 1 and d <= numDays then
+                cell.day = d
+                cell:Show()
+                cell.num:SetText(d)
+                local isToday = p.year == today.year and p.month == today.month and d == today.day
+                local isSel = d == p.day
+                cell:SetBackdropColor(T.colors.ink[1], T.colors.ink[2], T.colors.ink[3], isSel and 0.95 or 0.5)
+                cell:SetBackdropBorderColor(T.colors.gold[1], T.colors.gold[2], T.colors.gold[3], isSel and 0.9 or (isToday and 0.6 or 0.12))
+                cell.num:SetFontObject(isToday and T.fonts.value or T.fonts.small)
+                local shown = {}
+                for _, e in ipairs(days[d] or {}) do
+                    if Cal:Shown(e.kind) then table.insert(shown, e) end
+                end
+                for l = 1, 3 do
+                    local slot, e = cell.lines[l], shown[l]
+                    if e and l == 3 and #shown > 3 then
+                        slot.bar:Hide()
+                        slot.text:SetText(T.Hex("dim", "+" .. (#shown - 2) .. " weitere"))
+                        slot.text:Show()
+                    elseif e then
+                        local rgb = KIND_RGB[e.kind]
+                        slot.bar:SetColorTexture(rgb[1], rgb[2], rgb[3], 0.9)
+                        slot.bar:Show()
+                        slot.text:SetText(T.Hex(KIND_HEX[e.kind], Cal:Short(e)))
+                        slot.text:Show()
+                    else
+                        slot.bar:Hide()
+                        slot.text:Hide()
+                    end
+                end
+            else
+                cell.day = nil
+                cell:Hide()
+            end
+        end
+
+        -- Tagesansicht
+        local wday = date("*t", time({ year = p.year, month = p.month, day = p.day, hour = 12 })).wday
+        p.dayTitle:SetText(WEEKDAYS[wday] .. ", " .. p.day .. ". " .. MONTHS[p.month])
+        local blocks = {}
+        for _, e in ipairs(days[p.day] or {}) do
+            if Cal:Shown(e.kind) then table.insert(blocks, Describe(e)) end
+        end
+        if #blocks == 0 then
+            blocks[1] = T.Hex("dim", Cal:Available() and "An diesem Tag steht nichts an." or "Der Ingame-Kalender ist hier nicht verfügbar.")
+        end
+        p.detail:SetText(table.concat(blocks, "\n\n"))
+        sf.content:SetHeight(math.max(1, p.detail:GetStringHeight() + 8))
+        sf:SetVerticalScroll(0)
+        sf.UpdateThumb()
+
+        for kind, cb in pairs(p.filters) do cb:SetChecked(Cal:Shown(kind)) end
+
+        local raids = ns.db.calendar.raids
+        local count = 0
+        for _, r in ipairs(raids.list) do
+            if r.start > time() - 3600 then count = count + 1 end
+        end
+        if #raids.list > 0 and (raids.version or 0) > 0 then
+            p.raidInfo:SetText(count .. (count == 1 and " kommender Raid" or " kommende Raids") .. " aus dem Raidplaner"
+                .. ((raids.from or "") ~= "" and ("  ·  eingetragen von " .. ns.ShortName(raids.from)) or ""))
+        else
+            p.raidInfo:SetText("Noch keine Raidtermine. Ein Offizier fügt sie aus dem Raidplaner ein, dann bekommt sie die ganze Gilde.")
+        end
+        p.importBtn:SetShown(ns.Board:AmOfficer())
+    end
+
+    return p
+end
+
+function UI:ShowCalendarImport()
+    self:TextDialog("Raidtermine einfügen",
+        "Im Raidplaner auf " .. ns.WEBSITE .. " unter „Termine fürs Addon“ auf „Kopieren“ klicken und hier mit Strg+V einfügen.\n" ..
+        "Das Addon schickt die Termine an alle in der Gilde, die das Addon haben.",
+        "", function(text)
+            local ok, result = ns.Calendar:Import(text)
+            if not ok then
+                ns.Print(result)
+                return false
+            end
+            ns.Print(result == 1 and "1 Raidtermin eingetragen und an die Gilde geschickt."
+                or (result .. " Raidtermine eingetragen und an die Gilde geschickt."))
+        end, "Einfügen")
 end
 
 -- Reiter: Taktik ------------------------------------------------------------
@@ -3974,7 +4265,15 @@ function UI:ShowImport()
     self:TextDialog("Raid einfügen",
         "Im Raidplaner auf " .. ns.WEBSITE .. " den Text „Für das Addon“ kopieren und hier mit Strg+V einfügen.\n" ..
         "Ein CSV-Export von softres.it funktioniert auch.",
-        "", function(text) return ns.Web:Import(text) end, "Einfügen")
+        "", function(text)
+            -- Versehentlich die Termine eingefügt? Dann in den Kalender damit
+            if strtrim(text or ""):sub(1, 5) == "EART1" then
+                local ok, result = ns.Calendar:Import(text)
+                ns.Print(ok and ("Das waren Raidtermine – " .. result .. " davon stehen jetzt im Kalender.") or result)
+                return ok
+            end
+            return ns.Web:Import(text)
+        end, "Einfügen")
 end
 
 function UI:ShowReport()

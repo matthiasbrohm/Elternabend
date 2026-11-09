@@ -175,6 +175,19 @@ Das schwarze Brett der Gilde (`/ea pinnwand`). Jedes Mitglied heftet Zettel an �
 
 **Webseite:** Offiziere klicken unten auf „Für die Webseite“ und fügen den Text auf `gilde-elternabend.de/pinnwand.php` mit dem Offizierspasswort ein. Übernommen werden nur Zettel an alle.
 
+## Kalender
+Der Reiter **Kalender** (`/ea kalender`) zeigt einen Monat auf einen Blick, ein Klick auf einen Tag zeigt die Einzelheiten rechts daneben:
+
+- **Raids** aus dem Raidplaner der Webseite – mit Uhrzeit, Dauer und Zusagen.
+- **Dunkelmond-Jahrmarkt** – von wann bis wann und, soweit der Ingame-Kalender es verrät, wo er steht.
+- **Zu den Waffen** – das PvP-Wochenende mit dem Bonus-Schlachtfeld.
+- **Gildenkalender** – Ereignisse, die jemand in Blizzards Gildenkalender eingetragen hat.
+- **Weitere Feiertage** wie Schlotternächte oder der Angelwettbewerb.
+
+Jede Art lässt sich unten rechts ein- und ausblenden. Im Start-Reiter steht, ob gerade Jahrmarkt oder PvP-Wochenende ist und wann der nächste Raid beginnt; die Raid-Erinnerung kurz vor dem Start gilt auch für diese Termine.
+
+**Raidtermine ins Spiel holen:** Ein Offizier öffnet auf `gilde-elternabend.de/raidplaner.php` (mit Offizierspasswort) den Bereich „Termine fürs Addon“, kopiert den Text und fügt ihn im Kalender mit **Raidtermine einfügen** ein. Das Addon schickt die Termine an alle in der Gilde; wer später einloggt, holt sie sich von einem anderen Mitglied. Angenommen werden nur Termine von Offizieren, die neueren gewinnen.
+
 ## Notizen
 Im Reiter **Notizen** lassen sich beliebig viele Notizen anlegen. Jede kann als kleines Fenster auf den Bildschirm geheftet werden und bleibt dort, auch wenn das Addon-Fenster zu ist – auch nach dem Neu-Einloggen.
 - Verschieben mit der Maus, Größe über die Ecke unten rechts.
@@ -231,6 +244,7 @@ Das Wappen erscheint im Addon-Menü, oben links im Fenster und am Minimap-Button
 | `/ea gildenknopf` | Wappen-Knopf am Blizzard-Gildenfenster ein/aus |
 | `/ea leistung` | Zeigt, wie oft und wie lange das Addon die Gildenliste auswertet (bei Rucklern) |
 | `/ea pinnwand` | Pinnwand öffnen (auch `/ea zettel`) |
+| `/ea kalender` | Kalender mit Raids, Jahrmarkt und PvP-Wochenende |
 | `/ea sync` | Soft-Reserves erneut an die Gruppe senden |
 
 ## Namen mit Vor- und Nachnamen

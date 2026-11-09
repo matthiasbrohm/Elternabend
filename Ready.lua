@@ -177,6 +177,12 @@ function Ready:NextRaid()
     local plan = ns.db.plan
     local candidates = { ns.db.nextRaid }
     if plan and plan.date then table.insert(candidates, { id = plan.id, date = plan.date, title = plan.title }) end
+    -- Termine aus dem Kalender (Export aus dem Raidplaner)
+    for _, r in ipairs(ns.Calendar and ns.Calendar:Raids() or {}) do
+        if r.status ~= "abgesagt" then
+            table.insert(candidates, { id = r.id, date = date("%Y-%m-%d %H:%M", r.start), title = r.name })
+        end
+    end
     for _, r in ipairs(candidates) do
         local at = r and self.ParseDate(r.date)
         if at and at > time() - 3600 and (not best or at < best.at) then
