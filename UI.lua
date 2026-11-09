@@ -2035,7 +2035,8 @@ function UI:CreateCalendarPanel()
             cb:SetPoint("TOPLEFT", p.filters[Cal.ORDER[i - 2]], "BOTTOMLEFT", 0, -4)
         end
         cb.onChange = function(checked)
-            ns.db.calendar.show[kind] = checked and nil or false
+            -- nil = anzeigen (Standard), false = ausgeblendet
+            if checked then ns.db.calendar.show[kind] = nil else ns.db.calendar.show[kind] = false end
             p:Refresh()
         end
         p.filters[kind] = cb
