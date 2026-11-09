@@ -4369,14 +4369,14 @@ function UI:UpdateMinimapButton()
     local s = ns.db.settings
     b:SetShown(not s.minimapHidden)
     local angle = math.rad(s.minimapAngle or 220)
-    local radius = (Minimap:GetWidth() / 2) + 10
+    local radius = (Minimap:GetWidth() / 2) + 8
     b:ClearAllPoints()
     b:SetPoint("CENTER", Minimap, "CENTER", math.cos(angle) * radius, math.sin(angle) * radius)
 end
 
 function UI:CreateMinimapButton()
     local b = CreateFrame("Button", "ElternabendMinimapButton", Minimap)
-    b:SetSize(32, 32)
+    b:SetSize(26, 26) -- so groß wie die runden Knöpfe der anderen Addons
     b:SetFrameStrata("MEDIUM")
     b:SetFrameLevel(8)
 
