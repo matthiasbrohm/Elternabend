@@ -1476,8 +1476,13 @@ function UI:CreateSRPanel()
     imp:SetScript("OnClick", function() UI:ShowImport() end)
     local send = T.Button(p, "An Gruppe senden", 140)
     send:SetScript("OnClick", function() ns.SR:Broadcast() end)
+    -- Umschalter: nur die Items zeigen, die einer meiner Charaktere reserviert hat
     local mine = T.Button(p, "Meine Reserves", 120)
-    mine:SetScript("OnClick", function() ns.SR:PrintOwn() end)
+    mine:SetScript("OnClick", function()
+        p.onlyMine = not p.onlyMine
+        mine:SetText(p.onlyMine and "Alle Reserves" or "Meine Reserves")
+        p:Refresh()
+    end)
     local clear = T.Button(p, "Leeren", 80)
     clear:SetScript("OnClick", function() StaticPopup_Show("ELTERNABEND_CLEAR_SR") end)
     Row(p, 0, 0, { imp, send, mine, clear })
@@ -1521,6 +1526,15 @@ function UI:CreateSRPanel()
                     end
                 end
             end
+            if match and p.onlyMine then
+                match = false
+                for _, r in ipairs(reservers) do
+                    if ns.Board:IsMine(r.name or r.key) then
+                        match = true
+                        break
+                    end
+                end
+            end
             if match then
                 table.insert(rows, { itemId = itemId, name = name, boss = entries[1].boss or "", reservers = reservers })
             end
@@ -1533,6 +1547,10 @@ function UI:CreateSRPanel()
         local total = ns.SR:Count()
         if total == 0 then
             p.info:SetText("Noch keine Soft-Reserves. „Raid einfügen“ und den Text aus dem Raidplaner einfügen.")
+        elseif p.onlyMine then
+            p.info:SetText(#rows == 0 and T.Hex("orange", "Du hast in diesem Raid nichts reserviert – weder mit diesem Charakter noch mit einem Twink.")
+                or T.Hex("goldBright", #rows == 1 and "Nur deine Reserves: 1 Item" or ("Nur deine Reserves: " .. #rows .. " Items"))
+                .. "  ·  „Alle Reserves“ zeigt wieder die ganze Liste")
         else
             p.info:SetText(string.format("%d Reservierungen auf %d Items  ·  %s  ·  %s",
                 total, #rows, data.source or "?", data.importedAt and date("%d.%m. %H:%M", data.importedAt) or "?"))
