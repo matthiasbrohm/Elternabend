@@ -23,7 +23,7 @@ end
 
 -- Text für den Gildenchat, damit auch Mitglieder ohne Addon das Gesuch sehen
 function Groups.ChatText(m)
-    local text = "Suche Gruppe für " .. Clean(m.what) .. ": " .. Groups.NeedText(m.need)
+    local text = "Suche für " .. Clean(m.what) .. " noch " .. Groups.NeedText(m.need)
     if m.note ~= "" then text = text .. " – " .. Clean(m.note) end
     text = text .. ". Mit Addon über /ea gruppen melden, sonst anflüstern!"
     -- Chatnachrichten dürfen höchstens 255 Zeichen haben; nicht mitten im Umlaut kürzen
