@@ -4239,7 +4239,7 @@ function UI:ShowMainPicker(e)
 
         d.buttons = {}
         for i = 1, 10 do
-            local b = T.Button(d, "", 320)
+            local b = T.Button(d, " ", 320) -- mit Text, sonst gibt es noch keine Schrift zum Ausrichten
             b:SetHeight(24)
             b:SetPoint("TOPLEFT", 20, -102 - (i - 1) * 27)
             b:GetFontString():SetJustifyH("LEFT")
