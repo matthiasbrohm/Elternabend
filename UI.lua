@@ -4232,7 +4232,7 @@ function UI:ShowMainPicker(e)
 
         d.search = T.EditBox(d, 320, "Main suchen …")
         d.search:SetPoint("TOPLEFT", 20, -68)
-        d.search:HookScript("OnTextChanged", function() d:Fill() end)
+        d.search:HookScript("OnTextChanged", function() if d.Fill and d.entry then d:Fill() end end)
         d.search:SetScript("OnEnterPressed", function()
             if d.first then d.Pick(d.first) end
         end)
