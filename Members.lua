@@ -1,17 +1,24 @@
 -- Elternabend: Mitgliederübersicht – Twinks und Mains
 --
--- Vereinbarung der Gilde: Die Offiziersnotiz enthält nur den Namen des Mains.
---   leer            → Main
---   „Anna Sturmwind“ → Twink von Anna Sturmwind
--- Die Notiz liegt auf dem Blizzard-Server; alle Offiziere sehen sie, auch ohne Addon.
+-- Wer wessen Twink ist, regelt das Addon selbst (seit 4.6.0) – die Offiziersnotiz ist nicht
+-- mehr nötig, weil Addons sie in WoW Forever ohnehin nicht schreiben dürfen.
 --
--- Offiziersnotizen kann nur lesen, wessen Rang es darf. Damit alle Mitglieder sehen,
--- wer welchen Twink hat, verteilt das Addon der Offiziere die Zuordnung über den
--- Gildenkanal; die anderen speichern sie und zeigen den letzten Stand.
+-- Quellen, die erste passende gilt:
+--   1. Zuordnung im Addon (ns.db.links), Schlüssel = Twink:
+--        k = "o"  ein Offizier hat sie im Addon gesetzt (Rechtsklick » „Twink von …“)
+--        k = "s"  der Spieler hat sie selbst gemeldet („Diesen Charakter als Main festlegen“)
+--        main = "" heißt ausdrücklich: kein Twink
+--      Offiziers-Zuordnungen schlagen selbst gemeldete; sonst gewinnt die neueste.
+--   2. Offiziersnotiz mit dem Namen des Mains (alte Vereinbarung, wird weiter gelesen)
+--   3. die von Offizieren verteilte Notiz-Zuordnung (für alle ohne Leserecht)
+--   4. eigene Charaktere auf diesem Account (nur lokal)
 --
--- Zusätzlich merkt sich das Addon (accountweit), welche Charaktere einem Spieler
--- gehören. Wer seinen Main festlegt, meldet das über den Gildenkanal; Offiziere
--- bekommen daraus Vorschläge und übernehmen sie per Klick.
+-- Nachrichten:
+--   CHARS  <Main>\t<A;B;C>   „Das sind meine Charaktere“ (selbst gemeldet)
+--   LNK    <Eintrag>          eine Zuordnung wurde geändert
+--   LNQ    <neuester Stand>   beim Einloggen: wer Neueres hat, schickt LNA
+--   LNA    <Einträge>         alle Zuordnungen (SendLarge)
+--   Eintrag: Twink^Main^Zeit^Von^Art, mehrere mit „~“ getrennt
 local _, ns = ...
 
 local Members = { list = {}, byKey = {}, mains = {} }
@@ -107,17 +114,35 @@ function Members:Scan()
         end
     end
 
-    -- Eigene Charaktere auf diesem Account kennt das Addon selbst: ohne Offiziersnotiz
-    -- trotzdem unter dem eigenen Main zeigen (nur hier, wird nicht weiterverteilt)
+    for _, e in ipairs(self.list) do
+        if e.main then e.source, e.trusted = "note", true end
+    end
+
+    -- Zuordnungen aus dem Addon gehen vor
+    for _, e in ipairs(self.list) do
+        local r = ns.db.links[e.key]
+        if r then
+            local m = r.main ~= "" and self:Find(r.main) or nil
+            if r.main == "" then
+                e.main, e.source, e.link = nil, "addon", r
+                wipe(e.issues)
+            elseif m and m ~= e then
+                e.main, e.source, e.link = m, "addon", r
+                -- Selbst gemeldet von einem Twink: zählt nicht für Offiziersrechte (sonst könnte sich
+                -- jeder einen Offizier als Main eintragen)
+                e.trusted = r.k == "o" or ns.SameName(r.by, r.main)
+                wipe(e.issues)
+            end
+        end
+    end
+
+    -- Eigene Charaktere auf diesem Account kennt das Addon selbst (nur hier)
     local myMain = ns.db.myMain and self.byKey[ns.db.myMain]
     if myMain then
         for key in pairs(ns.db.myChars) do
             local e = self.byKey[key]
-            if e and e ~= myMain and not e.main and e.note == "" then
-                e.main, e.fromAccount = myMain, true
-                if canView then
-                    table.insert(e.issues, { short = "Notiz fehlt", long = "Laut Addon ein Twink von " .. myMain.display .. ", aber die Offiziersnotiz ist leer" })
-                end
+            if e and e ~= myMain and not e.main and not e.link then
+                e.main, e.fromAccount, e.source, e.trusted = myMain, true, "account", true
             end
         end
     end
@@ -132,7 +157,7 @@ function Members:Scan()
             end
             table.insert(e.main.twinks, e)
         else
-            if isTwinkRank and e.note == "" then table.insert(e.issues, { short = "Kein Main", long = "Rang „Twink“, aber kein Main in der Offiziersnotiz" }) end
+            if isTwinkRank then table.insert(e.issues, { short = "Kein Main", long = "Rang „Twink“, aber kein Main zugeordnet (Rechtsklick » „Twink von …“)" }) end
             table.insert(self.mains, e)
         end
     end
@@ -146,13 +171,13 @@ function Members:Scan()
         end
     end
     table.sort(self.mains, function(a, b) return a.name < b.name end)
-    self:CleanSuggestions()
+
     -- Offiziere merken sich die Zuordnung accountweit: Twinks ohne Leserecht auf
     -- demselben Account sehen sie dann sofort, auch wenn kein Offizier online ist
     if canView then
         local pairsByKey = {}
         for _, e in ipairs(self.list) do
-            if e.main and not e.fromAccount then pairsByKey[e.key] = ns.ShortName(e.main.name) end
+            if e.main and e.source == "note" then pairsByKey[e.key] = ns.ShortName(e.main.name) end
         end
         ns.db.twinkMap = { time = time(), from = ns.ShortName(ns.UnitFullName("player")), pairs = pairsByKey }
     end
@@ -161,13 +186,18 @@ function Members:Scan()
         self.pending = nil
         self:Receive(p.sender, p.data)
     end
+    if self.linkQueue then
+        local q = self.linkQueue
+        self.linkQueue = nil
+        for _, item in ipairs(q) do item() end
+    end
 end
 
 -- Zuordnung verteilen (Offiziere) und empfangen (alle) --------------------------
 function Members:BuildMap()
     local parts = {}
     for _, e in ipairs(self.list) do
-        if e.main and not e.fromAccount then table.insert(parts, ns.ShortName(e.name) .. "=" .. ns.ShortName(e.main.name)) end
+        if e.main and e.source == "note" then table.insert(parts, ns.ShortName(e.name) .. "=" .. ns.ShortName(e.main.name)) end
     end
     table.sort(parts)
     return table.concat(parts, ";")
@@ -233,12 +263,136 @@ function Members:Find(name)
     end
 end
 
--- Schreiben können Addons nichts: C_GuildInfo.SetNote (Offiziersnotiz) und das Ändern von
--- Rängen sind im aktuellen Client für Addons gesperrt (ADDON_ACTION_FORBIDDEN, auch mit
--- pcall). Das Addon legt deshalb nur den Main-Namen zum Kopieren bereit; eingefügt wird er
--- im Gildenfenster.
 function Members:NoteFits(name)
     return #(ns.ShortName(name) or "") <= NOTE_MAX
+end
+
+-- Zuordnung im Addon -------------------------------------------------------------
+local function CleanName(s) return (tostring(s or ""):gsub("[%^~\t\r\n|]", "")) end
+
+local function Encode(r)
+    return table.concat({ CleanName(r.twink), CleanName(r.main), r.t, CleanName(r.by), r.k }, "^")
+end
+
+local function Decode(text)
+    local twink, main, t, by, k = strsplit("^", text)
+    t = tonumber(t)
+    if not twink or twink == "" or not t or (k ~= "o" and k ~= "s") then return nil end
+    return { twink = twink, main = main or "", t = t, by = by or "", k = k }
+end
+
+-- Ist die Gildenliste noch nicht da, später prüfen (Rechte hängen am Rang)
+local function WhenListReady(fn)
+    if #Members.list > 0 then return fn() end
+    Members.linkQueue = Members.linkQueue or {}
+    table.insert(Members.linkQueue, fn)
+end
+
+-- Eintrag übernehmen, wenn er gültig und neuer ist. Gibt true zurück, wenn sich etwas geändert hat.
+function Members:AcceptLink(r)
+    local key = ns.NameKey(r.twink)
+    if not key then return false end
+    if r.k == "o" then
+        if not ns.Board:IsOfficer(r.by) then return false end
+    elseif not (ns.SameName(r.by, r.twink) or (r.main ~= "" and ns.SameName(r.by, r.main))) then
+        return false -- selbst melden darf man nur für die eigenen Charaktere
+    end
+    local old = ns.db.links[key]
+    if old then
+        if old.k == "o" and r.k == "s" then return false end -- Offizier schlägt Selbstmeldung
+        local newer = r.t > old.t or (r.k == "o" and old.k == "s")
+        if not newer then return false end
+        if old.main == r.main and old.k == r.k then
+            old.t = r.t
+            return false
+        end
+    end
+    ns.db.links[key] = r
+    return true
+end
+
+function Members:NewestLink()
+    local t = 0
+    for _, r in pairs(ns.db.links) do
+        if r.t > t then t = r.t end
+    end
+    return t
+end
+
+local function Changed()
+    Members:Scan()
+    ns:Fire("MEMBERS_UPDATE")
+end
+
+-- Offizier: Twink zuordnen (mainName = nil oder "" → kein Twink)
+function Members:SetLink(twinkName, mainName)
+    if not ns.Board:AmOfficer() then
+        ns.Print("Twinks zuordnen dürfen nur Offiziere.")
+        return
+    end
+    local key = ns.NameKey(twinkName)
+    local old = key and ns.db.links[key]
+    local r = {
+        twink = twinkName, main = mainName or "", by = ns.UnitFullName("player") or "", k = "o",
+        t = math.max(time(), old and old.t + 1 or 0),
+    }
+    ns.db.links[key] = r
+    ns.Comm:Send("LNK", Encode(r), "GUILD")
+    Changed()
+    ns.Print(ns.ShortName(twinkName) .. (r.main == "" and " ist jetzt als Main eingetragen."
+        or (" ist jetzt ein Twink von " .. ns.ShortName(r.main) .. ".")))
+end
+
+function Members:Links()
+    local list = {}
+    for _, r in pairs(ns.db.links) do table.insert(list, r) end
+    table.sort(list, function(a, b) return a.t > b.t end)
+    return list
+end
+
+ns.Comm.handlers.LNK = function(sender, parts)
+    local r = Decode(parts[2] or "")
+    if not r or not ns.SameName(r.by, sender) then return end
+    WhenListReady(function()
+        if Members:AcceptLink(r) then Changed() end
+    end)
+end
+
+-- Einloggen: Stand vergleichen; wer Neueres hat, schickt alles (zufällig verzögert –
+-- kommt in der Zeit schon eine Antwort von jemand anderem, entfällt die eigene)
+ns.Comm.handlers.LNQ = function(_, parts)
+    local theirs = tonumber(parts[2]) or 0
+    if Members:NewestLink() <= theirs then return end
+    Members.linkAnswer = true
+    C_Timer.After(3 + math.random() * 6, function()
+        if not Members.linkAnswer then return end
+        Members.linkAnswer = nil
+        local items = {}
+        for _, r in pairs(ns.db.links) do table.insert(items, Encode(r)) end
+        if #items > 0 then
+            ns.WhenChatFree(function() ns.Comm:SendLarge("LNA", table.concat(items, "~"), "GUILD") end)
+        end
+    end)
+end
+
+ns.Comm.handlers.LNA = function(sender, parts)
+    local data = ns.Comm:Assemble(sender, parts)
+    if not data then return end
+    Members.linkAnswer = nil
+    WhenListReady(function()
+        local changed = false
+        for item in data:gmatch("[^~]+") do
+            local r = Decode(item)
+            if r and Members:AcceptLink(r) then changed = true end
+        end
+        if changed then Changed() end
+    end)
+end
+
+function Members:RequestLinks()
+    if self.linksRequested or not IsInGuild() then return end
+    self.linksRequested = true
+    ns.Comm:Send("LNQ", tostring(self:NewestLink()), "GUILD")
 end
 
 -- Eigene Charaktere (accountweit) -----------------------------------------------
@@ -261,9 +415,20 @@ end
 function Members:SetMyMain()
     self:RememberMe()
     ns.db.myMain = ns.PlayerKey()
-    ns.Print("Dieser Charakter ist jetzt dein Main. Die Offiziere bekommen einen Vorschlag für deine Twinks.")
+    ns.Print("Dieser Charakter ist jetzt dein Main. Deine Twinks werden der Gilde gemeldet.")
+    self:SelfLinks(ns.UnitFullName("player"), self:MyChars(), ns.UnitFullName("player"))
     self:AnnounceMine(true)
     ns:Fire("MEMBERS_UPDATE")
+end
+
+-- Eigene Charaktere in dieser Gilde
+function Members:MyChars()
+    local guild = IsInGuild() and GetGuildInfo("player")
+    local names = {}
+    for _, c in pairs(ns.db.myChars) do
+        if guild and c.guild == guild then table.insert(names, c.name) end
+    end
+    return names
 end
 
 -- An die Gilde: „Main ist X, meine Charaktere in dieser Gilde sind A;B;C“
@@ -273,18 +438,31 @@ function Members:AnnounceMine(force)
     local main = self:MyMain()
     local guild = GetGuildInfo("player")
     if not main or not guild or main.guild ~= guild then return end
-    local names = {}
-    for _, c in pairs(ns.db.myChars) do
-        if c.guild == guild then table.insert(names, c.name) end
-    end
+    local names = self:MyChars()
     if #names < 2 then return end
     self.announced = true
     ns.Comm:Send("CHARS", main.name .. "\t" .. table.concat(names, ";"), "GUILD")
 end
 
--- Vorschläge (bei Offizieren) ------------------------------------------------
+-- Selbst gemeldete Charaktere als Zuordnung übernehmen (bei allen, auch beim Absender)
+function Members:SelfLinks(main, chars, sender)
+    local changed = false
+    for _, name in ipairs(chars) do
+        local key = ns.NameKey(name)
+        local old = key and ns.db.links[key]
+        if ns.SameName(name, main) then
+            -- Der Main selbst: eine alte Selbstmeldung als Twink aufheben
+            if old and old.k == "s" and old.main ~= "" then
+                changed = self:AcceptLink({ twink = name, main = "", t = math.max(time(), old.t + 1), by = sender, k = "s" }) or changed
+            end
+        elseif not (old and ns.SameName(old.main, main)) then
+            changed = self:AcceptLink({ twink = name, main = main, t = math.max(time(), old and old.t + 1 or 0), by = sender, k = "s" }) or changed
+        end
+    end
+    return changed
+end
+
 ns.Comm.handlers.CHARS = function(sender, parts)
-    if not Members:CanEdit() then return end
     local main, list = parts[2], parts[3]
     if not main or not list then return end
     local chars = {}
@@ -295,32 +473,9 @@ ns.Comm.handlers.CHARS = function(sender, parts)
         if ns.SameName(name, sender) then fromOwner = true end
     end
     if not fromOwner then return end
-
-    for _, name in ipairs(chars) do
-        if not ns.SameName(name, main) then
-            ns.db.memberSuggestions[ns.NameKey(name)] = { twink = name, main = main, time = time() }
-        end
-    end
-    Members:CleanSuggestions()
-    ns:Fire("MEMBERS_UPDATE")
-end
-
--- Vorschläge entfernen, die schon stimmen oder nicht mehr passen
-function Members:CleanSuggestions()
-    if #self.list == 0 then return end
-    for key, s in pairs(ns.db.memberSuggestions) do
-        local twink = self:Find(s.twink)
-        if not twink or not self:Find(s.main) or (twink.main and ns.SameName(twink.main.name, s.main)) then
-            ns.db.memberSuggestions[key] = nil
-        end
-    end
-end
-
-function Members:Suggestions()
-    local list = {}
-    for _, s in pairs(ns.db.memberSuggestions) do table.insert(list, s) end
-    table.sort(list, function(a, b) return a.main == b.main and a.twink < b.twink or a.main < b.main end)
-    return list
+    WhenListReady(function()
+        if Members:SelfLinks(main, chars, sender) then Changed() end
+    end)
 end
 
 -- Events -------------------------------------------------------------------------
@@ -338,6 +493,7 @@ local function RunScan()
     Members:AnnounceMine()
     Members:Share()
     Members:RequestMap()
+    Members:RequestLinks()
     ns:Fire("MEMBERS_UPDATE")
     if start then
         local ms = debugprofilestop() - start

@@ -741,32 +741,16 @@ function UI:CreateMembersPanel()
     local M = ns.Members
     local rightWidth = 330
 
-    -- Kopierfeld: Addons dürfen nicht in die Zwischenablage schreiben und keine
-    -- Offiziersnotizen ändern. „Kopieren“ legt den Namen markiert hierher; Strg+C,
-    -- dann im Blizzard-Gildenmenü einfügen.
-    local copyCard = StartCard(p, "Name kopieren", 104)
+    -- Hinweis für Offiziere: Twinks werden im Addon zugeordnet, nicht mehr per Offiziersnotiz
+    local copyCard = StartCard(p, "Twinks zuordnen", 104)
     copyCard:SetPoint("TOPRIGHT")
     copyCard:SetWidth(rightWidth)
-    p.copyBox = T.EditBox(copyCard, rightWidth - 32, "„Kopieren“ in der Liste klicken")
-    p.copyBox:SetPoint("TOPLEFT", 16, -32)
-    p.copyBox:HookScript("OnEditFocusGained", function(self) self:HighlightText() end)
-    p.copyBox:SetScript("OnMouseUp", function(self) self:HighlightText() end)
-    p.copyBox:HookScript("OnTextChanged", function(self, userInput)
-        if userInput then
-            self:SetText(self.value or "")
-            self:HighlightText()
-        end
-    end)
-    local copyHint = T.Text(copyCard, "muted")
-    copyHint:SetPoint("TOPLEFT", 16, -68)
-    copyHint:SetText("Strg+C – dann im Gildenmenü einfügen.")
-
-    local function Copy(name)
-        p.copyBox.value = name
-        p.copyBox:SetText(name)
-        p.copyBox:SetFocus()
-        p.copyBox:HighlightText()
-    end
+    local copyHint = T.Text(copyCard, "small")
+    copyHint:SetPoint("TOPLEFT", copyCard.kicker, "BOTTOMLEFT", 0, -6)
+    copyHint:SetWidth(rightWidth - 32)
+    copyHint:SetSpacing(3)
+    copyHint:SetText("Rechtsklick auf einen Charakter » " .. T.Hex("goldBright", "„Twink von …“") ..
+        ". Die ganze Gilde bekommt es mit – keine Offiziersnotiz nötig. Wer das Addon hat, meldet seine Twinks selbst.")
 
     -- Links: Übersicht
     p.summary = T.Text(p, "body")
@@ -852,14 +836,9 @@ function UI:CreateMembersPanel()
         { key = "rank", label = "Rang", x = 146, w = 80 },
         { key = "class", label = "Klasse", x = 228, w = 76 },
         { key = "status", label = "Status", x = 306, w = 92 },
-        { key = "issue", label = "Hinweis", x = 400, right = -74 },
+        { key = "issue", label = "Hinweis", x = 400, right = -6 },
     }
-    local list = CreateList(p, columns, function(row)
-        row.copy = T.Button(row, "Kopieren", 66)
-        row.copy:SetHeight(19)
-        row.copy:SetPoint("RIGHT", -4, 0)
-        row.copy:SetScript("OnClick", function(self) Copy(self:GetParent().data.display) end)
-    end)
+    local list = CreateList(p, columns)
     list.panel:SetPoint("TOPLEFT", 0, -36)
     list.panel:SetPoint("BOTTOMRIGHT", -(rightWidth + 12), 36)
     -- Rechtsklick-Menü: anflüstern, in die Gruppe einladen, Charaktere zeigen
@@ -966,6 +945,13 @@ function UI:CreateMembersPanel()
             p.selected = (e.main or e).key
             p:Refresh()
         end })
+        -- Twink zuordnen (Offiziere) – im Addon, ohne Offiziersnotiz
+        if ns.Board:AmOfficer() then
+            table.insert(entries, { "Twink von …", function() UI:ShowMainPicker(e) end })
+            if e.main then
+                table.insert(entries, { "Ist kein Twink (Main)", function() M:SetLink(e.name, "") end })
+            end
+        end
         local ranks = RankEntries(e)
         local firstRank = #entries + 1
         for _, r in ipairs(ranks) do table.insert(entries, { r.label, function() end, rank = r }) end
@@ -1014,7 +1000,18 @@ function UI:CreateMembersPanel()
         GameTooltip:AddLine("|c" .. ClassHex(e.classFile) .. e.display .. "|r")
         GameTooltip:AddLine((e.class or "") .. (e.level and (", Stufe " .. e.level) or ""), 0.78, 0.75, 0.68)
         GameTooltip:AddLine(e.main and ("Twink von " .. e.main.display) or "Main", 1, 1, 1)
-        if e.fromAccount then GameTooltip:AddLine("Auf deinem Account – noch ohne Offiziersnotiz", 0.78, 0.75, 0.68) end
+        if e.main or e.link then
+            local src
+            if e.source == "addon" and e.link then
+                src = e.link.k == "o" and ("von " .. ns.ShortName(e.link.by) .. " zugeordnet") or "selbst gemeldet"
+                src = src .. ", " .. date("%d.%m.%Y", e.link.t)
+            elseif e.source == "note" then
+                src = "aus der Offiziersnotiz"
+            elseif e.source == "account" then
+                src = "dein Account"
+            end
+            if src then GameTooltip:AddLine("Zuordnung: " .. src, 0.78, 0.75, 0.68) end
+        end
         if #e.twinks > 0 then
             local names = {}
             for _, t in ipairs(e.twinks) do table.insert(names, t.display) end
@@ -1024,6 +1021,7 @@ function UI:CreateMembersPanel()
             GameTooltip:AddLine("Wer wessen Twink ist, kommt automatisch, sobald ein Offizier mit Addon online ist.", 0.78, 0.75, 0.68, true)
         end
         GameTooltip:AddLine("Klick: Charaktere zeigen  ·  Rechtsklick: anflüstern, einladen"
+            .. (ns.Board:AmOfficer() and ", Twink zuordnen" or "")
             .. (((CanGuildPromote and CanGuildPromote()) or (CanGuildDemote and CanGuildDemote())) and ", Rang ändern" or ""), 0.84, 0.69, 0.35)
         if M:CanView() then
             if e.note ~= "" then GameTooltip:AddLine("Offiziersnotiz: " .. e.note, 0.6, 0.6, 0.6) end
@@ -1048,15 +1046,15 @@ function UI:CreateMembersPanel()
     setMine:SetPoint("BOTTOMLEFT", 16, 12)
     setMine:SetScript("OnClick", function() M:SetMyMain() end)
 
-    -- Rechts Mitte: Vorschläge aus dem Addon („Twink » Main“; kopiert wird der Main-Name)
-    local sugg = StartCard(p, "Vorschläge aus dem Addon", 0)
+    -- Rechts Mitte: die zuletzt im Addon zugeordneten Twinks
+    local sugg = StartCard(p, "Zuletzt zugeordnet", 0)
     sugg:SetPoint("TOPRIGHT", copyCard, "BOTTOMRIGHT", 0, -10)
     sugg:SetPoint("BOTTOMRIGHT", mine, "TOPRIGHT", 0, 10)
     sugg:SetWidth(rightWidth)
     p.suggEmpty = T.Text(sugg, "muted")
     p.suggEmpty:SetPoint("TOPLEFT", 16, -34)
     p.suggEmpty:SetWidth(rightWidth - 32)
-    p.suggEmpty:SetText("Keine offenen Vorschläge. Sie entstehen, wenn Spieler mit Addon ihren Main festlegen.")
+    p.suggEmpty:SetText("Noch nichts im Addon zugeordnet. Rechtsklick auf einen Charakter » „Twink von …“ – oder Spieler legen mit dem Addon selbst ihren Main fest.")
     p.suggLines = {}
     for i = 1, 6 do
         local row = CreateFrame("Frame", nil, sugg)
@@ -1065,21 +1063,19 @@ function UI:CreateMembersPanel()
         row:SetHeight(22)
         row.text = T.Text(row, "small")
         row.text:SetPoint("LEFT")
-        row.text:SetWidth(rightWidth - 120)
+        row.text:SetWidth(rightWidth - 110)
         row.text:SetWordWrap(false)
-        row.take = T.Button(row, "Kopieren", 76)
-        row.take:SetHeight(19)
-        row.take:SetPoint("RIGHT")
-        row.take:SetScript("OnClick", function(self)
-            local s = self:GetParent().suggestion
-            if s then Copy(ns.ShortName(s.main)) end
-        end)
+        row.by = T.Text(row, "muted", "RIGHT")
+        row.by:SetPoint("RIGHT")
+        row:EnableMouse(true)
         row:SetScript("OnEnter", function(self)
-            local s = self.suggestion
-            if not s then return end
+            local r = self.link
+            if not r then return end
             GameTooltip:SetOwner(self, "ANCHOR_LEFT")
-            GameTooltip:AddLine(ns.ShortName(s.twink) .. " ist ein Twink von " .. ns.ShortName(s.main))
-            GameTooltip:AddLine("„Kopieren“ legt den Main-Namen bereit – im Gildenmenü bei " .. ns.ShortName(s.twink) .. " in die Offiziersnotiz einfügen.", 1, 1, 1, true)
+            GameTooltip:AddLine(r.main == "" and (ns.ShortName(r.twink) .. " ist ein Main")
+                or (ns.ShortName(r.twink) .. " ist ein Twink von " .. ns.ShortName(r.main)))
+            GameTooltip:AddLine((r.k == "o" and ("Zugeordnet von " .. ns.ShortName(r.by)) or "Selbst gemeldet")
+                .. " am " .. date("%d.%m.%Y, %H:%M", r.t), 1, 1, 1)
             GameTooltip:Show()
         end)
         row:SetScript("OnLeave", GameTooltip_Hide)
@@ -1087,7 +1083,7 @@ function UI:CreateMembersPanel()
     end
 
     function p:Refresh()
-        local canView, canEdit = M:CanView(), M:CanEdit()
+        local canView = M:CanView()
 
         -- Rechts unten: Main und Twinks des ausgewählten Spielers, sonst die eigenen Charaktere
         local selected = p.selected and M.byKey[p.selected]
@@ -1133,10 +1129,11 @@ function UI:CreateMembersPanel()
         noAccess:SetText(IsInGuild()
             and "Noch keine Twink-Zuordnung empfangen.\n\nSie kommt automatisch, sobald ein Offizier mit Addon online ist."
             or "Du bist in keiner Gilde.\n\nSobald du in einer Gilde bist, siehst du hier alle Mitglieder mit ihren Twinks.")
-        copyCard:SetShown(canEdit)
-        sugg:SetShown(canEdit)
+        local officer = ns.Board:AmOfficer()
+        copyCard:SetShown(officer)
+        sugg:SetShown(officer)
         mine:ClearAllPoints()
-        if canEdit then mine:SetPoint("BOTTOMRIGHT") else mine:SetPoint("TOPRIGHT") end
+        if officer then mine:SetPoint("BOTTOMRIGHT") else mine:SetPoint("TOPRIGHT") end
         if not IsInGuild() then
             p.summary:SetText(T.Hex("orange", "Du bist in keiner Gilde."))
             return
@@ -1150,13 +1147,16 @@ function UI:CreateMembersPanel()
             if m.onlineAs then online = online + 1 end
         end
         p.summary:SetText(string.format("%d Spieler  ·  %d Twinks  ·  %d gerade online", #M.mains, twinks, online))
-        if canView then
+        local nLinks = 0
+        for _ in pairs(ns.db.links) do nLinks = nLinks + 1 end
+        if nLinks > 0 then
+            p.stand:SetText("Twinks im Addon zugeordnet" .. ((canView or map) and " (dazu alte Offiziersnotizen)" or ""))
+        elseif canView then
             p.stand:SetText("Twinks aus den Offiziersnotizen")
         elseif map then
             p.stand:SetText("Twinks: Stand " .. date("%d.%m. %H:%M", map.time) .. " von " .. map.from)
         else
-            -- Namen und Ränge darf jeder sehen; nur wer wessen Twink ist, kommt von den Offizieren
-            p.stand:SetText(T.Hex("orange", "Twinks noch unbekannt – kommen, sobald ein Offizier mit Addon online ist."))
+            p.stand:SetText(T.Hex("orange", "Noch keine Twinks bekannt – kommen von Offizieren und Spielern mit Addon."))
         end
 
         -- Mains mit ihren Twinks darunter; Suche findet die ganze Gruppe.
@@ -1219,17 +1219,18 @@ function UI:CreateMembersPanel()
                 for _, issue in ipairs(e.issues) do table.insert(short, issue.short) end
             end
             c.issue:SetText(T.Hex("orange", table.concat(short, ", ")))
-            row.copy:SetShown(canEdit)
         end)
 
-        -- Vorschläge
-        local suggestions = M:Suggestions()
-        p.suggEmpty:SetShown(#suggestions == 0)
+        -- Zuletzt zugeordnet
+        local links = M:Links()
+        p.suggEmpty:SetShown(#links == 0)
         for i, row in ipairs(p.suggLines) do
-            local s = suggestions[i]
-            row.suggestion = s
-            if s then
-                row.text:SetText(ns.ShortName(s.twink) .. T.Hex("muted", " » ") .. T.Hex("goldBright", ns.ShortName(s.main)))
+            local r = links[i]
+            row.link = r
+            if r then
+                row.text:SetText(ns.ShortName(r.twink) .. T.Hex("muted", " » ")
+                    .. (r.main == "" and T.Hex("muted", "Main") or T.Hex("goldBright", ns.ShortName(r.main))))
+                row.by:SetText(r.k == "o" and ns.ShortName(r.by) or "selbst")
                 row:Show()
             else
                 row:Hide()
@@ -4199,6 +4200,103 @@ function UI:CreateNotesPanel()
 end
 
 -- Textdialog (Import / Export) ---------------------------------------------
+-- Twink zuordnen: Main aus der Gildenliste wählen (nur Offiziere) ------------------------
+function UI:ShowMainPicker(e)
+    local M = ns.Members
+    local d = self.mainPicker
+    if not d then
+        local c = T.colors
+        d = CreateFrame("Frame", "ElternabendMainPicker", UIParent, "BackdropTemplate")
+        d:SetSize(360, 400)
+        d:SetPoint("CENTER")
+        d:SetFrameStrata("DIALOG")
+        d:SetToplevel(true)
+        d:SetMovable(true)
+        d:EnableMouse(true)
+        d:RegisterForDrag("LeftButton")
+        d:SetScript("OnDragStart", d.StartMoving)
+        d:SetScript("OnDragStop", d.StopMovingOrSizing)
+        T.Backdrop(d, c.navy, 0.98, 0.7)
+        tinsert(UISpecialFrames, "ElternabendMainPicker")
+
+        local kicker = T.Text(d, "kicker")
+        kicker:SetPoint("TOPLEFT", 20, -18)
+        kicker:SetText("TWINK ZUORDNEN")
+        d.title = T.Text(d, "heading")
+        d.title:SetPoint("TOPLEFT", kicker, "BOTTOMLEFT", 0, -6)
+        d.title:SetPoint("RIGHT", -50, 0)
+        d.title:SetWordWrap(false)
+        local close = T.Button(d, "X", 26)
+        close:SetPoint("TOPRIGHT", -12, -12)
+        close:SetScript("OnClick", function() d:Hide() end)
+
+        d.search = T.EditBox(d, 320, "Main suchen …")
+        d.search:SetPoint("TOPLEFT", 20, -68)
+        d.search:HookScript("OnTextChanged", function() d:Fill() end)
+        d.search:SetScript("OnEnterPressed", function()
+            if d.first then d.Pick(d.first) end
+        end)
+
+        d.buttons = {}
+        for i = 1, 10 do
+            local b = T.Button(d, "", 320)
+            b:SetHeight(24)
+            b:SetPoint("TOPLEFT", 20, -102 - (i - 1) * 27)
+            b:GetFontString():SetJustifyH("LEFT")
+            b:GetFontString():ClearAllPoints()
+            b:GetFontString():SetPoint("LEFT", 10, 0)
+            b:SetScript("OnClick", function(self) if self.main then d.Pick(self.main) end end)
+            d.buttons[i] = b
+        end
+        d.more = T.Text(d, "muted")
+        d.more:SetPoint("BOTTOMLEFT", 20, 14)
+
+        function d.Pick(main)
+            M:SetLink(d.entry.name, main.name)
+            d:Hide()
+        end
+
+        -- Mains, die passen (ohne den Charakter selbst und seine eigenen Twinks)
+        function d:Fill()
+            local filter = ns.Lower(strtrim(self.search:GetText() or ""))
+            local list = {}
+            for _, m in ipairs(M.mains) do
+                local own = m == self.entry or m.main == self.entry
+                if not own and (filter == "" or m.key:find(filter, 1, true)) then table.insert(list, m) end
+            end
+            -- Wer gerade online ist, zuerst (meist sitzt der Spieler daneben)
+            table.sort(list, function(a, b)
+                if (a.onlineAs ~= nil) ~= (b.onlineAs ~= nil) then return a.onlineAs ~= nil end
+                return a.name < b.name
+            end)
+            self.first = list[1]
+            for i, b in ipairs(self.buttons) do
+                local m = list[i]
+                b.main = m
+                if m then
+                    local current = self.entry.main == m
+                    b:SetText("|c" .. ClassHex(m.classFile) .. m.display .. "|r"
+                        .. (m.onlineAs and T.Hex("green", "  online") or "")
+                        .. (#m.twinks > 0 and T.Hex("dim", "  · " .. #m.twinks .. (#m.twinks == 1 and " Twink" or " Twinks")) or "")
+                        .. (current and T.Hex("goldBright", "  (aktuell)") or ""))
+                    b:Show()
+                else
+                    b:Hide()
+                end
+            end
+            self.more:SetText(#list > #self.buttons and ("… und " .. (#list - #self.buttons) .. " weitere – oben suchen")
+                or (#list == 0 and "Kein Main gefunden." or ""))
+        end
+        self.mainPicker = d
+    end
+    d.entry = e
+    d.title:SetText("|c" .. ClassHex(e.classFile) .. e.display .. "|r" .. T.Hex("muted", " ist ein Twink von …"))
+    d.search:SetText("")
+    d:Fill()
+    d:Show()
+    d.search:SetFocus()
+end
+
 -- Design wählen ------------------------------------------------------------------
 -- Jede Zeile ist eine kleine Vorschau in den Farben und der Titelschrift des Designs.
 -- Übernommen wird es beim nächsten Laden der Oberfläche.

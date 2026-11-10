@@ -206,16 +206,18 @@ Im Reiter **Notizen** lassen sich beliebig viele Notizen anlegen. Jede kann als 
 - Schriftgröße mit A- und A+.
 
 ## Gilde: Mitglieder, Mains und Twinks
-Vereinbarung: **Die Offiziersnotiz enthält nur den Namen des Mains.** Leer = Main, „Anna Sturmwind“ = Twink von Anna Sturmwind. Die Notiz liegt auf dem Blizzard-Server; alle Offiziere sehen sie auch ohne Addon im Gildenfenster.
+Wer wessen Twink ist, regelt das Addon selbst – **ohne Offiziersnotiz**. In WoW Forever dürfen Addons Offiziersnotizen nicht schreiben (auch nicht per `/run`), deshalb liegt die Zuordnung im Addon und wird in der Gilde verteilt:
 
-Der Reiter **Gilde** zeigt allen Gildenmitgliedern, wer welche Twinks hat. Offiziere (Ränge, die Offiziersnotizen lesen dürfen) sehen zusätzlich:
+- **Selbst melden:** Spieler legen mit „Diesen Charakter als Main festlegen“ (oder `/ea main`) ihren Main fest. Das Addon kennt alle ihre Charaktere auf dem Account und meldet sie der Gilde – die Zuordnung gilt sofort.
+- **Offiziere ordnen zu:** Rechtsklick auf einen Charakter » **„Twink von …“**, dann den Main aus der Liste wählen (Suche, wer online ist, steht oben). „Ist kein Twink (Main)“ hebt eine Zuordnung auf. Für Mitglieder ohne Addon und für Twinks auf einem anderen Account.
+- **Verteilung:** Jede Änderung geht sofort an alle in der Gilde mit Addon; wer später einloggt, holt sich den Stand von einem anderen Mitglied. Zuordnungen von Offizieren gehen vor Selbstmeldungen, sonst gewinnt die neueste. Eine Selbstmeldung von einem Twink zählt nicht für Offiziersrechte.
+- **Alte Offiziersnotizen** mit dem Namen des Mains werden weiter gelesen, solange es im Addon keine Zuordnung gibt.
+- **Zuletzt zugeordnet** (rechts, für Offiziere) zeigt, wer zuletzt was eingetragen hat.
+
+Der Reiter **Gilde** zeigt allen Gildenmitgliedern:
 - jeden Spieler mit seinen Twinks darunter, Rang, Stufe, Klasse und ob er online ist – auch „online als …“, wenn er gerade einen Twink spielt,
-- Unstimmigkeiten: Rang „Twink“ ohne Main, Main nicht (mehr) in der Gilde, Twink ohne Rang „Twink“,
-- **Charaktere eines Spielers**: Ein Klick auf einen Spieler zeigt rechts unten seinen Main und alle Twinks (nochmal klicken: zurück zu den eigenen Charakteren).
-- **Kopieren**: Jede Zeile hat einen Knopf „Kopieren“. Er legt den Namen markiert ins Kopierfeld rechts oben – Strg+C, dann im Blizzard-Gildenmenü beim Twink in die Offiziersnotiz einfügen und den Rang „Twink“ setzen. Selbst schreiben kann das Addon nichts: Offiziersnotizen, Ränge und die Zwischenablage sind im aktuellen Client für Addons gesperrt.
-- **Vorschläge aus dem Addon**: Spieler legen mit „Diesen Charakter als Main festlegen“ (oder `/ea main`) ihren Main fest. Das Addon kennt alle ihre Charaktere auf dem Account und meldet sie den Offizieren als „Twink » Main“. „Kopieren“ legt den Main-Namen bereit; sobald die Notiz im Gildenmenü stimmt, verschwindet der Vorschlag. Nur der Spieler selbst kann für seine Charaktere melden.
-
-**Alle Gildenmitglieder** sehen die Übersicht ebenfalls. Offiziersnotizen kann das Spiel nur Offizieren zeigen; deshalb verteilt das Addon der Gildenleitung und der Offiziere die Zuordnung über den Gildenkanal (bei Änderungen sofort, sonst höchstens alle 15 Minuten, und auf Nachfrage beim Einloggen). Die anderen speichern den letzten Stand und sehen oben, von wann er ist. Angenommen wird eine Zuordnung nur von den obersten drei Gildenrängen (Rang 1 bis 3). Zuordnen, Vorschläge und Hinweise auf Unstimmigkeiten gibt es nur für Offiziere. Twinks auf einem anderen Battle.net-Account erkennt das Addon nicht; die tragen Offiziere von Hand ein.
+- **Charaktere eines Spielers**: Ein Klick auf einen Spieler zeigt rechts unten seinen Main und alle Twinks (nochmal klicken: zurück zu den eigenen Charakteren),
+- für Offiziere Unstimmigkeiten: Rang „Twink“ ohne Main, Main nicht (mehr) in der Gilde, Twink ohne Rang „Twink“. Den Rang setzt ihr per Rechtsklick über „Befördern/Zurückstufen“.
 
 - **Filter** neben der Namenssuche: „Nur online“ (alphabetisch) oder ein Rang, z. B. alle Initianden.
 - **Rechtsklick** auf einen Namen: anflüstern oder in die Gruppe einladen – ist jemand mit einem Twink online, geht beides an diesen Twink.

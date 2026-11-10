@@ -226,7 +226,8 @@ function Board:IsOfficer(name)
     local e = ns.Members:Find(name)
     if not e then return false end
     if (e.rankOrder or 99) <= OFFICER_RANKS then return true end
-    return e.main ~= nil and (e.main.rankOrder or 99) <= OFFICER_RANKS
+    -- Twinks von Offizieren – aber nicht, wenn sich jemand nur selbst als deren Twink gemeldet hat
+    return e.main ~= nil and e.trusted ~= false and (e.main.rankOrder or 99) <= OFFICER_RANKS
 end
 
 function Board:AmOfficer()
