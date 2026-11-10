@@ -248,13 +248,65 @@ ns:On("GROUP_ROSTER_UPDATE", function()
     end)
 end)
 
--- Beim Einloggen nach offenen Gesuchen fragen
+-- Neu laden der Oberfläche (/reload, Design wechseln) soll das eigene Gesuch nicht beenden.
+-- PLAYER_LOGOUT kommt in beiden Fällen; ob neu geladen wird, verrät nur ReloadUI selbst.
+if hooksecurefunc and ReloadUI then
+    hooksecurefunc("ReloadUI", function() Groups.reloading = true end)
+end
+
+local function Snapshot(g)
+    return { id = g.id, leader = g.leader, what = g.what, note = g.note, posted = g.posted, target = g.target,
+        need = { tank = g.need.tank, heal = g.need.heal, dd = g.need.dd }, age = GetTime() - g.started }
+end
+
+-- Beim Einloggen: nach neu laden das Gesuch zurückholen, sonst nach offenen Gesuchen fragen
 ns:On("PLAYER_LOGIN", function()
-    C_Timer.After(20 + math.random() * 10, function()
+    local saved = ns.db.groups.saved
+    ns.db.groups.saved = nil
+    local restored = false
+    if saved and time() - (saved.at or 0) < 300 then
+        local gap = time() - saved.at
+        for _, g in ipairs(saved.list or {}) do
+            g.started = GetTime() - g.age - gap
+            g.age = nil
+            Groups.list[g.id] = g
+        end
+        if saved.mine and saved.list then
+            for _, g in ipairs(saved.list) do
+                if g.id == saved.mine then Groups.mine = g end
+            end
+        end
+        for key, a in pairs(saved.applicants or {}) do
+            a.time = GetTime() - (a.age or 0) - gap
+            a.age = nil
+            Groups.applicants[key] = a
+        end
+        restored = Groups.mine ~= nil
+        ns:Fire("GROUPS_UPDATE")
+    end
+    if restored then
+        C_Timer.After(5, function()
+            if Groups.mine and IsInGuild() then Groups:Broadcast() end
+        end)
+    end
+    C_Timer.After((saved and 5 or 20) + math.random() * 10, function()
         if IsInGuild() then ns.Comm:Send("LFGQ", nil, "GUILD") end
     end)
 end)
--- Ausloggen beendet das eigene Gesuch
+
+-- Ausloggen beendet das eigene Gesuch – neu laden nicht (dann merken und nach dem Laden weiter)
 ns:On("PLAYER_LOGOUT", function()
+    if Groups.reloading then
+        -- Nur das eigene Gesuch: die der anderen kommen nach dem Laden frisch per LFGQ
+        -- (sonst blieben inzwischen beendete stehen)
+        local list = {}
+        if Groups.mine then table.insert(list, Snapshot(Groups.mine)) end
+        local applicants = {}
+        for key, a in pairs(Groups.applicants) do
+            applicants[key] = { name = a.name, role = a.role, classFile = a.classFile, state = a.state, age = GetTime() - a.time }
+        end
+        ns.db.groups.saved = { at = time(), list = list, mine = Groups.mine and Groups.mine.id, applicants = applicants }
+        return
+    end
     if Groups.mine then C_ChatInfo.SendAddonMessage(ns.PREFIX, "LFGEND\t" .. Groups.mine.id, "GUILD") end
 end)
