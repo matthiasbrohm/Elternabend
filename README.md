@@ -175,6 +175,16 @@ Das schwarze Brett der Gilde (`/ea pinnwand`). Jedes Mitglied heftet Zettel an �
 
 **Webseite:** Offiziere klicken unten auf „Für die Webseite“ und fügen den Text auf `gilde-elternabend.de/pinnwand.php` mit dem Offizierspasswort ein. Übernommen werden nur Zettel an alle.
 
+## Design
+Oben rechts im Fenster öffnet **Design** (oder `/ea design`) die Auswahl. Jede Zeile zeigt eine kleine Vorschau:
+
+- **Elternabend** – Nachtblau und Gold, das Design der Gilde (Standard)
+- **Allianz** – Königsblau und Silber
+- **Horde** – Dunkelrot und Bronze, mit glühender Glut statt Sternen
+- **Klassisch** – dunkles Leder und Blizzard-Gelb
+
+Das gewählte Design gilt nur für dich und wird nach dem Neuladen der Oberfläche übernommen (Knopf „Jetzt neu laden“).
+
 ## Kalender
 Der Reiter **Kalender** (`/ea kalender`) zeigt einen Monat auf einen Blick, ein Klick auf einen Tag zeigt die Einzelheiten rechts daneben:
 
@@ -244,6 +254,7 @@ Das Wappen erscheint im Addon-Menü, oben links im Fenster und am Minimap-Button
 | `/ea gildenknopf` | Wappen-Knopf am Blizzard-Gildenfenster ein/aus |
 | `/ea leistung` | Zeigt, wie oft und wie lange das Addon die Gildenliste auswertet (bei Rucklern) |
 | `/ea pinnwand` | Pinnwand öffnen (auch `/ea zettel`) |
+| `/ea design` | Design des Addons wählen |
 | `/ea kalender` | Kalender mit Raids, Jahrmarkt und PvP-Wochenende |
 | `/ea sync` | Soft-Reserves erneut an die Gruppe senden |
 

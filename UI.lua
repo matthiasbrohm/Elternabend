@@ -209,7 +209,7 @@ function UI:Create()
     local sky = header:CreateTexture(nil, "BACKGROUND")
     sky:SetAllPoints()
     sky:SetColorTexture(1, 1, 1, 1)
-    sky:SetGradient("VERTICAL", CreateColor(c.navy[1], c.navy[2], c.navy[3], 1), CreateColor(0.02, 0.035, 0.09, 1))
+    sky:SetGradient("VERTICAL", CreateColor(c.navy[1], c.navy[2], c.navy[3], 1), CreateColor(c.skyBottom[1], c.skyBottom[2], c.skyBottom[3], 1))
     T.Stars(header, 70)
 
     -- Gildenwappen; der goldene Ring ist schon im Bild
@@ -228,6 +228,9 @@ function UI:Create()
     local close = T.Button(header, "X", 26)
     close:SetPoint("TOPRIGHT", -12, -12)
     close:SetScript("OnClick", function() f:Hide() end)
+    local design = T.Button(header, "Design", 70)
+    design:SetPoint("RIGHT", close, "LEFT", -8, 0)
+    design:SetScript("OnClick", function() UI:ShowSkinPicker() end)
 
     for _, tab in ipairs(TABS) do
         local b = T.NavButton(header, tab.label)
@@ -1928,7 +1931,7 @@ local MONTHS = { "Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "
 local WEEKDAYS = { "Sonntag", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag" }
 local KIND_HEX = { raid = "goldBright", dmf = "ffc79bf2", pvp = "red", guild = "green", other = "muted" }
 local KIND_RGB = {
-    raid = { 0.953, 0.863, 0.604 }, dmf = { 0.78, 0.61, 0.95 }, pvp = { 0.95, 0.45, 0.40 },
+    raid = T.colors.goldBright, dmf = { 0.78, 0.61, 0.95 }, pvp = { 0.95, 0.45, 0.40 },
     guild = { 0.55, 0.85, 0.50 }, other = { 0.78, 0.745, 0.678 },
 }
 
@@ -4196,6 +4199,135 @@ function UI:CreateNotesPanel()
 end
 
 -- Textdialog (Import / Export) ---------------------------------------------
+-- Design wählen ------------------------------------------------------------------
+-- Jede Zeile ist eine kleine Vorschau in den Farben und der Titelschrift des Designs.
+-- Übernommen wird es beim nächsten Laden der Oberfläche.
+function UI:ShowSkinPicker()
+    local d = self.skinPicker
+    if not d then
+        local c = T.colors
+        d = CreateFrame("Frame", "ElternabendSkinPicker", UIParent, "BackdropTemplate")
+        d:SetSize(480, 486)
+        d:SetPoint("CENTER")
+        d:SetFrameStrata("DIALOG")
+        d:SetToplevel(true)
+        d:SetMovable(true)
+        d:EnableMouse(true)
+        d:RegisterForDrag("LeftButton")
+        d:SetScript("OnDragStart", d.StartMoving)
+        d:SetScript("OnDragStop", d.StopMovingOrSizing)
+        T.Backdrop(d, c.navy, 0.98, 0.7)
+        tinsert(UISpecialFrames, "ElternabendSkinPicker")
+
+        local kicker = T.Text(d, "kicker")
+        kicker:SetPoint("TOPLEFT", 20, -18)
+        kicker:SetText("ELTERNABEND · DESIGN")
+        local title = T.Text(d, "heading")
+        title:SetPoint("TOPLEFT", kicker, "BOTTOMLEFT", 0, -6)
+        title:SetText("Wie soll das Addon aussehen?")
+        local close = T.Button(d, "X", 26)
+        close:SetPoint("TOPRIGHT", -12, -12)
+        close:SetScript("OnClick", function() d:Hide() end)
+
+        d.rows = {}
+        for i, key in ipairs(T.SKIN_ORDER) do
+            local skin = T.SKINS[key]
+            local sc = skin.colors
+            local row = CreateFrame("Button", nil, d, "BackdropTemplate")
+            row:SetSize(440, 80)
+            row:SetPoint("TOPLEFT", 20, -68 - (i - 1) * 88)
+            row:SetBackdrop({ bgFile = "Interface\\Buttons\\WHITE8x8", edgeFile = "Interface\\Buttons\\WHITE8x8", edgeSize = 1 })
+            row:SetBackdropColor(0, 0, 0, 0)
+            row:SetBackdropBorderColor(sc.gold[1], sc.gold[2], sc.gold[3], 0.6)
+            local sky = row:CreateTexture(nil, "BACKGROUND")
+            sky:SetPoint("TOPLEFT", 1, -1)
+            sky:SetPoint("BOTTOMRIGHT", -1, 1)
+            sky:SetColorTexture(1, 1, 1, 1)
+            sky:SetGradient("VERTICAL", CreateColor(sc.navy[1], sc.navy[2], sc.navy[3], 1),
+                CreateColor(sc.skyBottom[1], sc.skyBottom[2], sc.skyBottom[3], 1))
+            local p = skin.particles or { 0 }
+            for _ = 1, math.floor((p[1] or 0) / 4) do
+                local st = row:CreateTexture(nil, "BACKGROUND", nil, 2)
+                st:SetSize(1, 1)
+                st:SetColorTexture(p[2], p[3], p[4], 0.3 + math.random() * 0.6)
+                st:SetPoint("TOPLEFT", math.random(4, 430), -math.random(3, 74))
+            end
+            local name = row:CreateFontString(nil, "OVERLAY")
+            name:SetFont(skin.title, 24, "")
+            name:SetShadowColor(0, 0, 0, 0.8)
+            name:SetShadowOffset(1, -1)
+            name:SetTextColor(sc.goldBright[1], sc.goldBright[2], sc.goldBright[3])
+            name:SetPoint("TOPLEFT", 14, -12)
+            name:SetText(skin.label)
+            local text = row:CreateFontString(nil, "OVERLAY")
+            text:SetFont("Fonts\\FRIZQT__.TTF", 11, "")
+            text:SetTextColor(sc.cream[1], sc.cream[2], sc.cream[3])
+            text:SetPoint("TOPLEFT", name, "BOTTOMLEFT", 0, -6)
+            text:SetText(skin.text)
+            -- Muster: ein goldener und ein umrandeter Knopf
+            local b1 = row:CreateTexture(nil, "ARTWORK")
+            b1:SetSize(54, 18)
+            b1:SetPoint("RIGHT", -76, -10)
+            b1:SetColorTexture(1, 1, 1, 1)
+            b1:SetGradient("VERTICAL", CreateColor(sc.gold[1], sc.gold[2], sc.gold[3], 1),
+                CreateColor(sc.goldBright[1], sc.goldBright[2], sc.goldBright[3], 1))
+            local b2 = CreateFrame("Frame", nil, row, "BackdropTemplate")
+            b2:SetSize(54, 18)
+            b2:SetPoint("LEFT", b1, "RIGHT", 8, 0)
+            b2:SetBackdrop({ bgFile = "Interface\\Buttons\\WHITE8x8", edgeFile = "Interface\\Buttons\\WHITE8x8", edgeSize = 1 })
+            b2:SetBackdropColor(sc.ink[1], sc.ink[2], sc.ink[3], 0.5)
+            b2:SetBackdropBorderColor(sc.gold[1], sc.gold[2], sc.gold[3], 0.9)
+            row.state = row:CreateFontString(nil, "OVERLAY")
+            row.state:SetFont("Fonts\\FRIZQT__.TTF", 10, "")
+            row.state:SetPoint("TOPRIGHT", -12, -12)
+            local hl = row:CreateTexture(nil, "HIGHLIGHT")
+            hl:SetPoint("TOPLEFT", 1, -1)
+            hl:SetPoint("BOTTOMRIGHT", -1, 1)
+            hl:SetColorTexture(1, 1, 1, 0.06)
+            row:SetScript("OnClick", function()
+                ns.db.skin = key
+                d:Refresh()
+            end)
+            row.key = key
+            d.rows[key] = row
+        end
+
+        d.hint = T.Text(d, "muted")
+        d.hint:SetPoint("BOTTOMLEFT", 20, 22)
+        d.hint:SetPoint("RIGHT", -190, 0)
+        d.hint:SetSpacing(2)
+        d.reload = T.Button(d, "Jetzt neu laden", 150, "primary")
+        d.reload:SetPoint("BOTTOMRIGHT", -20, 16)
+        d.reload:SetScript("OnClick", function() ReloadUI() end)
+
+        function d:Refresh()
+            local chosen = ns.db.skin or "elternabend"
+            local active = T.skin
+            for key, row in pairs(self.rows) do
+                local sc = T.SKINS[key].colors
+                local isChosen = key == chosen
+                row:SetBackdropBorderColor(sc.gold[1], sc.gold[2], sc.gold[3], isChosen and 1 or 0.35)
+                if T.SKINS[key] == active and isChosen then
+                    row.state:SetText("AKTIV")
+                elseif isChosen then
+                    row.state:SetText("GEWÄHLT")
+                else
+                    row.state:SetText("")
+                end
+                row.state:SetTextColor(sc.goldBright[1], sc.goldBright[2], sc.goldBright[3])
+            end
+            local pending = T.SKINS[chosen] ~= active
+            self.reload:SetShown(pending)
+            self.hint:SetText(pending
+                and "Das neue Design gilt nach dem Neuladen der Oberfläche (dauert ein paar Sekunden)."
+                or "Das Design gilt nur für dich – jeder in der Gilde kann sein eigenes wählen.")
+        end
+        self.skinPicker = d
+    end
+    d:Refresh()
+    d:Show()
+end
+
 function UI:TextDialog(title, hint, text, onAccept, acceptLabel)
     local d = self.dialog
     if not d then

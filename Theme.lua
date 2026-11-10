@@ -10,6 +10,7 @@ local DISPLAY = "Fonts\\FRIZQT__.TTF"   -- Friz Quadrata: gut lesbare Überschri
 local SANS = "Fonts\\FRIZQT__.TTF"
 
 -- Farben der Webseite (--ink, --navy, --gold, --gold-bright, --cream, --muted)
+-- Die Tabellen bleiben dieselben; ein anderes Design (Skin) überschreibt nur ihre Werte.
 T.colors = {
     ink        = { 0.027, 0.051, 0.102 },
     navy       = { 0.063, 0.098, 0.180 },
@@ -18,12 +19,64 @@ T.colors = {
     goldBright = { 0.953, 0.863, 0.604 },
     cream      = { 0.969, 0.945, 0.902 },
     muted      = { 0.784, 0.745, 0.678 },
+    skyBottom  = { 0.020, 0.035, 0.090 },
 }
 
 T.hex = {
     gold = "ffd6b15a", goldBright = "fff3dc9a", cream = "fff7f1e6", muted = "ffc8bead",
     dim = "ff7d7668", green = "ff8cd97f", red = "fff27366", orange = "ffffb35a",
 }
+
+-- Designs zum Auswählen ----------------------------------------------------
+-- colors: wie T.colors (gold = Rahmen/Akzent, goldBright = Überschriften, cream = Text)
+-- particles: Lichtpunkte im Kopfbereich { Anzahl, r, g, b } (Sterne, Glut …)
+T.SKINS = {
+    elternabend = {
+        label = "Elternabend", text = "Nachtblau und Gold – unser Design",
+        title = SERIF, particles = { 70, 1, 0.97, 0.88 },
+        colors = {
+            ink = { 0.027, 0.051, 0.102 }, navy = { 0.063, 0.098, 0.180 }, panel = { 0.055, 0.086, 0.165 },
+            gold = { 0.839, 0.694, 0.353 }, goldBright = { 0.953, 0.863, 0.604 },
+            cream = { 0.969, 0.945, 0.902 }, muted = { 0.784, 0.745, 0.678 }, skyBottom = { 0.020, 0.035, 0.090 },
+        },
+    },
+    allianz = {
+        label = "Allianz", text = "Königsblau und Silber",
+        title = SERIF, particles = { 45, 0.85, 0.92, 1 },
+        colors = {
+            ink = { 0.016, 0.035, 0.086 }, navy = { 0.055, 0.118, 0.255 }, panel = { 0.043, 0.094, 0.208 },
+            gold = { 0.718, 0.765, 0.839 }, goldBright = { 0.910, 0.937, 0.980 },
+            cream = { 0.953, 0.961, 0.976 }, muted = { 0.663, 0.706, 0.776 }, skyBottom = { 0.016, 0.043, 0.122 },
+        },
+    },
+    horde = {
+        label = "Horde", text = "Dunkelrot und Bronze",
+        title = "Fonts\\SKURRI.TTF", particles = { 55, 1, 0.55, 0.22 },
+        colors = {
+            ink = { 0.059, 0.020, 0.016 }, navy = { 0.165, 0.043, 0.035 }, panel = { 0.125, 0.035, 0.027 },
+            gold = { 0.804, 0.510, 0.220 }, goldBright = { 0.961, 0.722, 0.420 },
+            cream = { 0.965, 0.914, 0.855 }, muted = { 0.776, 0.682, 0.604 }, skyBottom = { 0.055, 0.012, 0.008 },
+        },
+    },
+    klassisch = {
+        label = "Klassisch", text = "Dunkles Leder und Blizzard-Gelb",
+        title = SERIF, particles = { 0 },
+        colors = {
+            ink = { 0.047, 0.035, 0.024 }, navy = { 0.118, 0.090, 0.059 }, panel = { 0.090, 0.067, 0.043 },
+            gold = { 0.784, 0.612, 0.271 }, goldBright = { 1, 0.820, 0 },
+            cream = { 0.949, 0.922, 0.851 }, muted = { 0.733, 0.678, 0.584 }, skyBottom = { 0.059, 0.043, 0.027 },
+        },
+    },
+}
+T.SKIN_ORDER = { "elternabend", "allianz", "horde", "klassisch" }
+T.skin = T.SKINS.elternabend
+
+local function ToHex(col, factor)
+    factor = factor or 1
+    return string.format("ff%02x%02x%02x", math.floor(col[1] * factor * 255 + 0.5),
+        math.floor(col[2] * factor * 255 + 0.5), math.floor(col[3] * factor * 255 + 0.5))
+end
+T.ToHex = ToHex
 
 function T.Hex(key, text)
     return "|c" .. (T.hex[key] or key) .. tostring(text) .. "|r"
@@ -34,6 +87,7 @@ local function Color(c, a)
 end
 
 -- Schriften: Überschriften in Serifen, Text schlicht ---------------------
+local FONT_COLOR = {} -- Schrift -> Farbname, damit ein Design die Farben austauschen kann
 local function Font(name, path, size, color, shadow)
     local f = CreateFont(name)
     f:SetFont(path, size, "")
@@ -60,6 +114,31 @@ T.fonts = {
     btnLight    = Font("ElternabendFontBtnLight", SANS, 12, c.cream),
     btnDisabled = Font("ElternabendFontBtnDisabled", SANS, 12, { 0.5, 0.48, 0.44 }),
 }
+FONT_COLOR = {
+    title = "goldBright", heading = "goldBright", value = "goldBright", kicker = "gold", body = "cream",
+    small = "cream", muted = "muted", nav = "cream", navActive = "goldBright", btnDark = "ink", btnLight = "cream",
+}
+
+-- Design anwenden: Werte der Farbtabellen überschreiben (alle Bausteine lesen sie beim
+-- Erzeugen), Schriftfarben und Chat-Farbcodes anpassen. Wirkt auf alles, was danach
+-- entsteht – deshalb beim Laden vor dem ersten Öffnen des Fensters, sonst neu laden.
+function T.ApplySkin(key)
+    local skin = T.SKINS[key] or T.SKINS.elternabend
+    T.skin = skin
+    for name, col in pairs(skin.colors) do
+        local target = T.colors[name]
+        target[1], target[2], target[3] = col[1], col[2], col[3]
+    end
+    T.hex.gold = ToHex(c.gold)
+    T.hex.goldBright = ToHex(c.goldBright)
+    T.hex.cream = ToHex(c.cream)
+    T.hex.muted = ToHex(c.muted)
+    T.hex.dim = ToHex(c.muted, 0.62)
+    for name, colorName in pairs(FONT_COLOR) do
+        T.fonts[name]:SetTextColor(Color(c[colorName]))
+    end
+    T.fonts.title:SetFont(skin.title or SERIF, 32, "")
+end
 
 -- Bausteine --------------------------------------------------------------
 function T.Text(parent, font, justify)
@@ -304,13 +383,15 @@ function T.Scroll(parent)
     return sf
 end
 
--- Sterne für den Nachthimmel im Kopfbereich
+-- Sterne für den Nachthimmel im Kopfbereich (Farbe und Anzahl je nach Design)
 function T.Stars(frame, count)
+    local p = T.skin.particles or { count }
+    count = p[1] or count
     for _ = 1, count do
         local s = frame:CreateTexture(nil, "BACKGROUND", nil, 2)
         local size = math.random() < 0.85 and 1 or 2
         s:SetSize(size, size)
-        s:SetColorTexture(1, 0.97, 0.88, 0.25 + math.random() * 0.6)
+        s:SetColorTexture(p[2] or 1, p[3] or 0.97, p[4] or 0.88, 0.25 + math.random() * 0.6)
         s:SetPoint("TOPLEFT", math.random(4, 900), -math.random(2, 90))
     end
 end
@@ -351,3 +432,8 @@ function T.Round(texture, parent)
     mask:SetAllPoints(texture)
     texture:AddMaskTexture(mask)
 end
+
+-- Gewähltes Design laden, bevor irgendein Fenster entsteht
+ns:Listen("INIT", function()
+    if ns.db.skin and ns.db.skin ~= "elternabend" then T.ApplySkin(ns.db.skin) end
+end)

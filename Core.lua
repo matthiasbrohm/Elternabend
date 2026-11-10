@@ -324,6 +324,7 @@ local function Help()
     print("  /ea – Fenster öffnen/schließen")
     print("  /ea start | raid | sr | loot | beute | taktik | gruppen | gilde | kalender | pinnwand | berufe | notizen | invite – Bestimmten Reiter öffnen")
     print("  /ea ruhm – Ruhmeshalle: die Erstkills der Gilde")
+    print("  /ea design – Design des Addons wählen (Elternabend, Allianz, Horde, Klassisch)")
     print("  /ea pause [Minuten] – Pause für den ganzen Raid (Leitung), /ea weiter beendet sie")
     print("  /ea vorbereitung – Fläschchen, Essen, Rüstung und Verzauberungen im Raid prüfen")
     print("  /ea gruppenhinweis – Neue Gruppengesuche im Chat melden an/aus")
@@ -390,6 +391,8 @@ SlashCmdList.ELTERNABENDRAID = function(input)
         ns.UI:Show("berufe")
     elseif cmd == "notizen" or cmd == "notiz" then
         ns.UI:Show("notizen")
+    elseif cmd == "design" or cmd == "skin" then
+        ns.UI:ShowSkinPicker()
     elseif cmd == "kalender" or cmd == "termine" then
         ns.UI:Show("kalender")
     elseif cmd == "pinnwand" or cmd == "zettel" or cmd == "brett" then
