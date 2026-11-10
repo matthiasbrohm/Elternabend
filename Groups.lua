@@ -173,6 +173,29 @@ function Groups:OpenCount()
     return count
 end
 
+-- Gesehene Gesuche (Reiter „Gruppen“ war offen) zählen nicht mehr für die Plakette –
+-- erst ein neues Gesuch zeigt sie wieder. Gespeichert, damit es nach neu laden so bleibt.
+local SEEN_KEEP = 3 * 3600
+function Groups:MarkSeen()
+    local seen = ns.db.groups.seen
+    local now = time()
+    for id, g in pairs(self.list) do
+        if g ~= self.mine then seen[id] = seen[id] or now end
+    end
+    for id, t in pairs(seen) do
+        if now - t > SEEN_KEEP then seen[id] = nil end
+    end
+end
+
+function Groups:UnseenCount()
+    local count = 0
+    local seen = ns.db and ns.db.groups.seen or {}
+    for _, g in ipairs(self:List()) do
+        if g ~= self.mine and not seen[g.id] and (g.need.tank + g.need.heal + g.need.dd) > 0 then count = count + 1 end
+    end
+    return count
+end
+
 function Groups.NeedText(need)
     local parts = {}
     if need.tank > 0 then table.insert(parts, need.tank .. " Tank") end

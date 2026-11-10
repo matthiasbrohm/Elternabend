@@ -418,7 +418,8 @@ end
 
 -- Plaketten: offene Gruppensuchen (Reiter „Gruppen“ und Minimap) und neue Zettel (Reiter „Pinnwand“)
 function UI:UpdateBadges()
-    local groups = ns.Groups:OpenCount()
+    -- Gruppensuchen: nur neue, die man im Reiter „Gruppen“ noch nicht gesehen hat
+    local groups = (self.frame and self.frame:IsShown() and self.currentTab == "gruppen") and 0 or ns.Groups:UnseenCount()
     if self.minimapButton and self.minimapButton.badge then self.minimapButton.badge:SetCount(groups) end
     if self.tabs.gruppen and self.tabs.gruppen.badge then self.tabs.gruppen.badge:SetCount(groups) end
     if self.tabs.pinnwand and self.tabs.pinnwand.badge then
@@ -836,7 +837,8 @@ function UI:CreateMembersPanel()
         { key = "rank", label = "Rang", x = 146, w = 80 },
         { key = "class", label = "Klasse", x = 228, w = 76 },
         { key = "status", label = "Status", x = 306, w = 92 },
-        { key = "issue", label = "Hinweis", x = 400, right = -6 },
+        { key = "zone", label = "Zone", x = 400, w = 140 },
+        { key = "issue", label = "Hinweis", x = 542, right = -6 },
     }
     local list = CreateList(p, columns)
     list.panel:SetPoint("TOPLEFT", 0, -36)
@@ -1208,6 +1210,14 @@ function UI:CreateMembersPanel()
                 c.status:SetText(T.Hex("green", "als " .. e.onlineAs.display))
             else
                 c.status:SetText("")
+            end
+            -- Zone: wo der Charakter gerade ist; beim Main auch die Zone des Twinks, mit dem er spielt
+            local where = e.online and e or (not e.main and e.onlineAs) or nil
+            local zone = where and where.zone
+            if zone and not ns.IsSecret(zone) and zone ~= "" then
+                c.zone:SetText(where == e and zone or T.Hex("muted", zone))
+            else
+                c.zone:SetText("")
             end
             -- Unstimmigkeiten sind Sache der Offiziere; ausführlich im Tooltip
             local short = {}
@@ -2697,6 +2707,7 @@ function UI:CreateGroupsPanel()
     end
 
     function p:Refresh()
+        G:MarkSeen() -- wer die Liste sieht, hat die Gesuche gesehen: Plakette weg bis zum nächsten neuen
         local mine = G:Mine()
         local groups = G:List()
         if not p.selected or not G.list[p.selected] then

@@ -47,6 +47,7 @@ local defaults = {
     groups = {       -- Gruppensuche in der Gilde
         notify = true,     -- neue Gesuche im Chat melden
         chat = true,       -- eigene Gesuche auch im Gildenchat posten (für Mitglieder ohne Addon)
+        seen = {},         -- Gesuche, die man im Reiter „Gruppen“ schon gesehen hat (für die Plakette)
     },
     orders = {       -- Handwerksaufträge
         out = {},          -- eigene Aufträge an andere
