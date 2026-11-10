@@ -941,10 +941,6 @@ function UI:CreateMembersPanel()
         else
             table.insert(entries, { T.Hex("dim", "Gerade nicht online"), nil })
         end
-        table.insert(entries, { "Charaktere anzeigen", function()
-            p.selected = (e.main or e).key
-            p:Refresh()
-        end })
         -- Twink zuordnen (Offiziere) – im Addon, ohne Offiziersnotiz
         if ns.Board:AmOfficer() then
             table.insert(entries, { "Twink von …", function() UI:ShowMainPicker(e) end })
