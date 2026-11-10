@@ -836,9 +836,9 @@ function UI:CreateMembersPanel()
         { key = "name", label = "Charakter", x = 4, w = 140 },
         { key = "rank", label = "Rang", x = 146, w = 80 },
         { key = "class", label = "Klasse", x = 228, w = 76 },
-        { key = "status", label = "Status", x = 306, w = 92 },
-        { key = "zone", label = "Zone", x = 400, w = 140 },
-        { key = "issue", label = "Hinweis", x = 542, right = -6 },
+        { key = "status", label = "Status", x = 306, w = 160 },
+        { key = "zone", label = "Zone", x = 468, w = 140 },
+        { key = "issue", label = "Hinweis", x = 610, right = -6 },
     }
     local list = CreateList(p, columns)
     list.panel:SetPoint("TOPLEFT", 0, -36)
