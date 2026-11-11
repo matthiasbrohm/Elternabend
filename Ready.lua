@@ -55,6 +55,42 @@ local CAMP = {
 Ready.CAMP_ORDER = { "Angriffskraft", "Stärke", "Krit", "Werte", "Rüstung", "Ausdauer", "Intelligenz", "Willenskraft", "Mana", "Lager" }
 local CAMP_LOW = 15 -- Minuten: darunter lieber nochmal ans Feuer
 
+-- Im Spiel gibt es nur EINEN Buff („Lagervorteile“, 1229741); was er bringt, steht in seinem
+-- Tooltip. Daraus die einzelnen Vorteile lesen: Stichwort im Text -> Bezeichnung.
+local CAMP_WORDS = {
+    { "angriffskraft", "Angriffskraft" }, { "attack power", "Angriffskraft" },
+    { "stärke", "Stärke" }, { "strength", "Stärke" },
+    { "kritisch", "Krit" }, { "critical", "Krit" },
+    { "rüstung", "Rüstung" }, { "armor", "Rüstung" },
+    { "ausdauer", "Ausdauer" }, { "stamina", "Ausdauer" },
+    { "intelligenz", "Intelligenz" }, { "intellect", "Intelligenz" },
+    { "willenskraft", "Willenskraft" }, { "spirit", "Willenskraft" },
+    { "mana", "Mana" },
+}
+
+-- Tooltip-Zeilen eines eigenen Buffs (leer, wenn der Client sie nicht hergibt)
+local function AuraLines(aura)
+    local lines = {}
+    local id = aura.auraInstanceID
+    if not (C_TooltipInfo and C_TooltipInfo.GetUnitBuffByAuraInstanceID and id) or ns.IsSecret(id) then return lines end
+    local ok, data = pcall(C_TooltipInfo.GetUnitBuffByAuraInstanceID, "player", id)
+    if not ok or type(data) ~= "table" or type(data.lines) ~= "table" then return lines end
+    for i, line in ipairs(data.lines) do
+        local text = line.leftText
+        if i > 1 and type(text) == "string" and not ns.IsSecret(text) and text ~= "" then table.insert(lines, text) end
+    end
+    return lines
+end
+
+local function CampFromText(lines, seen)
+    local text = ns.Lower(table.concat(lines, " "))
+    for _, w in ipairs(CAMP_WORDS) do
+        if text:find(w[1], 1, true) then seen[w[2]] = true end
+    end
+    -- „alle Werte um 8 %“ (Fischglas) – die Laute gibt alle Werte als feste Zahl
+    if text:find("werte", 1, true) and text:find("%%") then seen["Werte"] = true end
+end
+
 local function HasWord(name, words)
     for _, w in ipairs(words) do
         if name:find(w, 1, true) then return true end
@@ -80,6 +116,7 @@ function Ready:Collect()
             local label = id and not ns.IsSecret(id) and CAMP[id]
             if label and not campSeen[label] then
                 campSeen[label] = true
+                if label == "Lager" then CampFromText(AuraLines(aura), campSeen) end
                 local expires = aura.expirationTime
                 if expires and not ns.IsSecret(expires) and expires > 0 then
                     campEnd = math.min(campEnd or expires, expires)
@@ -87,6 +124,12 @@ function Ready:Collect()
             end
         end
     end
+    -- „Lager“ steht nur für den Buff selbst: weglassen, sobald die einzelnen Vorteile bekannt sind
+    local details = 0
+    for label in pairs(campSeen) do
+        if label ~= "Lager" then details = details + 1 end
+    end
+    if details > 0 then campSeen["Lager"] = nil end
     for _, label in ipairs(Ready.CAMP_ORDER) do
         if campSeen[label] then table.insert(r.camp, label) end
     end
@@ -127,12 +170,14 @@ end
 function Ready.CampShort(r)
     if not r or not r.camp then return nil end
     if #r.camp == 0 then return "–", "none" end
-    return #r.camp .. " · " .. (r.campLeft or 0) .. " Min", (r.campLeft or 0) < CAMP_LOW and "low" or "ok"
+    local what = (#r.camp == 1 and r.camp[1] == "Lager") and "ja" or tostring(#r.camp)
+    return what .. " · " .. (r.campLeft or 0) .. " Min", (r.campLeft or 0) < CAMP_LOW and "low" or "ok"
 end
 
 function Ready.CampLine(r)
     if not r or not r.camp then return nil end
     if #r.camp == 0 then return "Lagerfeuer: kein Buff" end
+    if #r.camp == 1 and r.camp[1] == "Lager" then return "Lagerfeuer: Lagervorteile (noch " .. (r.campLeft or 0) .. " Min.)" end
     return "Lagerfeuer: " .. table.concat(r.camp, ", ") .. " (noch " .. (r.campLeft or 0) .. " Min.)"
 end
 
@@ -343,6 +388,17 @@ function Ready:PrintCamp()
             local id, name = aura.spellId, aura.name
             if id and not ns.IsSecret(id) and not ns.IsSecret(name) then
                 table.insert(unknown, (CAMP[id] and "|cff40ff40" or "|cffc8bead") .. tostring(name) .. " = " .. id .. "|r")
+                if CAMP[id] then
+                    -- Was steht im Tooltip? (daraus liest das Addon die einzelnen Vorteile)
+                    local lines = AuraLines(aura)
+                    for _, text in ipairs(lines) do table.insert(unknown, "      |cfff3dc9aTooltip:|r " .. text) end
+                    if #lines == 0 then table.insert(unknown, "      |cffffb35aKein Tooltip-Text lesbar|r") end
+                    if type(aura.points) == "table" and #aura.points > 0 then
+                        local pts = {}
+                        for _, v in ipairs(aura.points) do table.insert(pts, tostring(v)) end
+                        table.insert(unknown, "      |cfff3dc9aWerte:|r " .. table.concat(pts, " / "))
+                    end
+                end
             end
         end
     end
