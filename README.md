@@ -257,6 +257,14 @@ Den Reiter **Leitung** (`/ea leitung`) sehen nur Offiziere und Gildenleitung. Er
 
 Die Chronik entsteht aus dem Vergleich der Gildenliste mit dem zuletzt gemerkten Stand und aus Blizzards Gildenprotokoll (die letzten 100 Einträge – damit ist sie beim ersten Öffnen schon gefüllt). Sie liegt auf dem eigenen Rechner; jeder Offizier führt seine eigene. Was passiert, während kein Offizier online ist, wird beim nächsten Einloggen bemerkt und – soweit Blizzards Protokoll es noch kennt – mit der richtigen Zeit nachgetragen.
 
+## Abgleich mit der Webseite über die Mac-App
+Ein Addon kann nicht ins Internet – deshalb läuft der Austausch mit gilde-elternabend.de sonst über Kopieren und Einfügen. Die kleine Mac-App **Elternabend Abgleich** (Ordner `Mac-App`, für die Gildenleitung) nimmt das ab:
+
+- **Spiel → Webseite:** Beim Ausloggen und bei `/reload` legt das Addon Klassenliste, Pinnwand, Berufe und den Raid-Bericht (sobald das Raid-Protokoll beendet ist) in die gespeicherte Variable `ElternabendSync`. Die App lädt hoch, was sich geändert hat.
+- **Webseite → Spiel:** Die App schreibt den nächsten Raid (Anmeldungen, Raidgruppen, Soft-Reserves, Termine) in die Datei `Abgleich.lua` im Addon-Ordner. Das Addon übernimmt ihn beim Einloggen oder nach `/reload` – aber nicht von selbst, solange ein Raid läuft. `/ea abgleich` zeigt den Stand und holt die Daten von Hand.
+
+Ohne die App passiert nichts davon: `Abgleich.lua` bleibt leer, und es wird nichts zusätzlich gespeichert. Hochgeladen wird nur mit einem Charakter der Gildenleitung.
+
 ## Tasten
 Unter **Optionen » Tastaturbelegung » Elternabend** (eigener Abschnitt, unten in der Liste) lassen sich Tasten vergeben: „Fenster öffnen / schließen“ und je eine für die Reiter Gilde, Gruppen, Raid, Kalender und Pinnwand. Ein zweiter Druck auf dieselbe Taste schließt das Fenster wieder. Dazu kommen die Tasten „Kind wach / Wieder da“ und „Nächste Gildenanfrage einladen“.
 
@@ -293,6 +301,7 @@ Unter **Optionen » Tastaturbelegung » Elternabend** (eigener Abschnitt, unten 
 | `/ea design` | Design des Addons wählen |
 | `/ea leitung` | Gildenchronik für Offiziere: Ein- und Austritte, Rückkehrer, lange Inaktive |
 | `/ea klassenliste` | Klassenliste für die Webseite erstellen (nur Gildenleitung) |
+| `/ea abgleich` | Stand des Abgleichs über die Mac-App zeigen und den Raid von der Webseite übernehmen |
 | `/ea lagerfeuer` | Zeigt, welche Lagerfeuer-Buffs das Addon an dir erkennt (mit Zauber-IDs) |
 | `/ea raidgruppen` | Geplante Raidgruppen ansehen und im Schlachtzug bauen |
 | `/ea kalender` | Kalender mit Raids, Jahrmarkt und PvP-Wochenende |
