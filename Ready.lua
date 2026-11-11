@@ -26,6 +26,35 @@ local ENCHANT_SLOTS = {
 local FLASK_WORDS = { "fläschchen", "flask", "phiole", "phial", "elixier", "elixir" }
 local FOOD_WORDS = { "satt", "well fed", "gut genährt" }
 
+-- Lagerfeuer-Buffs (WoW Forever): Wer eine Minute am Lagerfeuer sitzt, bekommt für eine Stunde je
+-- aufgestelltem Lagerobjekt einen Buff. Erkannt werden sie an der Zauber-ID. Die IDs stammen aus
+-- Datenbanken im Netz (zwei Reihen: Aura und Objekt) und sind im Spiel noch nicht alle bestätigt –
+-- /ea lagerfeuer zeigt, was das Addon am eigenen Charakter findet.
+local CAMP = {
+    -- Alchemie: Manabrunnen
+    [1307259] = "Mana", [1230564] = "Mana",
+    -- Schmiedekunst: Schleifrad
+    [1307392] = "Stärke", [1230171] = "Stärke",
+    -- Verzauberkunst: Verzauberte Laute
+    [1307234] = "Rüstung", [1230643] = "Rüstung",
+    -- Erste Hilfe: Verbandskasten
+    [1307244] = "Ausdauer", [1230117] = "Ausdauer",
+    -- Kräuterkunde: Räucherkerze
+    [1307251] = "Intelligenz", [1229705] = "Intelligenz",
+    -- Bergbau: Magnetstein
+    [1307254] = "Angriffskraft", [1230161] = "Angriffskraft",
+    -- Kürschnerei: Lagerstuhl
+    [1307229] = "Krit", [1229517] = "Krit",
+    -- Schneiderei: Fraktionsbanner
+    [1307239] = "Willenskraft", [1307240] = "Willenskraft", [1263425] = "Willenskraft",
+    -- Angeln: Fischglas
+    [1307245] = "Werte", [1229745] = "Werte",
+    -- Sammelbuff „Vorzüge des Lagers“
+    [1229741] = "Lager",
+}
+Ready.CAMP_ORDER = { "Angriffskraft", "Stärke", "Krit", "Werte", "Rüstung", "Ausdauer", "Intelligenz", "Willenskraft", "Mana", "Lager" }
+local CAMP_LOW = 15 -- Minuten: darunter lieber nochmal ans Feuer
+
 local function HasWord(name, words)
     for _, w in ipairs(words) do
         if name:find(w, 1, true) then return true end
@@ -35,7 +64,8 @@ end
 
 -- Eigener Charakter ---------------------------------------------------------------
 function Ready:Collect()
-    local r = { flask = false, food = false, durability = 100, missing = {} }
+    local r = { flask = false, food = false, durability = 100, missing = {}, camp = {}, campLeft = 0 }
+    local campSeen, campEnd = {}, nil
     if C_UnitAuras and C_UnitAuras.GetAuraDataByIndex then
         for i = 1, 60 do
             local aura = C_UnitAuras.GetAuraDataByIndex("player", i, "HELPFUL")
@@ -46,8 +76,21 @@ function Ready:Collect()
                 if HasWord(name, FLASK_WORDS) then r.flask = true end
                 if HasWord(name, FOOD_WORDS) then r.food = true end
             end
+            local id = aura.spellId
+            local label = id and not ns.IsSecret(id) and CAMP[id]
+            if label and not campSeen[label] then
+                campSeen[label] = true
+                local expires = aura.expirationTime
+                if expires and not ns.IsSecret(expires) and expires > 0 then
+                    campEnd = math.min(campEnd or expires, expires)
+                end
+            end
         end
     end
+    for _, label in ipairs(Ready.CAMP_ORDER) do
+        if campSeen[label] then table.insert(r.camp, label) end
+    end
+    if campEnd then r.campLeft = math.max(0, math.floor((campEnd - GetTime()) / 60)) end
     for slot = 1, 18 do
         local cur, max = GetInventoryItemDurability(slot)
         if cur and max and max > 0 and not ns.IsSecret(cur) then
@@ -65,7 +108,8 @@ function Ready:Collect()
 end
 
 function Ready:Serialize(r)
-    return table.concat({ r.flask and 1 or 0, r.food and 1 or 0, r.durability, table.concat(r.missing, ",") }, "\t")
+    return table.concat({ r.flask and 1 or 0, r.food and 1 or 0, r.durability, table.concat(r.missing, ","),
+        #r.camp > 0 and table.concat(r.camp, ",") or "-", r.campLeft or 0 }, "\t")
 end
 
 -- Kurzfassung für die Liste: „alles da“ oder „Fläschchen, Essen“
@@ -77,6 +121,19 @@ function Ready.Short(r)
     if r.durability < LOW_DURABILITY then table.insert(parts, "Rep") end
     if #r.missing > 0 then table.insert(parts, "Vz " .. #r.missing) end
     return parts
+end
+
+-- Lagerfeuer: Kurztext für die Liste und Zeile für den Tooltip (nil = Addon zu alt, meldet es nicht)
+function Ready.CampShort(r)
+    if not r or not r.camp then return nil end
+    if #r.camp == 0 then return "–", "none" end
+    return #r.camp .. " · " .. (r.campLeft or 0) .. " Min", (r.campLeft or 0) < CAMP_LOW and "low" or "ok"
+end
+
+function Ready.CampLine(r)
+    if not r or not r.camp then return nil end
+    if #r.camp == 0 then return "Lagerfeuer: kein Buff" end
+    return "Lagerfeuer: " .. table.concat(r.camp, ", ") .. " (noch " .. (r.campLeft or 0) .. " Min.)"
 end
 
 -- Ausführlich für Tooltip und eigene Erinnerung
@@ -114,6 +171,7 @@ end
 
 function Ready:Announce()
     local flask, food, repair, enchant, noAddon = {}, {}, {}, {}, {}
+    local campNone, campLow, campAny = {}, {}, false
     for _, m in ipairs(ns.Raid.members) do
         local r = self.states[m.key]
         local name = ns.ShortName(m.name)
@@ -124,6 +182,14 @@ function Ready:Announce()
             if not r.food then table.insert(food, name) end
             if r.durability < LOW_DURABILITY then table.insert(repair, name) end
             if #r.missing > 0 then table.insert(enchant, name) end
+            if r.camp then
+                if #r.camp == 0 then
+                    table.insert(campNone, name)
+                else
+                    campAny = true
+                    if (r.campLeft or 0) < CAMP_LOW then table.insert(campLow, name) end
+                end
+            end
         end
     end
     if #flask + #food + #repair + #enchant == 0 then
@@ -133,6 +199,11 @@ function Ready:Announce()
         if #food > 0 then ns.AnnounceList("Essen fehlt: ", food) end
         if #repair > 0 then ns.AnnounceList("Bitte reparieren: ", repair) end
         if #enchant > 0 then ns.AnnounceList("Verzauberung fehlt: ", enchant) end
+    end
+    -- Lagerfeuer nur ansagen, wenn es überhaupt jemand hat (sonst war die Gruppe noch nicht am Feuer)
+    if campAny then
+        if #campNone > 0 then ns.AnnounceList("Kein Lagerfeuer-Buff: ", campNone) end
+        if #campLow > 0 then ns.AnnounceList("Lagerfeuer läuft bald ab: ", campLow) end
     end
     if #noAddon > 0 then ns.Print("Ohne Addon (nicht geprüft): " .. table.concat(noAddon, ", ")) end
 end
@@ -148,7 +219,16 @@ ns.Comm.handlers.RDY = function(sender, parts)
     if not key then return end
     local missing = {}
     for slot in (parts[5] or ""):gmatch("[^,]+") do table.insert(missing, slot) end
-    Ready.states[key] = { flask = parts[2] == "1", food = parts[3] == "1", durability = tonumber(parts[4]) or 100, missing = missing }
+    -- Lagerfeuer melden erst neuere Versionen: fehlt das Feld, bleibt camp nil (= unbekannt)
+    local camp
+    if parts[6] then
+        camp = {}
+        if parts[6] ~= "-" then
+            for label in parts[6]:gmatch("[^,]+") do table.insert(camp, label) end
+        end
+    end
+    Ready.states[key] = { flask = parts[2] == "1", food = parts[3] == "1", durability = tonumber(parts[4]) or 100, missing = missing,
+        camp = camp, campLeft = tonumber(parts[7]) or 0 }
     ns:Fire("READY_UPDATE")
 end
 
@@ -245,3 +325,29 @@ ns:On("PLAYER_LOGIN", function()
 end)
 -- Nach dem Import aus dem Raidplaner den Termin an die Gilde geben
 ns:Listen("PLAN_IMPORTED", function() Ready:ShareRaid() end)
+
+-- /ea lagerfeuer: Was erkennt das Addon am eigenen Charakter? Zeigt auch unbekannte neue Buffs
+-- mit ihrer ID, damit sich die Liste oben ergänzen lässt.
+function Ready:PrintCamp()
+    local r = self:Collect()
+    if #r.camp > 0 then
+        ns.Print("|cff40ff40Lagerfeuer erkannt:|r " .. table.concat(r.camp, ", ") .. " (noch " .. r.campLeft .. " Min.)")
+    else
+        ns.Print("Kein Lagerfeuer-Buff erkannt.")
+    end
+    local unknown = {}
+    if C_UnitAuras and C_UnitAuras.GetAuraDataByIndex then
+        for i = 1, 60 do
+            local aura = C_UnitAuras.GetAuraDataByIndex("player", i, "HELPFUL")
+            if not aura then break end
+            local id, name = aura.spellId, aura.name
+            if id and not ns.IsSecret(id) and not ns.IsSecret(name) then
+                table.insert(unknown, (CAMP[id] and "|cff40ff40" or "|cffc8bead") .. tostring(name) .. " = " .. id .. "|r")
+            end
+        end
+    end
+    if #unknown > 0 then
+        ns.Print("Deine Buffs mit ID (grün = als Lagerfeuer erkannt):")
+        for _, line in ipairs(unknown) do print("   " .. line) end
+    end
+end

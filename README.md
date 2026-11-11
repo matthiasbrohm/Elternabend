@@ -266,6 +266,7 @@ Das Wappen erscheint im Addon-Menü, oben links im Fenster und am Minimap-Button
 | `/ea leistung` | Zeigt, wie oft und wie lange das Addon die Gildenliste auswertet (bei Rucklern) |
 | `/ea pinnwand` | Pinnwand öffnen (auch `/ea zettel`) |
 | `/ea design` | Design des Addons wählen |
+| `/ea lagerfeuer` | Zeigt, welche Lagerfeuer-Buffs das Addon an dir erkennt (mit Zauber-IDs) |
 | `/ea raidgruppen` | Geplante Raidgruppen ansehen und im Schlachtzug bauen |
 | `/ea kalender` | Kalender mit Raids, Jahrmarkt und PvP-Wochenende |
 | `/ea sync` | Soft-Reserves erneut an die Gruppe senden |

@@ -1272,7 +1272,7 @@ function UI:CreateRaidPanel()
     prep:SetScript("OnEnter", function(self)
         GameTooltip:SetOwner(self, "ANCHOR_BOTTOM")
         GameTooltip:AddLine("Vorbereitung prüfen")
-        GameTooltip:AddLine("Fläschchen, Essen, Haltbarkeit und Verzauberungen aller mit Addon. " ..
+        GameTooltip:AddLine("Fläschchen, Essen, Haltbarkeit, Verzauberungen und Lagerfeuer-Buffs aller mit Addon. " ..
             "Als Leitung wird danach angesagt, was fehlt.", 1, 1, 1, true)
         GameTooltip:Show()
     end)
@@ -1308,7 +1308,8 @@ function UI:CreateRaidPanel()
         { key = "status", label = "Status", x = 488, w = 84 },
         { key = "addon", label = "Addon", x = 574, w = 42 },
         { key = "prep", label = "Vorbereitung", x = 618, w = 92 },
-        { key = "sr", label = "Soft-Reserve", x = 712 },
+        { key = "camp", label = "Lagerfeuer", x = 712, w = 78 },
+        { key = "sr", label = "Soft-Reserve", x = 792 },
     }
     local list = CreateList(p, columns)
     list.panel:SetPoint("TOPLEFT", 0, -114)
@@ -1327,6 +1328,8 @@ function UI:CreateRaidPanel()
             else
                 GameTooltip:AddLine("Fehlt: " .. table.concat(problems, " · "), 1, 0.7, 0.35, true)
             end
+            local camp = ns.Ready.CampLine(state)
+            if camp then GameTooltip:AddLine(camp, 0.78, 0.75, 0.68, true) end
         end
         local items = ns.SR:GetPlayerItems(r.key)
         if #items == 0 then
@@ -1462,8 +1465,11 @@ function UI:CreateRaidPanel()
             if prepState then
                 local short = ns.Ready.Short(prepState)
                 col.prep:SetText(#short == 0 and T.Hex("green", "alles da") or T.Hex("orange", table.concat(short, ", ")))
+                local camp, level = ns.Ready.CampShort(prepState)
+                col.camp:SetText(camp and T.Hex(level == "ok" and "green" or (level == "low" and "orange" or "dim"), camp) or "")
             else
                 col.prep:SetText("")
+                col.camp:SetText("")
             end
 
             local items = ns.SR:GetPlayerItems(r.key)
