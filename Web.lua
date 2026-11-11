@@ -53,6 +53,16 @@ function Web:ImportPlan(text)
                 plan.signups[key] = { name = f[2], class = f[3], role = (f[4] or ""):lower(),
                     status = (f[5] ~= nil and f[5] ~= "") and f[5]:lower() or "dabei" }
             end
+        elseif kind == "gruppe" and tonumber(f[2]) then
+            -- Raidgruppe aus dem Raidplaner: gruppe;Nummer;Name;Name;…
+            local g = tonumber(f[2])
+            if g >= 1 and g <= 8 then
+                plan.groups = plan.groups or {}
+                plan.groups[g] = {}
+                for i = 3, math.min(#f, 7) do
+                    if f[i] ~= "" then table.insert(plan.groups[g], f[i]) end
+                end
+            end
         elseif kind == "sr" and f[2] and tonumber(f[3]) then
             table.insert(entries, { name = f[2], itemId = tonumber(f[3]), itemName = f[4], boss = f[5] ~= "" and f[5] or nil, plus = 0 })
         end
@@ -67,7 +77,8 @@ function Web:ImportPlan(text)
     ns.SR:SetEntries(entries, "Raidplaner" .. (plan.title and (": " .. plan.title) or ""))
     local count = 0
     for _ in pairs(plan.signups) do count = count + 1 end
-    ns.Print(string.format("Raid „%s“ geladen: %d Anmeldungen, %d Soft-Reserves.", plan.title or "?", count, #entries))
+    ns.Print(string.format("Raid „%s“ geladen: %d Anmeldungen, %d Soft-Reserves%s.", plan.title or "?", count, #entries,
+        plan.groups and " – mit Raidgruppen (Raid » Raidgruppen)" or ""))
     if IsInGroup() and ns.IsTrusted(ns.UnitFullName("player")) then
         ns.Print("Tipp: Mit „An Gruppe senden“ sehen alle die Soft-Reserves.")
     end

@@ -21,13 +21,14 @@ local TABS = {
 -- Unterreiter von „Raid“: eigene Leiste unter der Kopfzeile
 local RAID_TABS = {
     { key = "raid", label = "Übersicht" },
+    { key = "raidgruppen", label = "Raidgruppen" },
     { key = "sr", label = "Soft-Reserve" },
     { key = "loot", label = "Plündermeister" },
     { key = "history", label = "Loot" },
     { key = "taktik", label = "Taktik" },
     { key = "fame", label = "Ruhmeshalle" },
 }
-local IN_RAID_GROUP = { raid = true, sr = true, loot = true, history = true, taktik = true, fame = true }
+local IN_RAID_GROUP = { raid = true, raidgruppen = true, sr = true, loot = true, history = true, taktik = true, fame = true }
 local PANEL_TOP, SUBNAV_H = 116, 30
 
 local LOOT_METHODS = {
@@ -287,6 +288,7 @@ function UI:Create()
     self.panels.fame = self:CreateFamePanel()
     self.panels.web = self:CreateWebPanel()
     self.panels.kalender = self:CreateCalendarPanel()
+    self.panels.raidgruppen = self:CreateRaidGroupsPanel()
     -- Die Raid-Reiter beginnen unter der Unterleiste
     for key in pairs(IN_RAID_GROUP) do
         local p = self.panels[key]
@@ -1929,6 +1931,144 @@ function UI:CreateWebPanel()
         end
         report:SetEnabled(s ~= nil)
         toggle:SetText(ns.Web:IsRunning() and "Raid beenden" or "Protokoll starten")
+    end
+
+    return p
+end
+
+-- Unterreiter: Raidgruppen (aus dem Raidplaner, im Spiel nachbauen) -------------------
+function UI:CreateRaidGroupsPanel()
+    local p = self:NewPanel()
+    local R = ns.Raid
+    local ROLE_SHORT = { tank = "Tank", heal = "Heiler", dd = "DD" }
+
+    local build = T.Button(p, "Gruppen bauen", 150, "primary")
+    build:SetScript("OnClick", function() R:BuildGroups() end)
+    local invite = T.Button(p, "Fehlende einladen", 150)
+    invite:SetScript("OnClick", function() R:InviteMissing() end)
+    local announce = T.Button(p, "Im Raid ansagen", 140)
+    announce:SetScript("OnClick", function() R:AnnounceGroups() end)
+    local import = T.Button(p, "Raid einfügen", 120)
+    import:SetScript("OnClick", function() UI:ShowImport() end)
+    Row(p, 0, 0, { build, invite, announce, import })
+
+    p.status = T.Text(p, "small")
+    p.status:SetPoint("LEFT", import, "RIGHT", 16, 0)
+    p.status:SetPoint("RIGHT", p, "RIGHT", 0, 0)
+    p.status:SetWordWrap(false)
+
+    p.empty = T.Text(p, "body")
+    p.empty:SetPoint("TOPLEFT", 4, -60)
+    p.empty:SetWidth(760)
+    p.empty:SetSpacing(4)
+    p.empty:SetText("Noch keine Raidgruppen geladen.\n\n"
+        .. T.Hex("muted", "Auf der Webseite im Raidplaner beim Raid unter „Raidgruppen planen“ die Fünfergruppen festlegen (oder den Vorschlag lassen), "
+        .. "dann den Text unter „Für das Addon Elternabend“ kopieren und hier mit „Raid einfügen“ einfügen. "
+        .. "Im Schlachtzug sortiert „Gruppen bauen“ alle in ihre Gruppe."))
+
+    local gap, top = 10, 40
+    local cardW = math.floor((CONTENT_W - 3 * gap) / 4)
+    local cardH = 150
+    p.cards = {}
+    for g = 1, 8 do
+        local col, row = (g - 1) % 4, math.floor((g - 1) / 4)
+        local card = T.Panel(p)
+        card:SetSize(cardW, cardH)
+        card:SetPoint("TOPLEFT", col * (cardW + gap), -top - row * (cardH + gap))
+        card.title = T.Text(card, "kicker")
+        card.title:SetPoint("TOPLEFT", 12, -10)
+        card.title:SetText("GRUPPE " .. g)
+        card.count = T.Text(card, "muted", "RIGHT")
+        card.count:SetPoint("TOPRIGHT", -12, -9)
+        card.lines = {}
+        for i = 1, 5 do
+            local name = T.Text(card, "small")
+            name:SetPoint("TOPLEFT", 12, -8 - i * 22)
+            name:SetWidth(cardW - 100)
+            name:SetWordWrap(false)
+            local note = T.Text(card, "muted", "RIGHT")
+            note:SetPoint("TOPRIGHT", -12, -8 - i * 22)
+            card.lines[i] = { name = name, note = note }
+        end
+        p.cards[g] = card
+    end
+
+    p.rest = T.Text(p, "muted")
+    p.rest:SetPoint("TOPLEFT", 4, -top - 2 * (cardH + gap) - 4)
+    p.rest:SetPoint("RIGHT", p, "RIGHT", -4, 0)
+    p.rest:SetWordWrap(false)
+
+    function p:Refresh()
+        local view = R:GroupView()
+        local has = view ~= nil
+        p.empty:SetShown(not has)
+        p.rest:SetShown(has)
+        for _, card in ipairs(p.cards) do card:SetShown(has) end
+        local leader = UnitIsGroupLeader("player") or UnitIsGroupAssistant("player")
+        build:SetEnabled(has and IsInRaid() and leader and not R.build)
+        invite:SetEnabled(has and (not IsInGroup() or leader))
+        announce:SetEnabled(has and IsInGroup())
+        if not has then
+            p.status:SetText("")
+            return
+        end
+
+        local planned, present, missing = 0, 0, 0
+        local plannedKeys = {}
+        for g, card in ipairs(p.cards) do
+            local list = view[g]
+            local here = 0
+            for i, line in ipairs(card.lines) do
+                local e = list[i]
+                if e then
+                    planned = planned + 1
+                    local classFile = (e.member and e.member.classFile) or ClassFileFromName(e.class)
+                    local role = ROLE_SHORT[e.role]
+                    if e.member then plannedKeys[e.member.key] = true end
+                    if e.state == "missing" then
+                        missing = missing + 1
+                        line.name:SetText(T.Hex("dim", ns.ShortName(e.name)))
+                        local gm = ns.Members and ns.Members:Find(e.name)
+                        line.note:SetText(gm and gm.online and T.Hex("orange", "nicht im Raid") or T.Hex("dim", "fehlt"))
+                    else
+                        present = present + 1
+                        here = here + 1
+                        line.name:SetText("|c" .. ClassHex(classFile) .. ns.ShortName(e.name) .. "|r")
+                        if e.state == "wrong" then
+                            line.note:SetText(T.Hex("orange", "in Gruppe " .. (e.member.group or "?")))
+                        else
+                            line.note:SetText(T.Hex("muted", role or ""))
+                        end
+                    end
+                else
+                    line.name:SetText(T.Hex("dim", "– frei –"))
+                    line.note:SetText("")
+                end
+            end
+            card.count:SetText(#list > 0 and (here .. "/" .. #list) or "")
+        end
+
+        -- Im Raid, aber nicht eingeplant
+        local extra = {}
+        for _, m in ipairs(R.members) do
+            if not plannedKeys[m.key] then table.insert(extra, ns.ShortName(m.name)) end
+        end
+        p.rest:SetText(#extra > 0 and ("Nicht eingeplant (" .. #extra .. "): " .. table.concat(extra, ", ")
+            .. "  –  kommen auf freie Plätze") or "")
+
+        local wrong = R:GroupMismatches()
+        local plan = ns.db.plan
+        local text = (plan.title or "Raid") .. "  ·  " .. present .. " von " .. planned .. " geplanten Spielern da"
+        if R.build then
+            text = text .. "  ·  " .. T.Hex("goldBright", "baue Gruppen …")
+        elseif not IsInRaid() then
+            text = text .. "  ·  " .. T.Hex("muted", "noch kein Schlachtzug")
+        elseif wrong > 0 then
+            text = text .. "  ·  " .. T.Hex("orange", wrong .. (wrong == 1 and " steht falsch" or " stehen falsch"))
+        else
+            text = text .. "  ·  " .. T.Hex("green", "Gruppen stehen")
+        end
+        p.status:SetText(text)
     end
 
     return p

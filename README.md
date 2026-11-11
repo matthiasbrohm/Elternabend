@@ -185,7 +185,16 @@ Oben rechts im Fenster öffnet **Design** (oder `/ea design`) die Auswahl. Jede 
 
 Das gewählte Design gilt nur für dich und wird nach dem Neuladen der Oberfläche übernommen (Knopf „Jetzt neu laden“).
 
-## Kalender
+## Raidgruppen
+Die Fünfergruppen für einen Raid plant die Gildenleitung auf der Webseite, das Addon baut sie im Spiel nach.
+
+1. **Webseite:** Im Raidplaner beim Raid (mit Offizierspasswort) den Bereich „Raidgruppen planen“ öffnen. Der Vorschlag stellt Tanks und Nahkämpfer nach vorne, Zauberer nach hinten und verteilt die Heiler. Zum Ändern einen Spieler anklicken und dann den Zielplatz – belegte Plätze tauschen. „Gruppen speichern“ legt die Aufstellung fest; ohne Speichern gilt der Vorschlag.
+2. **Übernehmen:** Den Text unter „Für das Addon Elternabend“ kopieren und im Spiel mit „Raid einfügen“ einfügen – die Gruppen stecken mit drin.
+3. **Im Spiel:** Unter **Raid » Raidgruppen** (`/ea raidgruppen`) stehen die acht Gruppen. Wer fehlt oder in der falschen Gruppe steht, ist markiert.
+   - **Fehlende einladen** lädt geplante Spieler ein, die online, aber noch nicht in der Gruppe sind.
+   - **Gruppen bauen** sortiert den Schlachtzug in die geplanten Gruppen (Leitung oder Assistenz nötig). Nicht eingeplante Spieler kommen auf freie Plätze.
+   - **Im Raid ansagen** schreibt die Gruppen in den Raidchat.
+
 Der Reiter **Kalender** (`/ea kalender`) zeigt einen Monat auf einen Blick, ein Klick auf einen Tag zeigt die Einzelheiten rechts daneben:
 
 - **Raids** aus dem Raidplaner der Webseite – mit Uhrzeit, Dauer und Zusagen.
@@ -257,6 +266,7 @@ Das Wappen erscheint im Addon-Menü, oben links im Fenster und am Minimap-Button
 | `/ea leistung` | Zeigt, wie oft und wie lange das Addon die Gildenliste auswertet (bei Rucklern) |
 | `/ea pinnwand` | Pinnwand öffnen (auch `/ea zettel`) |
 | `/ea design` | Design des Addons wählen |
+| `/ea raidgruppen` | Geplante Raidgruppen ansehen und im Schlachtzug bauen |
 | `/ea kalender` | Kalender mit Raids, Jahrmarkt und PvP-Wochenende |
 | `/ea sync` | Soft-Reserves erneut an die Gruppe senden |
 

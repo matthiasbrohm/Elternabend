@@ -393,6 +393,8 @@ SlashCmdList.ELTERNABENDRAID = function(input)
         ns.UI:Show("berufe")
     elseif cmd == "notizen" or cmd == "notiz" then
         ns.UI:Show("notizen")
+    elseif cmd == "raidgruppen" or cmd == "aufstellung" then
+        ns.UI:Show("raidgruppen")
     elseif cmd == "gruppentest" then
         -- Probe für die Raidplanung: Darf ein Addon hier Spieler zwischen den Raidgruppen verschieben?
         if not IsInRaid() then
