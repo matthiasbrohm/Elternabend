@@ -195,6 +195,10 @@ Die Fünfergruppen für einen Raid plant die Gildenleitung auf der Webseite, das
    - **Gruppen bauen** sortiert den Schlachtzug in die geplanten Gruppen (Leitung oder Assistenz nötig). Nicht eingeplante Spieler kommen auf freie Plätze.
    - **Im Raid ansagen** schreibt die Gruppen in den Raidchat.
 
+## Lagerfeuer-Buffs
+Die Raid-Übersicht hat eine Spalte **Lagerfeuer**: wie viele Lagerfeuer-Buffs jemand hat und wie lange sie noch halten (z. B. „6 · 42 Min“; orange unter 15 Minuten, „–“ ohne Buff). Der Tooltip nennt die einzelnen Buffs. Gemeldet wird es zusammen mit der Vorbereitung – beim Klick auf „Vorbereitung“ und bei jedem Bereitschaftscheck. Die Leitung bekommt angesagt, wem der Buff fehlt oder bald abläuft. Erkannt werden die Buffs an ihrer Zauber-ID; `/ea lagerfeuer` zeigt, was das Addon am eigenen Charakter findet.
+
+## Kalender
 Der Reiter **Kalender** (`/ea kalender`) zeigt einen Monat auf einen Blick, ein Klick auf einen Tag zeigt die Einzelheiten rechts daneben:
 
 - **Raids** aus dem Raidplaner der Webseite – mit Uhrzeit, Dauer und Zusagen.
@@ -266,6 +270,7 @@ Das Wappen erscheint im Addon-Menü, oben links im Fenster und am Minimap-Button
 | `/ea leistung` | Zeigt, wie oft und wie lange das Addon die Gildenliste auswertet (bei Rucklern) |
 | `/ea pinnwand` | Pinnwand öffnen (auch `/ea zettel`) |
 | `/ea design` | Design des Addons wählen |
+| `/ea lagerfeuer` | Zeigt, welche Lagerfeuer-Buffs das Addon an dir erkennt (mit Zauber-IDs) |
 | `/ea lagerfeuer` | Zeigt, welche Lagerfeuer-Buffs das Addon an dir erkennt (mit Zauber-IDs) |
 | `/ea raidgruppen` | Geplante Raidgruppen ansehen und im Schlachtzug bauen |
 | `/ea kalender` | Kalender mit Raids, Jahrmarkt und PvP-Wochenende |
