@@ -63,7 +63,7 @@ jobs:
           rsync -a ./ build/Elternabend/ \
             --exclude '.git' --exclude '.github' --exclude 'build' \
             --exclude '.gitignore' --exclude '.gitattributes' --exclude '.gitkeep' --exclude '.pkgmeta' \
-            --exclude 'Taktik-Werkstatt'
+            --exclude 'Taktik-Werkstatt' --exclude 'Mac-App'
           sed -i "s/^## Version:.*/## Version: $VERSION/" build/Elternabend/Elternabend.toc
           cd build
           zip -rq "Elternabend-$VERSION.zip" Elternabend

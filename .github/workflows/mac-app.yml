@@ -1,0 +1,26 @@
+# Baut die Mac-App „Elternabend Abgleich“ (Ordner Mac-App) und legt sie als Artefakt ab.
+# Auslöser: Änderungen im Ordner Mac-App – oder von Hand unter „Actions → Mac-App bauen → Run workflow“.
+name: Mac-App bauen
+
+on:
+  push:
+    paths: ['Mac-App/**', '.github/workflows/mac-app.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  bauen:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: App bauen
+        run: Mac-App/bauen.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Elternabend-Abgleich
+          path: Mac-App/build/*.zip
+          if-no-files-found: error
