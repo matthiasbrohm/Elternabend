@@ -100,6 +100,9 @@ local function CampFromText(lines, seen, extra)
     for _, block in ipairs(lines) do
         for line in block:gmatch("[^\r\n]+") do
             local object, effect = line:match("^%s*([^:]+):%s*(%S.*)$")
+            -- Nur echte Boni: nicht „Zauber-ID: 1229741“ (Zahl) und nicht „Noch 18 Minuten“
+            -- (enthält intern „|4Minute:Minuten;“)
+            if object and (object:find("[%d|]") or not effect:find("%a+%s+%a")) then object = nil end
             if object then
                 found = true
                 local label = CampLabel(effect)
