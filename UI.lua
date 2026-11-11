@@ -2795,14 +2795,14 @@ function UI:CreateGroupsPanel()
 end
 
 -- Reiter: Pinnwand -----------------------------------------------------------------
-local WEEKDAYS = { "So", "Mo", "Di", "Mi", "Do", "Fr", "Sa" }
+local WEEKDAYS_SHORT = { "So", "Mo", "Di", "Mi", "Do", "Fr", "Sa" }
 
 local function DayLabel(t)
     local today = date("%Y%m%d")
     local d = date("%Y%m%d", t)
     if d == today then return "heute" end
     if d == date("%Y%m%d", time() + 86400) then return "morgen" end
-    return WEEKDAYS[tonumber(date("%w", t)) + 1] .. " " .. date("%d.%m.", t)
+    return WEEKDAYS_SHORT[tonumber(date("%w", t)) + 1] .. " " .. date("%d.%m.", t)
 end
 
 local function WhenLabel(t)

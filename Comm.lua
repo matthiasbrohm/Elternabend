@@ -173,6 +173,11 @@ function Comm:Assemble(sender, parts)
     local key = parts[1] .. sender .. id
     local entry = self.incoming[key]
     if not entry then
+        -- Abgebrochene Übertragungen (Absender ausgeloggt) nicht ewig aufheben
+        local now = GetTime()
+        for k, old in pairs(self.incoming) do
+            if now - old.last > 300 then self.incoming[k] = nil end
+        end
         entry = { total = total, parts = {}, got = 0, msgType = parts[1], sender = sender }
         self.incoming[key] = entry
     end

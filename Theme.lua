@@ -87,7 +87,6 @@ local function Color(c, a)
 end
 
 -- Schriften: Überschriften in Serifen, Text schlicht ---------------------
-local FONT_COLOR = {} -- Schrift -> Farbname, damit ein Design die Farben austauschen kann
 local function Font(name, path, size, color, shadow)
     local f = CreateFont(name)
     f:SetFont(path, size, "")
@@ -114,7 +113,8 @@ T.fonts = {
     btnLight    = Font("ElternabendFontBtnLight", SANS, 12, c.cream),
     btnDisabled = Font("ElternabendFontBtnDisabled", SANS, 12, { 0.5, 0.48, 0.44 }),
 }
-FONT_COLOR = {
+-- Schrift -> Farbname, damit ein Design die Farben austauschen kann
+local FONT_COLOR = {
     title = "goldBright", heading = "goldBright", value = "goldBright", kicker = "gold", body = "cream",
     small = "cream", muted = "muted", nav = "cream", navActive = "goldBright", btnDark = "ink", btnLight = "cream",
 }

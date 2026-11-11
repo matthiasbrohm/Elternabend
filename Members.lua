@@ -24,7 +24,6 @@ local _, ns = ...
 local Members = { list = {}, byKey = {}, mains = {} }
 ns.Members = Members
 
-local NOTE_MAX = 31 -- Länge der Offiziersnotiz
 local SHARE_INTERVAL = 15 * 60 -- unveränderte Zuordnung höchstens alle 15 Minuten neu verteilen
 -- Von welchen Rängen wird eine verteilte Zuordnung angenommen? (Rang 1 bis 3 der Gilde)
 local TRUSTED_RANKS = 3
@@ -35,10 +34,6 @@ local RANK_EXCEPTIONS = { ["gildenleitung"] = true, ["gildenmeister"] = true }
 -- Rechte ------------------------------------------------------------------------
 function Members:CanView()
     return IsInGuild() and C_GuildInfo.CanViewOfficerNote ~= nil and C_GuildInfo.CanViewOfficerNote()
-end
-
-function Members:CanEdit()
-    return IsInGuild() and C_GuildInfo.CanEditOfficerNote ~= nil and C_GuildInfo.CanEditOfficerNote()
 end
 
 -- Rang „Twink“ (Rangnummer wie in SetGuildMemberRank, 1 = Gildenleitung)
@@ -261,10 +256,6 @@ function Members:Find(name)
     for _, e in ipairs(self.list) do
         if ns.SameName(e.name, key) then return e end
     end
-end
-
-function Members:NoteFits(name)
-    return #(ns.ShortName(name) or "") <= NOTE_MAX
 end
 
 -- Zuordnung im Addon -------------------------------------------------------------
