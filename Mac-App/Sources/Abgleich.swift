@@ -88,11 +88,14 @@ final class Abgleich {
         return out
     }
 
-    /// Ändert sich, sobald das Spiel seine Daten neu gespeichert hat (/reload, Logout, Beenden)
+    /// Ändert sich, sobald das Spiel seine Daten neu gespeichert hat (/reload, Logout, Beenden) –
+    /// oder wenn Abgleich.lua im Addon-Ordner ersetzt wurde (Addon-Update): Dann schreibt die App sie gleich neu.
     func signatur() -> String {
         var teile: [String] = []
         for i in installationen() {
-            for f in i.saved {
+            var dateien = i.saved
+            if let addon = i.addon { dateien.append(addon.appendingPathComponent("Abgleich.lua")) }
+            for f in dateien {
                 let m = (try? f.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate
                 teile.append(f.path + "@" + String(m?.timeIntervalSince1970 ?? 0))
             }
