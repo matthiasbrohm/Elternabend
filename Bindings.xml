@@ -1,28 +1,28 @@
 <Bindings>
     <!-- Eigene Taste: öffnet das Chatfeld mit „/ginvite Name“ der nächsten Anfrage – dann Enter -->
-    <Binding name="ELTERNABEND_GILDENEINLADUNG" header="ELTERNABEND" category="ADDONS">
+    <Binding name="ELTERNABEND_GILDENEINLADUNG" category="Elternabend">
         Elternabend.Recruit:InviteNext()
     </Binding>
-    <Binding name="ELTERNABEND_KIND" category="ADDONS">
+    <Binding name="ELTERNABEND_KIND" category="Elternabend">
         Elternabend.Away:Toggle()
     </Binding>
     <!-- Fenster und einzelne Reiter per Taste: nochmal drücken schließt das Fenster wieder -->
-    <Binding name="ELTERNABEND_FENSTER" category="ADDONS">
+    <Binding name="ELTERNABEND_FENSTER" category="Elternabend">
         Elternabend.UI:Toggle()
     </Binding>
-    <Binding name="ELTERNABEND_GILDE" category="ADDONS">
+    <Binding name="ELTERNABEND_GILDE" category="Elternabend">
         Elternabend.UI:ToggleTab("mitglieder")
     </Binding>
-    <Binding name="ELTERNABEND_GRUPPEN" category="ADDONS">
+    <Binding name="ELTERNABEND_GRUPPEN" category="Elternabend">
         Elternabend.UI:ToggleTab("gruppen")
     </Binding>
-    <Binding name="ELTERNABEND_RAID" category="ADDONS">
+    <Binding name="ELTERNABEND_RAID" category="Elternabend">
         Elternabend.UI:ToggleTab("raid")
     </Binding>
-    <Binding name="ELTERNABEND_KALENDER" category="ADDONS">
+    <Binding name="ELTERNABEND_KALENDER" category="Elternabend">
         Elternabend.UI:ToggleTab("kalender")
     </Binding>
-    <Binding name="ELTERNABEND_PINNWAND" category="ADDONS">
+    <Binding name="ELTERNABEND_PINNWAND" category="Elternabend">
         Elternabend.UI:ToggleTab("pinnwand")
     </Binding>
 </Bindings>

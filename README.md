@@ -106,7 +106,7 @@ Zusätzlich flüstert der Knopf `ginv` an die Namen in `Join.INVITERS` (oben in 
 Wer dich mit `ginv` anflüstert (Stichwörter im Reiter **Invite** einstellbar, den nur sieht, wer in die Gilde einladen darf), landet in der Anfrageliste, und es erscheint ein kleines Fenster mit dem fertigen Befehl `/ginvite Anna Sturmwind` zum Kopieren: ins Feld klicken, **Cmd+C** (Windows: Strg+C), dann im Chat **Enter, Cmd+V, Enter**.
 - **Den Befehl musst du selbst abschicken.** WoW Forever behält Gildeneinladungen der Blizzard-Oberfläche vor: Weder Addons noch Makros dürfen einladen, und ein Addon darf auch nichts in die Eingabezeile schreiben – sonst blockiert WoW sogar den selbst abgeschickten Befehl („Funktion, die der Blizzard-UI vorbehalten ist“). Das haben wir ausgiebig getestet.
 - Sobald WoW „Ihr habt … eingeladen“ meldet, verschwindet die Anfrage, und die Person bekommt eine Antwort per Flüstern. Eine automatische Begrüßung im Gildenchat gibt es nicht mehr – mit vielen Addons in der Gilde kam sie mehrfach.
-- „Einladen“ im Reiter **Invite** und die Taste „Nächste Gildenanfrage einladen“ (Tastaturbelegungen → AddOns → Elternabend) öffnen das Fenster mit dem Befehl gleich markiert.
+- „Einladen“ im Reiter **Invite** und die Taste „Nächste Gildenanfrage einladen“ (Tastaturbelegung → Elternabend) öffnen das Fenster mit dem Befehl gleich markiert.
 - Man braucht einen Gildenrang, der einladen darf. Das Addon „InviteOnWhisper“ sollte nicht gleichzeitig auf `ginv` reagieren, sonst kommen doppelte Fenster.
 
 ## Start: Begrüßung und Gildeninfos
@@ -141,7 +141,7 @@ Solange du in einer Gruppe bist, steht der **Elternknopf** auf dem Bildschirm (v
 - Kleiner Knopf „Kind wach“: **Linksklick 5 Minuten, Rechtsklick 10 Minuten**. Während du weg bist, zeigt er die Restzeit – Linksklick „wieder da“, Rechtsklick 5 Minuten mehr. Die Gruppe sieht, dass du kurz weg bist, mit Timer – am Elternknopf und im Raid-Reiter. Für Spieler ohne Addon geht zusätzlich eine Zeile in den Gruppenchat.
 - „+5“ verlängert, „Wieder da“ beendet. Nach Ablauf zeigt der Timer „überfällig“.
 - Wer später in die Gruppe kommt, sieht deinen Status trotzdem.
-- Eigene Taste: Tastaturbelegungen → AddOns → Elternabend → „Kind wach (5 Min) / Wieder da“.
+- Eigene Taste: Tastaturbelegung → Elternabend → „Kind wach (5 Min) / Wieder da“.
 - Während Bosskämpfen sperrt das Spiel Chat- und Addon-Nachrichten. Ein Klick wird dann gemerkt und nach dem Kampf verschickt.
 
 ## Plündermeister-Reiter
@@ -240,7 +240,7 @@ Der Reiter **Gilde** zeigt allen Gildenmitgliedern:
 Das Wappen erscheint im Addon-Menü, oben links im Fenster und am Minimap-Button. Es liegt als `Media/Wappen.tga` im Addon. Ein neues Wappen: Bild als `Grafik/wappen.webp` ablegen und `python3 Grafik/wappen.py` ausführen.
 
 ## Tasten
-Unter **Optionen » Tastaturbelegung » Elternabend** (ganz unten in der Liste) lassen sich Tasten vergeben: „Fenster öffnen / schließen“ und je eine für die Reiter Gilde, Gruppen, Raid, Kalender und Pinnwand. Ein zweiter Druck auf dieselbe Taste schließt das Fenster wieder. Dazu kommen die Tasten „Kind wach / Wieder da“ und „Nächste Gildenanfrage einladen“.
+Unter **Optionen » Tastaturbelegung » Elternabend** (eigener Abschnitt, unten in der Liste) lassen sich Tasten vergeben: „Fenster öffnen / schließen“ und je eine für die Reiter Gilde, Gruppen, Raid, Kalender und Pinnwand. Ein zweiter Druck auf dieselbe Taste schließt das Fenster wieder. Dazu kommen die Tasten „Kind wach / Wieder da“ und „Nächste Gildenanfrage einladen“.
 
 ## Befehle
 | Befehl | Wirkung |
