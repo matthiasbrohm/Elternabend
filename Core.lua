@@ -393,6 +393,33 @@ SlashCmdList.ELTERNABENDRAID = function(input)
         ns.UI:Show("berufe")
     elseif cmd == "notizen" or cmd == "notiz" then
         ns.UI:Show("notizen")
+    elseif cmd == "gruppentest" then
+        -- Probe für die Raidplanung: Darf ein Addon hier Spieler zwischen den Raidgruppen verschieben?
+        if not IsInRaid() then
+            ns.Print("Der Test braucht einen Schlachtzug (zwei Spieler reichen: Gruppe bilden, in Schlachtzug umwandeln).")
+        elseif not (UnitIsGroupLeader("player") or UnitIsGroupAssistant("player")) then
+            ns.Print("Der Test braucht Leitung oder Assistenz im Schlachtzug.")
+        else
+            local index, from
+            for i = 1, GetNumGroupMembers() do
+                if UnitIsUnit("raid" .. i, "player") then index, from = i, select(3, GetRaidRosterInfo(i)) end
+            end
+            local to = from == 1 and 2 or 1
+            ns.Print("Gruppentest: verschiebe dich von Gruppe " .. tostring(from) .. " nach Gruppe " .. to .. " …")
+            local ok, err = pcall(SetRaidSubgroup, index, to)
+            C_Timer.After(1.5, function()
+                local now
+                for i = 1, GetNumGroupMembers() do
+                    if UnitIsUnit("raid" .. i, "player") then now = select(3, GetRaidRosterInfo(i)) end
+                end
+                if now == to then
+                    ns.Print("|cff40ff40Gruppentest bestanden|r – du bist jetzt in Gruppe " .. to .. ". Das Addon darf Gruppen bauen.")
+                else
+                    ns.Print("|cffff6060Gruppentest nicht bestanden|r – du bist weiter in Gruppe " .. tostring(now) .. "."
+                        .. (ok and "" or (" Fehler: " .. tostring(err))))
+                end
+            end)
+        end
     elseif cmd == "design" or cmd == "skin" then
         ns.UI:ShowSkinPicker()
     elseif cmd == "kalender" or cmd == "termine" then

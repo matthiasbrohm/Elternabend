@@ -836,9 +836,10 @@ function UI:CreateMembersPanel()
         { key = "name", label = "Charakter", x = 4, w = 140 },
         { key = "rank", label = "Rang", x = 146, w = 80 },
         { key = "class", label = "Klasse", x = 228, w = 76 },
-        { key = "status", label = "Status", x = 306, w = 160 },
-        { key = "zone", label = "Zone", x = 468, w = 140 },
-        { key = "issue", label = "Hinweis", x = 610, right = -6 },
+        { key = "level", label = "Stufe", x = 306, w = 34 },
+        { key = "status", label = "Status", x = 342, w = 160 },
+        { key = "zone", label = "Zone", x = 504, w = 136 },
+        { key = "issue", label = "Hinweis", x = 642, right = -6 },
     }
     local list = CreateList(p, columns)
     list.panel:SetPoint("TOPLEFT", 0, -36)
@@ -1196,6 +1197,7 @@ function UI:CreateMembersPanel()
             c.name:SetText(name)
             c.rank:SetText(e.main and T.Hex("muted", e.rank or "") or (e.rank or ""))
             c.class:SetText(T.Hex("muted", e.class or ""))
+            c.level:SetText((e.level or 0) > 0 and (e.main and T.Hex("muted", e.level) or e.level) or "")
             if e.online then
                 -- Mit Addon die Version dazu: grün = aktuell, orange = veraltet
                 local version = e.key == ns.PlayerKey() and ns.VERSION or ns.Comm.versions[e.key]
