@@ -16,6 +16,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Tests
+        working-directory: Mac-App
+        run: swift test
+
       - name: App bauen
         run: Mac-App/bauen.sh
 

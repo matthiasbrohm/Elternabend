@@ -4,9 +4,10 @@
 ## Author: Gilde Elternabend
 ## Version: 4.10.0
 ## X-Curse-Project-ID: 1784859
-## SavedVariables: ElternabendDB
+## SavedVariables: ElternabendDB, ElternabendSync
 ## IconTexture: Interface\AddOns\Elternabend\Media\Wappen
 
+Abgleich.lua
 Core.lua
 Theme.lua
 Comm.lua
@@ -31,6 +32,7 @@ Orders.lua
 Board.lua
 Calendar.lua
 GuildLog.lua
+Sync.lua
 Fame.lua
 UI.lua
 GuildButton.lua

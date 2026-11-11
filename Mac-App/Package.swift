@@ -5,6 +5,7 @@ let package = Package(
     name: "ElternabendAbgleich",
     platforms: [.macOS(.v13)],
     targets: [
-        .executableTarget(name: "ElternabendAbgleich", path: "Sources")
+        .executableTarget(name: "ElternabendAbgleich", path: "Sources"),
+        .testTarget(name: "ElternabendAbgleichTests", dependencies: ["ElternabendAbgleich"], path: "Tests"),
     ]
 )
