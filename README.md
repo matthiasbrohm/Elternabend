@@ -239,6 +239,9 @@ Der Reiter **Gilde** zeigt allen Gildenmitgliedern:
 ## Gildenwappen
 Das Wappen erscheint im Addon-Menü, oben links im Fenster und am Minimap-Button. Es liegt als `Media/Wappen.tga` im Addon. Ein neues Wappen: Bild als `Grafik/wappen.webp` ablegen und `python3 Grafik/wappen.py` ausführen.
 
+## Tasten
+Unter **Optionen » Tastaturbelegung » Elternabend** (ganz unten in der Liste) lassen sich Tasten vergeben: „Fenster öffnen / schließen“ und je eine für die Reiter Gilde, Gruppen, Raid, Kalender und Pinnwand. Ein zweiter Druck auf dieselbe Taste schließt das Fenster wieder. Dazu kommen die Tasten „Kind wach / Wieder da“ und „Nächste Gildenanfrage einladen“.
+
 ## Befehle
 | Befehl | Wirkung |
 |---|---|

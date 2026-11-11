@@ -6,4 +6,23 @@
     <Binding name="ELTERNABEND_KIND" category="ADDONS">
         Elternabend.Away:Toggle()
     </Binding>
+    <!-- Fenster und einzelne Reiter per Taste: nochmal drücken schließt das Fenster wieder -->
+    <Binding name="ELTERNABEND_FENSTER" category="ADDONS">
+        Elternabend.UI:Toggle()
+    </Binding>
+    <Binding name="ELTERNABEND_GILDE" category="ADDONS">
+        Elternabend.UI:ToggleTab("mitglieder")
+    </Binding>
+    <Binding name="ELTERNABEND_GRUPPEN" category="ADDONS">
+        Elternabend.UI:ToggleTab("gruppen")
+    </Binding>
+    <Binding name="ELTERNABEND_RAID" category="ADDONS">
+        Elternabend.UI:ToggleTab("raid")
+    </Binding>
+    <Binding name="ELTERNABEND_KALENDER" category="ADDONS">
+        Elternabend.UI:ToggleTab("kalender")
+    </Binding>
+    <Binding name="ELTERNABEND_PINNWAND" category="ADDONS">
+        Elternabend.UI:ToggleTab("pinnwand")
+    </Binding>
 </Bindings>

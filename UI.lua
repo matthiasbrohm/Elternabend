@@ -396,6 +396,22 @@ function UI:Toggle()
     end
 end
 
+-- Für die Tastenbelegung: Reiter öffnen; ist er schon offen, das Fenster schließen
+function UI:ToggleTab(key)
+    if self.frame and self.frame:IsShown() and self.currentTab == key then
+        self.frame:Hide()
+    else
+        self:Show(key)
+    end
+end
+
+BINDING_NAME_ELTERNABEND_FENSTER = "Fenster öffnen / schließen"
+BINDING_NAME_ELTERNABEND_GILDE = "Reiter Gilde öffnen"
+BINDING_NAME_ELTERNABEND_GRUPPEN = "Reiter Gruppen öffnen"
+BINDING_NAME_ELTERNABEND_RAID = "Reiter Raid öffnen"
+BINDING_NAME_ELTERNABEND_KALENDER = "Reiter Kalender öffnen"
+BINDING_NAME_ELTERNABEND_PINNWAND = "Reiter Pinnwand öffnen"
+
 function UI:Refresh()
     if not self.frame or not self.frame:IsShown() then return end
     self:LayoutTabs()
