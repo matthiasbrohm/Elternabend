@@ -5017,7 +5017,7 @@ end
 
 function UI:CreateMinimapButton()
     local b = CreateFrame("Button", "ElternabendMinimapButton", Minimap)
-    b:SetSize(26, 26) -- so groß wie die runden Knöpfe der anderen Addons
+    b:SetSize(29, 29) -- etwas kleiner als früher (32), aber noch gut zu treffen
     b:SetFrameStrata("MEDIUM")
     b:SetFrameLevel(8)
 
