@@ -2990,7 +2990,7 @@ function UI:CreateGroupsPanel()
     site:SetPoint("LEFT", siteLabel, "RIGHT", 10, 0)
 
     -- Rechts oben: eigene Gruppe suchen
-    local own = StartCard(p, "Gruppe suchen", 264)
+    local own = StartCard(p, "Gruppe suchen", 232)
     own:SetPoint("TOPRIGHT")
     own:SetWidth(rightWidth)
     local inner = rightWidth - 32
@@ -3047,19 +3047,6 @@ function UI:CreateGroupsPanel()
     p.ownState:SetPoint("TOPLEFT", p.post, "BOTTOMLEFT", 0, -10)
     p.ownState:SetWidth(inner)
     p.ownState:SetWordWrap(false)
-    -- Findet sich in der Gilde niemand: Blizzards Gruppensuche öffnen (eintragen muss man dort selbst)
-    p.outside = T.Button(own, "Außerhalb der Gilde suchen", inner)
-    p.outside:SetHeight(22)
-    p.outside:SetPoint("BOTTOMLEFT", 16, 10)
-    p.outside:SetScript("OnClick", function() G:OpenBlizzardFinder() end)
-    p.outside:SetScript("OnEnter", function(self)
-        GameTooltip:SetOwner(self, "ANCHOR_BOTTOM")
-        GameTooltip:AddLine("Außerhalb der Gilde suchen")
-        GameTooltip:AddLine("Öffnet Blizzards Gruppensuche. Den Eintrag legst du dort selbst an – das Addon sagt dir im Chat, "
-            .. "was du eintragen sollst. Dein Gesuch in der Gilde läuft weiter.", 1, 1, 1, true)
-        GameTooltip:Show()
-    end)
-    p.outside:SetScript("OnLeave", GameTooltip_Hide)
 
     -- Rechts unten: wer möchte mit?
     local apps = StartCard(p, "Meldungen", 0)
@@ -3134,7 +3121,6 @@ function UI:CreateGroupsPanel()
         for role, b in pairs(p.needButtons) do b:SetText(G.ROLES[role] .. ": " .. p.need[role]) end
         p.post:SetText(mine and "Aktualisieren" or "Gruppe suchen")
         p.close:SetEnabled(mine ~= nil)
-        p.outside:SetEnabled(mine ~= nil)
         local applicants = G:Applicants()
         if mine then
             p.ownState:SetText(T.Hex("green", "Läuft") .. "  ·  seit " .. math.floor((GetTime() - mine.started) / 60) ..
@@ -3147,7 +3133,7 @@ function UI:CreateGroupsPanel()
         p.appsHint:SetShown(#applicants == 0)
         p.appsHint:SetText(mine and "Noch hat sich niemand gemeldet." or
             "Wer sich auf dein Gesuch meldet, steht hier – mit Knopf zum Einladen.")
-        local maxRows = 5
+        local maxRows = 6
         for i = 1, math.max(#applicants, #p.appRows) do
             local a = applicants[i]
             local row = p.appRows[i] or (a and i <= maxRows and AppRow(i))
@@ -3814,8 +3800,8 @@ function UI:CreateProfessionsPanel()
     local rightWidth = 330
     local leftWidth = CONTENT_W - rightWidth - 12
 
-    local FILTER_W, VIEW_W = 180, 136
-    local search = T.EditBox(p, leftWidth - FILTER_W - VIEW_W - 16, "Rezept oder Gegenstand suchen …")
+    local FILTER_W, SLOT_W, VIEW_W = 180, 140, 136
+    local search = T.EditBox(p, leftWidth - FILTER_W - SLOT_W - VIEW_W - 24, "Rezept oder Gegenstand suchen …")
     T.AddClearButton(search)
     search:SetPoint("TOPLEFT", 0, 0)
     search:HookScript("OnTextChanged", function(_, userInput)
@@ -3873,6 +3859,8 @@ function UI:CreateProfessionsPanel()
                 end
                 p.profFilter = e.value
                 p.detail, p.detailRecipe = nil, nil -- zurück zur Übersicht mit allen, die diesen Beruf haben
+                -- Mit gewähltem Platz gleich die passenden Rezepte dieses Berufs zeigen
+                if p.slotFilter then p.byRecipe = true end
                 menu:Hide()
                 p:Refresh()
             end)
@@ -3882,21 +3870,104 @@ function UI:CreateProfessionsPanel()
         menu:SetHeight(10 + #entries * 24)
         menu:Show()
     end
+    -- Filter nach Rüstungsplatz: was gibt es für den Kopf, die Brust, als Waffe …? (gilt für Rezeptlisten)
+    p.slotFilter, p.sortSlot = nil, false
+    local slotBtn = T.Button(p, "Alle Plätze", SLOT_W)
+    slotBtn:SetPoint("LEFT", filterBtn, "RIGHT", 8, 0)
+    local slotMenu = T.Panel(p)
+    slotMenu:SetFrameStrata("DIALOG")
+    slotMenu:SetPoint("TOPLEFT", slotBtn, "BOTTOMLEFT", 0, -2)
+    slotMenu:SetWidth(SLOT_W + 24)
+    slotMenu:EnableMouse(true)
+    slotMenu:Hide()
+    slotMenu.buttons = {}
+    -- Wie viele Rezepte gibt es je Platz (im gewählten Beruf)?
+    local function SlotCounts()
+        local count, seen = {}, {}
+        for key, c in pairs(ns.db.professions) do
+            if #M.list == 0 or M.byKey[key] then
+                for _, pr in ipairs(c.profs) do
+                    if not p.profFilter or pr.name == p.profFilter then
+                        for _, id in ipairs(pr.recipes or {}) do
+                            if not seen[id] then
+                                seen[id] = true
+                                local slot = P:RecipeSlot(id)
+                                if slot then count[slot.key] = (count[slot.key] or 0) + 1 end
+                            end
+                        end
+                    end
+                end
+            end
+        end
+        return count
+    end
+    local function OpenSlotMenu()
+        local count = SlotCounts()
+        local entries = { { label = "Alle Plätze" } }
+        for _, slot in ipairs(P.SLOTS) do
+            if count[slot.key] or slot.key == p.slotFilter then
+                table.insert(entries, { label = slot.label .. "  (" .. (count[slot.key] or 0) .. ")", value = slot.key })
+            end
+        end
+        table.insert(entries, { label = p.sortSlot and T.Hex("goldBright", "Nach Platz sortiert") or "Nach Platz sortieren", sort = true })
+        for i, e in ipairs(entries) do
+            local b = slotMenu.buttons[i]
+            if not b then
+                b = T.Button(slotMenu, "", SLOT_W + 12)
+                b:SetHeight(22)
+                b:SetPoint("TOPLEFT", 6, -6 - (i - 1) * 24)
+                slotMenu.buttons[i] = b
+            end
+            b:SetText((not e.sort and e.value == p.slotFilter) and T.Hex("goldBright", e.label) or e.label)
+            b:SetScript("OnClick", function()
+                if e.sort then
+                    p.sortSlot = not p.sortSlot
+                else
+                    p.slotFilter = e.value
+                    p.detailRecipe = nil
+                end
+                -- Plätze gibt es nur in Rezeptlisten: dafür in die Ansicht „Nach Rezepten“ wechseln
+                if (p.slotFilter or p.sortSlot) and not p.detail then p.byRecipe = true end
+                slotMenu:Hide()
+                p:Refresh()
+            end)
+            b:Show()
+        end
+        for i = #entries + 1, #slotMenu.buttons do slotMenu.buttons[i]:Hide() end
+        slotMenu:SetHeight(10 + #entries * 24)
+        slotMenu:Show()
+    end
+
     filterBtn:SetScript("OnClick", function()
+        slotMenu:Hide()
         if menu:IsShown() then menu:Hide() else OpenMenu() end
     end)
+    slotBtn:SetScript("OnClick", function()
+        menu:Hide()
+        if slotMenu:IsShown() then slotMenu:Hide() else OpenSlotMenu() end
+    end)
+    slotBtn:SetScript("OnEnter", function(self)
+        if slotMenu:IsShown() then return end
+        GameTooltip:SetOwner(self, "ANCHOR_TOP")
+        GameTooltip:AddLine("Nach Rüstungsplatz")
+        GameTooltip:AddLine("Zeigt nur Rezepte für einen Platz – zum Beispiel alles für den Kopf. Zusammen mit dem Beruf: "
+            .. "„Lederverarbeitung“ und „Kopf“. Auf Wunsch wird die Liste auch nach Platz sortiert.", 1, 1, 1, true)
+        GameTooltip:Show()
+    end)
+    slotBtn:SetScript("OnLeave", GameTooltip_Hide)
 
     -- Ansicht umschalten: nach Personen (wer hat welche Berufe) oder nach Rezepten (wer kann was)
     p.byRecipe = false
     local viewBtn = T.Button(p, "Nach Rezepten", VIEW_W)
-    viewBtn:SetPoint("LEFT", filterBtn, "RIGHT", 8, 0)
+    viewBtn:SetPoint("LEFT", slotBtn, "RIGHT", 8, 0)
     viewBtn:SetScript("OnClick", function()
         p.byRecipe = not p.byRecipe
         p.detail, p.detailRecipe = nil, nil
         menu:Hide()
+        slotMenu:Hide()
         p:Refresh()
     end)
-    p:HookScript("OnHide", function() menu:Hide() end)
+    p:HookScript("OnHide", function() menu:Hide() slotMenu:Hide() end)
 
     local function Online(key)
         local m = M.byKey[key]
@@ -4000,8 +4071,9 @@ function UI:CreateProfessionsPanel()
 
     -- Nach Rezepten: jedes Rezept einmal, daneben alle, die es herstellen können
     local recipeList = CreateList(p, {
-        { key = "recipe", label = "Rezept", x = 4, w = 290 },
-        { key = "who", label = "Wer kann es?", x = 296, w = 320 },
+        { key = "recipe", label = "Rezept", x = 4, w = 236 },
+        { key = "slot", label = "Platz", x = 242, w = 150 },
+        { key = "who", label = "Wer kann es?", x = 394, w = 222 },
         { key = "prof", label = "Beruf", x = 620 },
     })
     recipeList.panel:SetPoint("TOPLEFT", 0, -36)
@@ -4223,7 +4295,22 @@ function UI:CreateProfessionsPanel()
 
         local filter = p.profFilter
         filterBtn:SetText((p.onlySpecial and P.SPECIAL_ICON or "") .. (filter and T.Hex("goldBright", filter) or "Alle Berufe"))
-        local function Shown(id) return not p.onlySpecial or P:SpecialItem(id) ~= nil end
+        local slotFilter = p.slotFilter
+        local slotLabel = slotFilter and P.SLOT_BY_KEY[slotFilter] and P.SLOT_BY_KEY[slotFilter].label or nil
+        slotBtn:SetText(slotLabel and T.Hex("goldBright", slotLabel) or (p.sortSlot and "Nach Platz sortiert" or "Alle Plätze"))
+        local function SlotOrder(id)
+            local slot = P:RecipeSlot(id)
+            return slot and slot.order or 99
+        end
+        local function Shown(id)
+            if p.onlySpecial and P:SpecialItem(id) == nil then return false end
+            if slotFilter then
+                local slot = P:RecipeSlot(id)
+                return slot ~= nil and slot.key == slotFilter
+            end
+            return true
+        end
+        local slotNote = slotLabel and ("  ·  Platz: " .. T.Hex("goldBright", slotLabel)) or ""
 
         viewBtn:SetText(p.byRecipe and T.Hex("goldBright", "Nach Rezepten") or "Nach Personen")
         local text = strtrim(search:GetText() or "")
@@ -4287,18 +4374,22 @@ function UI:CreateProfessionsPanel()
                 r.who = table.concat(parts, ", ")
                 r.whoText = r.who
             end
+            if p.sortSlot then for _, r in ipairs(rows) do r.slotOrder = SlotOrder(r.id) end end
             table.sort(rows, function(a, b)
                 if a.prof ~= b.prof then return a.prof < b.prof end
+                if p.sortSlot and a.slotOrder ~= b.slotOrder then return a.slotOrder < b.slotOrder end
                 return a.recipe < b.recipe
             end)
             recipeList:SetData(rows, function(row, r)
+                local slot, kind = P:RecipeSlot(r.id)
                 row.cols.recipe:SetText(Colored(r.id, r.recipe))
+                row.cols.slot:SetText(slot and (slot.label .. (kind and T.Hex("muted", " · " .. kind) or "")) or "")
                 row.cols.who:SetText(r.who)
                 row.cols.prof:SetText(T.Hex("muted", r.prof))
             end)
             p.summary:SetText(#rows == 0 and T.Hex("orange", "Kein passendes Rezept gefunden.")
                 or (#rows .. (#rows == 1 and " Rezept" or " Rezepte") .. (p.onlySpecial and " (nur Sonderrezepte)" or "")
-                    .. (filter and (" in " .. T.Hex("goldBright", filter)) or "")
+                    .. (filter and (" in " .. T.Hex("goldBright", filter)) or "") .. slotNote
                     .. "  ·  " .. T.Hex("green", "grün") .. " = online  ·  " .. P.SPECIAL_ICON .. "= Sonderrezept"))
         elseif recipeDetail then
             -- Alle Hersteller eines Rezepts, mit Auftrag per Klick
@@ -4336,8 +4427,10 @@ function UI:CreateProfessionsPanel()
                     end
                 end
             end
+            if p.sortSlot then for _, r in ipairs(rows) do r.slotOrder = SlotOrder(r.id) end end
             table.sort(rows, function(a, b)
                 if a.prof ~= b.prof then return a.prof < b.prof end
+                if p.sortSlot and a.slotOrder ~= b.slotOrder then return a.slotOrder < b.slotOrder end
                 return a.recipe < b.recipe
             end)
             hitList:SetData(rows, function(row, h)
@@ -4347,10 +4440,10 @@ function UI:CreateProfessionsPanel()
                 row.cols.status:SetText(Online(h.key))
             end)
             p.summary:SetText("Rezepte von " .. T.Hex("goldBright", ns.ShortName(detail.name)) .. "  ·  " .. #rows .. " Rezepte"
-                .. (p.onlySpecial and " (nur Sonderrezepte)" or "") .. "  ·  " .. P.SPECIAL_ICON .. "= Sonderrezept")
+                .. (p.onlySpecial and " (nur Sonderrezepte)" or "") .. slotNote .. "  ·  " .. P.SPECIAL_ICON .. "= Sonderrezept")
         elseif searching then
-            local hits = P:Search(text, 200)
-            if filter or p.onlySpecial then
+            local hits = P:Search(text, slotFilter and 2000 or 200)
+            if filter or p.onlySpecial or slotFilter then
                 local only = {}
                 for _, h in ipairs(hits) do
                     if (not filter or h.prof == filter) and Shown(h.id) then table.insert(only, h) end

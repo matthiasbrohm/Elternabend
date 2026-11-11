@@ -139,8 +139,6 @@ Im Reiter **Gruppen** einträgst du, wofür du Mitspieler suchst und wie viele T
 
 Mit dem Häkchen **„Auch im Gildenchat posten“** (standardmäßig an) schreibt das Addon beim Start einmal eine Zeile in den Gildenchat, z. B. „Suche Gruppe für DM: 1 Tank, 2 DD – gemütlich. Mit Addon über /ea gruppen melden, sonst anflüstern!“ So sehen auch Mitglieder ohne Addon das Gesuch und melden sich per Flüstern. Addon-Nutzer bekommen dann keine zweite Meldung.
 
-Findet sich in der Gilde niemand, öffnet **„Außerhalb der Gilde suchen“** Blizzards Gruppensuche. Einen Eintrag dort dürfen Addons nicht selbst anlegen – das Addon sagt im Chat, was einzutragen ist; das Gesuch in der Gilde läuft weiter.
-
 ## Ruhmeshalle
 Fällt ein Raidboss zum ersten Mal in einer Gildengruppe (mindestens die Hälfte aus der Gilde), hält das Addon fest: Boss, Schwierigkeit, Raid, Datum und wer dabei war. Die Einträge werden an die ganze Gilde verteilt und beim Einloggen abgeglichen. Zu sehen unter **Raid » Ruhmeshalle** oder mit `/ea ruhm`.
 
@@ -159,6 +157,7 @@ Der Reiter erscheint nur für Plündermeister, Leitung und Assistenten – oder 
 Im Reiter **Berufe** siehst du, wer in der Gilde welche Berufe hat – und suchst gezielt: „Heiltrank“ eintippen zeigt alle, die ihn herstellen können, und wer davon online ist. Ein Klick auf einen Charakter zeigt alle seine Rezepte, ein Rechtsklick öffnet ein Flüsterfenster.
 - Rechts neben der Suche filterst du nach einem **Beruf**: Wähle z. B. „Lederverarbeitung“, dann siehst du alle, die ihn haben, mit Stufe und Anzahl der Rezepte – die höchste Stufe zuerst. Der Filter gilt auch für die Suche und die Rezeptliste eines Charakters.
 - **Nach Rezepten** (Knopf neben dem Filter): jedes Rezept einmal, daneben alle, die es herstellen können – wer online ist, steht grün vorne. Im Tooltip siehst du den Gegenstand wie im Spiel und die nötigen Materialien; ein Klick zeigt alle Hersteller, dort schickst du per Klick einen Auftrag.
+- **Nach Rüstungsplatz** (Knopf „Alle Plätze“): zeigt nur Rezepte für einen Platz – zum Beispiel alles für den Kopf, zusammen mit dem Berufsfilter etwa alle Leder-Kopfteile der Lederverarbeitung. In der Rezeptliste steht der Platz in einer eigenen Spalte (bei Rüstung und Waffen mit der Art, z. B. „Kopf · Leder“); „Nach Platz sortieren“ ordnet die Liste von Kopf bis Fuß.
 - **Sonderrezepte** erkennst du am Rezept-Symbol: Die lernt man nicht beim Lehrer, sondern über ein Rezept (Muster, Pläne, Bauplan, Formel …) von einem Händler, als Beute oder aus einer Quest – z. B. die Rote Leinentasche. Im Filter-Menü zeigt „Nur Sonderrezepte“ ausschließlich diese. Die Zuordnung stammt aus den Daten von AtlasLootClassic.
 - **Für die Webseite exportieren** (rechts unter „Meine Berufe“): erstellt einen Text mit allen Berufen, Stufen und Rezepten der Gilde – samt Materialien und Werten der hergestellten Gegenstände. Offiziere fügen ihn auf [gilde-elternabend.de/berufe.php](https://www.gilde-elternabend.de/berufe.php) unter „Aus dem Addon importieren“ ein.
 - Deine Rezepte liest das Addon aus, sobald du **einmal dein Berufsfenster öffnest**, und teilt sie über den Gildenkanal. Jedes Addon speichert, was es empfängt – auch Rezepte von Mitgliedern, die gerade offline sind.

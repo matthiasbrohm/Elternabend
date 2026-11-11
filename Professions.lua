@@ -415,6 +415,61 @@ function Prof:RecipeColor(id)
     return c and c.hex or nil
 end
 
+-- Rüstungsplatz ----------------------------------------------------------------
+-- Wohin gehört, was ein Rezept herstellt (Kopf, Brust, Waffe …)? Für Filter und Sortierung im Berufe-Reiter.
+Prof.SLOTS = {
+    { key = "kopf", label = "Kopf", types = { "INVTYPE_HEAD" } },
+    { key = "hals", label = "Hals", types = { "INVTYPE_NECK" } },
+    { key = "schultern", label = "Schultern", types = { "INVTYPE_SHOULDER" } },
+    { key = "ruecken", label = "Rücken", types = { "INVTYPE_CLOAK" } },
+    { key = "brust", label = "Brust", types = { "INVTYPE_CHEST", "INVTYPE_ROBE" } },
+    { key = "hemd", label = "Hemd", types = { "INVTYPE_BODY" } },
+    { key = "handgelenke", label = "Handgelenke", types = { "INVTYPE_WRIST" } },
+    { key = "haende", label = "Hände", types = { "INVTYPE_HAND" } },
+    { key = "taille", label = "Taille", types = { "INVTYPE_WAIST" } },
+    { key = "beine", label = "Beine", types = { "INVTYPE_LEGS" } },
+    { key = "fuesse", label = "Füße", types = { "INVTYPE_FEET" } },
+    { key = "finger", label = "Finger", types = { "INVTYPE_FINGER" } },
+    { key = "schmuck", label = "Schmuck", types = { "INVTYPE_TRINKET" } },
+    { key = "waffe", label = "Waffe", types = { "INVTYPE_WEAPON", "INVTYPE_2HWEAPON", "INVTYPE_WEAPONMAINHAND", "INVTYPE_WEAPONOFFHAND" } },
+    { key = "schildhand", label = "Schildhand", types = { "INVTYPE_SHIELD", "INVTYPE_HOLDABLE" } },
+    { key = "distanz", label = "Distanz", types = { "INVTYPE_RANGED", "INVTYPE_RANGEDRIGHT", "INVTYPE_THROWN" } },
+    { key = "munition", label = "Munition", types = { "INVTYPE_AMMO" } },
+    { key = "tasche", label = "Tasche", types = { "INVTYPE_BAG", "INVTYPE_QUIVER" } },
+}
+local SLOT_BY_TYPE = {}
+Prof.SLOT_BY_KEY = {}
+for i, slot in ipairs(Prof.SLOTS) do
+    slot.order = i
+    Prof.SLOT_BY_KEY[slot.key] = slot
+    for _, t in ipairs(slot.types) do SLOT_BY_TYPE[t] = slot end
+end
+
+-- Liefert den Platz (Eintrag aus Prof.SLOTS) und – bei Rüstung und Waffen – die Art („Leder“, „Dolch“ …).
+-- nil für alles, was man nicht anlegt (Tränke, Materialien, Verzauberungen …).
+local slotCache = {}
+function Prof:RecipeSlot(id)
+    local c = slotCache[id]
+    if c == nil then
+        c = false
+        local sch = self:Schematic(id)
+        local info = (C_Item and C_Item.GetItemInfoInstant) or GetItemInfoInstant
+        if sch and sch.item and info then
+            local ok, _, _, subType, equipLoc, _, classID, subClassID = pcall(info, sch.item)
+            local slot = ok and type(equipLoc) == "string" and SLOT_BY_TYPE[equipLoc] or nil
+            if slot then
+                -- Art nur, wo sie etwas sagt: Stoff/Leder/Schwere Rüstung/Platte und Waffenarten
+                local armor = classID == 4 and type(subClassID) == "number" and subClassID >= 1 and subClassID <= 4
+                    and equipLoc ~= "INVTYPE_CLOAK"
+                local kind = (armor or classID == 2) and type(subType) == "string" and subType ~= "" and subType or nil
+                c = { slot = slot, kind = kind }
+            end
+        end
+        slotCache[id] = c
+    end
+    if c then return c.slot, c.kind end
+end
+
 -- Sonderrezept? Liefert die Gegenstands-ID des Rezepts (Muster, Pläne …) oder nil,
 -- wenn man es beim Lehrer lernt.
 function Prof:SpecialItem(id)
