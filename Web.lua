@@ -174,6 +174,39 @@ ns:On("ENCOUNTER_END", function(encounterID, encounterName, difficultyID, groupS
     ns:Fire("SESSION_UPDATE")
 end)
 
+-- Klassenliste für die Webseite ------------------------------------------
+-- Nur was auf der Webseite stehen soll: Name, Klasse, Stufe, Rang und wessen Twink jemand ist.
+-- Kein „zuletzt online“, keine Notizen.
+function Web:BuildRoster()
+    local M = ns.Members
+    if not M or not M.list or #M.list == 0 then return nil end
+    local lines = { "#ELTERNABEND-MITGLIEDER 1" }
+    local guild = IsInGuild() and GetGuildInfo("player") or ""
+    table.insert(lines, table.concat({ "gilde", Clean(guild), time(), Clean(ns.ShortName(ns.UnitFullName("player"))) }, ";"))
+
+    local list = {}
+    for _, e in ipairs(M.list) do table.insert(list, e) end
+    table.sort(list, function(a, b)
+        if (a.rankOrder or 99) ~= (b.rankOrder or 99) then return (a.rankOrder or 99) < (b.rankOrder or 99) end
+        return a.name < b.name
+    end)
+    local count = 0
+    for _, e in ipairs(list) do
+        -- Twink eines Twinks: bis zum eigentlichen Main hochgehen
+        local main, steps = e.main, 0
+        while main and main.main and main.main ~= e and steps < 5 do
+            main, steps = main.main, steps + 1
+        end
+        local file = e.classFile or ""
+        local className = (LOCALIZED_CLASS_NAMES_MALE and LOCALIZED_CLASS_NAMES_MALE[file]) or e.class or ""
+        table.insert(lines, table.concat({ "m", Clean(ns.ShortName(e.name)), file, Clean(className), e.level or 0,
+            Clean(e.rank or ""), e.rankOrder or 0, main and main ~= e and Clean(ns.ShortName(main.name)) or "" }, ";"))
+        count = count + 1
+    end
+    table.insert(lines, "#ENDE")
+    return table.concat(lines, "\n"), count
+end
+
 -- Bericht für die Webseite -------------------------------------------------
 function Web:BuildReport()
     local s = ns.db.session

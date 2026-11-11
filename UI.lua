@@ -2179,6 +2179,20 @@ function UI:CreateLeadPanel()
     end
     p.since = T.Text(stats, "muted")
     p.since:SetPoint("BOTTOMLEFT", 16, 10)
+    -- Klassenliste für die Webseite (Name, Klasse, Stufe, Rang, Main/Twink)
+    local roster = T.Button(stats, "Für die Webseite", 130)
+    roster:SetHeight(20)
+    roster:SetPoint("BOTTOMRIGHT", -12, 8)
+    roster:SetScript("OnClick", function() UI:ShowRoster() end)
+    roster:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_TOP")
+        GameTooltip:AddLine("Klassenliste für die Webseite")
+        GameTooltip:AddLine("Erstellt einen Text mit allen Mitgliedern: Name, Klasse, Stufe, Rang und wer wessen Twink ist. "
+            .. "Kopieren und auf " .. ns.WEBSITE .. " unter Gilde » Klassenliste einfügen.", 1, 1, 1, true)
+        GameTooltip:AddLine("Nicht dabei: wann jemand zuletzt online war und die Notizen.", 0.78, 0.75, 0.68, true)
+        GameTooltip:Show()
+    end)
+    roster:SetScript("OnLeave", GameTooltip_Hide)
 
     -- Rechts unten: lange nicht online
     local inactive = StartCard(p, "Lange nicht online", 0)
@@ -4913,6 +4927,24 @@ function UI:ShowReport()
     self:TextDialog("Raid-Bericht für die Webseite",
         "Der Text ist markiert: mit Strg+C kopieren und im Raidplaner unter „Für die Gildenleitung“ einfügen.",
         report)
+end
+
+function UI:ShowRoster()
+    if not self:IsLeader() then
+        ns.Print("Die Klassenliste für die Webseite erstellt die Gildenleitung.")
+        return
+    end
+    local text, count = ns.Web:BuildRoster()
+    if not text then
+        ns.Print("Die Gildenliste ist noch nicht geladen – bitte gleich noch einmal versuchen.")
+        if C_GuildInfo and C_GuildInfo.GuildRoster then C_GuildInfo.GuildRoster() end
+        return
+    end
+    self:TextDialog("Klassenliste für die Webseite",
+        count .. " Charaktere. Der Text ist markiert: mit Strg+C kopieren und auf " .. ns.WEBSITE ..
+        " unter Gilde » Klassenliste bei „Für die Gildenleitung“ einfügen.\n" ..
+        "Enthält Name, Klasse, Stufe, Rang und Main/Twink – nicht, wann jemand zuletzt online war.",
+        text)
 end
 
 function UI:ShowExport()

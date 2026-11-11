@@ -396,6 +396,8 @@ SlashCmdList.ELTERNABENDRAID = function(input)
         ns.UI:Show("notizen")
     elseif cmd == "leitung" or cmd == "chronik" then
         ns.UI:Show("leitung")
+    elseif cmd == "klassenliste" or cmd == "mitgliederliste" then
+        ns.UI:ShowRoster()
     elseif cmd == "lagerfeuer" or cmd == "camp" then
         ns.Ready:PrintCamp()
     elseif cmd == "raidgruppen" or cmd == "aufstellung" then
