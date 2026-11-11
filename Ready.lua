@@ -82,13 +82,45 @@ local function AuraLines(aura)
     return lines
 end
 
-local function CampFromText(lines, seen)
+-- Der Tooltip von „Lagervorteile“ sieht so aus:
+--   Erhält die folgenden Lagerboni:
+--   Manabrunnen: Stellt alle 5 Sekunden 10 Mana wieder her.
+-- Je Zeile „Lagerobjekt: Wirkung“. Die Wirkung bestimmt die Bezeichnung; passt kein Stichwort,
+-- steht der Name des Lagerobjekts da.
+local function CampLabel(effect)
+    local text = ns.Lower(effect)
+    if text:find("werte", 1, true) and text:find("%%") then return "Werte" end
+    for _, w in ipairs(CAMP_WORDS) do
+        if text:find(w[1], 1, true) then return w[2] end
+    end
+end
+
+local function CampFromText(lines, seen, extra)
+    local found = false
+    for _, block in ipairs(lines) do
+        for line in block:gmatch("[^\r\n]+") do
+            local object, effect = line:match("^%s*([^:]+):%s*(%S.*)$")
+            if object then
+                found = true
+                local label = CampLabel(effect)
+                if label then
+                    seen[label] = true
+                else
+                    label = strtrim((object:gsub("[,\t|]", " "))):sub(1, 24)
+                    if label ~= "" and not seen[label] then
+                        seen[label] = true
+                        table.insert(extra, label)
+                    end
+                end
+            end
+        end
+    end
+    if found then return end
+    -- Anderes Format: wenigstens nach Stichwörtern im ganzen Text suchen
     local text = ns.Lower(table.concat(lines, " "))
     for _, w in ipairs(CAMP_WORDS) do
         if text:find(w[1], 1, true) then seen[w[2]] = true end
     end
-    -- „alle Werte um 8 %“ (Fischglas) – die Laute gibt alle Werte als feste Zahl
-    if text:find("werte", 1, true) and text:find("%%") then seen["Werte"] = true end
 end
 
 local function HasWord(name, words)
@@ -101,7 +133,7 @@ end
 -- Eigener Charakter ---------------------------------------------------------------
 function Ready:Collect()
     local r = { flask = false, food = false, durability = 100, missing = {}, camp = {}, campLeft = 0 }
-    local campSeen, campEnd = {}, nil
+    local campSeen, campExtra, campEnd = {}, {}, nil
     if C_UnitAuras and C_UnitAuras.GetAuraDataByIndex then
         for i = 1, 60 do
             local aura = C_UnitAuras.GetAuraDataByIndex("player", i, "HELPFUL")
@@ -116,7 +148,7 @@ function Ready:Collect()
             local label = id and not ns.IsSecret(id) and CAMP[id]
             if label and not campSeen[label] then
                 campSeen[label] = true
-                if label == "Lager" then CampFromText(AuraLines(aura), campSeen) end
+                if label == "Lager" then CampFromText(AuraLines(aura), campSeen, campExtra) end
                 local expires = aura.expirationTime
                 if expires and not ns.IsSecret(expires) and expires > 0 then
                     campEnd = math.min(campEnd or expires, expires)
@@ -133,6 +165,7 @@ function Ready:Collect()
     for _, label in ipairs(Ready.CAMP_ORDER) do
         if campSeen[label] then table.insert(r.camp, label) end
     end
+    for _, label in ipairs(campExtra) do table.insert(r.camp, label) end
     if campEnd then r.campLeft = math.max(0, math.floor((campEnd - GetTime()) / 60)) end
     for slot = 1, 18 do
         local cur, max = GetInventoryItemDurability(slot)
