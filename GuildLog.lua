@@ -313,12 +313,16 @@ end
 function Log:Stats()
     local M = ns.Members
     local s = { chars = #M.list, players = #M.mains, online = 0, max = 0, joined = 0, left = 0, back = 0, classes = {}, since = nil }
+    local levels = 0
     for _, m in ipairs(M.mains) do
         if m.onlineAs then s.online = s.online + 1 end
+        levels = levels + (m.level or 0)
     end
+    s.avgLevel = #M.mains > 0 and math.floor(levels / #M.mains + 0.5) or 0 -- Durchschnitt der Mains
     for _, e in ipairs(M.list) do
         if (e.level or 0) >= MAX_LEVEL then s.max = s.max + 1 end
-        if e.class then s.classes[e.class] = (s.classes[e.class] or 0) + 1 end
+        -- nach Klasse zählen, nicht nach Bezeichnung („Priester“ und „Priesterin“ gehören zusammen)
+        if e.classFile then s.classes[e.classFile] = (s.classes[e.classFile] or 0) + 1 end
     end
     local store = Store()
     local month = time() - 30 * 86400

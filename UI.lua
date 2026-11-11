@@ -2149,12 +2149,12 @@ function UI:CreateLeadPanel()
     p.empty:SetSpacing(3)
 
     -- Rechts oben: Zahlen
-    local stats = StartCard(p, "Die Gilde in Zahlen", 168)
+    local stats = StartCard(p, "Die Gilde in Zahlen", 196)
     stats:SetPoint("TOPRIGHT")
     stats:SetWidth(rightWidth)
     p.numbers = {}
     local numW = math.floor((rightWidth - 32) / 4)
-    for i, label in ipairs({ "Spieler", "Charaktere", "Online", "Stufe 60" }) do
+    for i, label in ipairs({ "Spieler", "Charaktere", "Online", "Ø Stufe" }) do
         local value = T.Text(stats, "heading", "CENTER")
         value:SetPoint("TOPLEFT", 16 + (i - 1) * numW, -34)
         value:SetWidth(numW)
@@ -2167,10 +2167,16 @@ function UI:CreateLeadPanel()
     p.month = T.Text(stats, "small")
     p.month:SetPoint("TOPLEFT", 16, -84)
     p.month:SetWidth(rightWidth - 32)
-    p.classes = T.Text(stats, "muted")
-    p.classes:SetPoint("TOPLEFT", p.month, "BOTTOMLEFT", 0, -6)
-    p.classes:SetWidth(rightWidth - 32)
-    p.classes:SetSpacing(2)
+    -- Klassen in drei Spalten, jede in ihrer Klassenfarbe
+    p.classCells = {}
+    local cellW = math.floor((rightWidth - 32) / 3)
+    for i = 1, 12 do
+        local cell = T.Text(stats, "small")
+        cell:SetPoint("TOPLEFT", 16 + ((i - 1) % 3) * cellW, -108 - math.floor((i - 1) / 3) * 17)
+        cell:SetWidth(cellW - 6)
+        cell:SetWordWrap(false)
+        p.classCells[i] = cell
+    end
     p.since = T.Text(stats, "muted")
     p.since:SetPoint("BOTTOMLEFT", 16, 10)
 
@@ -2248,16 +2254,22 @@ function UI:CreateLeadPanel()
         p.numbers[1]:SetText(s.players)
         p.numbers[2]:SetText(s.chars)
         p.numbers[3]:SetText(T.Hex("green", s.online))
-        p.numbers[4]:SetText(s.max)
-        p.month:SetText("Letzte 30 Tage:  " .. T.Hex("green", "+" .. s.joined .. (s.joined == 1 and " Eintritt" or " Eintritte"))
-            .. "  ·  " .. T.Hex("red", "-" .. s.left .. (s.left == 1 and " Austritt" or " Austritte"))
-            .. "  ·  " .. T.Hex("goldBright", s.back .. " wieder da"))
+        p.numbers[4]:SetText(s.avgLevel)
+        p.month:SetText("Letzte 30 Tage:  "
+            .. T.Hex(s.joined > 0 and "green" or "muted", (s.joined > 0 and "+" or "") .. s.joined .. (s.joined == 1 and " Eintritt" or " Eintritte"))
+            .. "  ·  " .. T.Hex(s.left > 0 and "red" or "muted", (s.left > 0 and "-" or "") .. s.left .. (s.left == 1 and " Austritt" or " Austritte"))
+            .. "  ·  " .. T.Hex(s.back > 0 and "goldBright" or "muted", s.back .. " wieder da")
+            .. (s.max > 0 and ("  ·  " .. T.Hex("goldBright", s.max .. " auf Stufe 60")) or ""))
         local classes = {}
-        for name, n in pairs(s.classes) do table.insert(classes, { name, n }) end
+        for file, n in pairs(s.classes) do
+            local name = (LOCALIZED_CLASS_NAMES_MALE and LOCALIZED_CLASS_NAMES_MALE[file]) or file
+            table.insert(classes, { name, n, file })
+        end
         table.sort(classes, function(a, b) if a[2] ~= b[2] then return a[2] > b[2] end return a[1] < b[1] end)
-        local parts = {}
-        for _, cl in ipairs(classes) do table.insert(parts, cl[1] .. " " .. cl[2]) end
-        p.classes:SetText(table.concat(parts, "  ·  "))
+        for i, cell in ipairs(p.classCells) do
+            local cl = classes[i]
+            cell:SetText(cl and ("|c" .. ClassHex(cl[3]) .. cl[1] .. "|r  " .. T.Hex("cream", cl[2])) or "")
+        end
         p.since:SetText(s.since and ("Chronik auf diesem Rechner seit " .. date("%d.%m.%Y", s.since)) or "")
 
         local days = L:Threshold()
