@@ -65,6 +65,13 @@ function Members:Scan()
                 note = canView and strtrim(officerNote or "") or (shared[ns.NameKey(name)] or ""),
                 twinks = {}, issues = {},
             }
+            -- Wie lange offline? (Sekunden; nil, wenn online oder unbekannt)
+            if not online and GetGuildRosterLastOnline then
+                local years, months, days, hours = GetGuildRosterLastOnline(i)
+                if years and not ns.IsSecret(years) then
+                    e.offline = (((years or 0) * 365 + (months or 0) * 30 + (days or 0)) * 24 + (hours or 0)) * 3600
+                end
+            end
             table.insert(self.list, e)
             self.byKey[e.key] = e
         end

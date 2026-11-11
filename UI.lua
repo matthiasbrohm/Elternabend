@@ -17,6 +17,7 @@ local TABS = {
     { key = "raid", label = "Raid" },
     { key = "gilde", label = "Invite", invite = true },
     { key = "web", label = "Webseite", leaders = true },
+    { key = "leitung", label = "Leitung", leaders = true },
 }
 -- Unterreiter von „Raid“: eigene Leiste unter der Kopfzeile
 local RAID_TABS = {
@@ -289,6 +290,7 @@ function UI:Create()
     self.panels.web = self:CreateWebPanel()
     self.panels.kalender = self:CreateCalendarPanel()
     self.panels.raidgruppen = self:CreateRaidGroupsPanel()
+    self.panels.leitung = self:CreateLeadPanel()
     -- Die Raid-Reiter beginnen unter der Unterleiste
     for key in pairs(IN_RAID_GROUP) do
         local p = self.panels[key]
@@ -368,7 +370,7 @@ function UI:Show(key)
     self:Create()
     if key and not self:CanSee(key) then
         ns.Print(key == "gilde" and "Den Reiter „Invite“ sieht nur, wer in die Gilde einladen darf."
-            or "Der Reiter „Webseite“ ist nur für Offiziere und Gildenleitung.")
+            or "Dieser Reiter ist nur für Offiziere und Gildenleitung.")
         key = nil
     end
     self.currentTab = key or self.currentTab or "start"
@@ -411,6 +413,7 @@ BINDING_NAME_ELTERNABEND_GRUPPEN = "Reiter Gruppen öffnen"
 BINDING_NAME_ELTERNABEND_RAID = "Reiter Raid öffnen"
 BINDING_NAME_ELTERNABEND_KALENDER = "Reiter Kalender öffnen"
 BINDING_NAME_ELTERNABEND_PINNWAND = "Reiter Pinnwand öffnen"
+BINDING_NAME_ELTERNABEND_LEITUNG = "Reiter Leitung öffnen (nur Offiziere)"
 
 function UI:Refresh()
     if not self.frame or not self.frame:IsShown() then return end
@@ -430,7 +433,7 @@ function UI:QueueRefresh()
 end
 
 for _, msg in ipairs({ "ROSTER_UPDATE", "SR_UPDATE", "LOOT_UPDATE", "ROLL_UPDATE", "HISTORY_UPDATE", "SESSION_UPDATE", "NOTES_UPDATE", "INFO_UPDATE", "MEMBERS_UPDATE", "JOIN_UPDATE", "PROF_UPDATE",
-    "GROUPS_UPDATE", "ORDERS_UPDATE", "FAME_UPDATE", "READY_UPDATE", "BOARD_UPDATE", "CALENDAR_UPDATE" }) do
+    "GROUPS_UPDATE", "ORDERS_UPDATE", "FAME_UPDATE", "READY_UPDATE", "BOARD_UPDATE", "CALENDAR_UPDATE", "GUILDLOG_UPDATE" }) do
     ns:Listen(msg, function() UI:QueueRefresh() end)
 end
 
@@ -2091,6 +2094,183 @@ function UI:CreateRaidGroupsPanel()
             text = text .. "  ·  " .. T.Hex("green", "Gruppen stehen")
         end
         p.status:SetText(text)
+    end
+
+    return p
+end
+
+-- Reiter: Leitung – Gildenchronik (nur Offiziere und Gildenleitung) -------------------
+function UI:CreateLeadPanel()
+    local p = self:NewPanel()
+    local L = ns.GuildLog
+    local M = ns.Members
+    local rightWidth = 420
+    local leftWidth = CONTENT_W - rightWidth - 12
+
+    -- Links: Chronik mit Filter
+    local FILTERS = { { nil, "Alle", 60 }, { "join", "Eintritte", 86 }, { "leave", "Austritte", 86 }, { "back", "Wieder da", 90 }, { "rank", "Ränge", 70 }, { "level", "Stufe 60", 80 } }
+    p.filterButtons = {}
+    local buttons = {}
+    for i, f in ipairs(FILTERS) do
+        local b = T.Button(p, f[2], f[3])
+        b:SetScript("OnClick", function()
+            p.filter = f[1]
+            p:Refresh()
+        end)
+        p.filterButtons[i] = b
+        buttons[i] = b
+    end
+    Row(p, 0, 0, buttons)
+
+    local columns = {
+        { key = "time", label = "Wann", x = 4, w = 86 },
+        { key = "kind", label = "Was", x = 92, w = 70 },
+        { key = "name", label = "Wer", x = 164, w = 150 },
+        { key = "text", label = "", x = 316, right = -6 },
+    }
+    local list = CreateList(p, columns)
+    list.panel:SetPoint("TOPLEFT", 0, -36)
+    list.panel:SetPoint("BOTTOMLEFT")
+    list.panel:SetWidth(leftWidth)
+    list.onEnter = function(row, e)
+        GameTooltip:SetOwner(row, "ANCHOR_RIGHT")
+        GameTooltip:AddLine("|c" .. ClassHex(e.class) .. ns.ShortName(e.name) .. "|r")
+        GameTooltip:AddLine(date("%d.%m.%Y, %H:%M Uhr", e.t), 0.78, 0.75, 0.68)
+        GameTooltip:AddLine(L.Describe(e), 1, 1, 1, true)
+        if e.old then GameTooltip:AddLine("Aus Blizzards Gildenprotokoll – Zeit ungefähr", 0.6, 0.6, 0.6)
+        elseif e.since then GameTooltip:AddLine("Bemerkt beim Abgleich – passiert seit " .. date("%d.%m. %H:%M", e.since), 0.6, 0.6, 0.6) end
+        local m = M:Find(e.name)
+        if m and m.main then GameTooltip:AddLine("Twink von " .. m.main.display, 0.78, 0.75, 0.68) end
+        GameTooltip:Show()
+    end
+    p.empty = T.Text(list.panel, "muted", "CENTER")
+    p.empty:SetPoint("CENTER", 0, 0)
+    p.empty:SetWidth(leftWidth - 80)
+    p.empty:SetSpacing(3)
+
+    -- Rechts oben: Zahlen
+    local stats = StartCard(p, "Die Gilde in Zahlen", 168)
+    stats:SetPoint("TOPRIGHT")
+    stats:SetWidth(rightWidth)
+    p.numbers = {}
+    local numW = math.floor((rightWidth - 32) / 4)
+    for i, label in ipairs({ "Spieler", "Charaktere", "Online", "Stufe 60" }) do
+        local value = T.Text(stats, "heading", "CENTER")
+        value:SetPoint("TOPLEFT", 16 + (i - 1) * numW, -34)
+        value:SetWidth(numW)
+        local kicker = T.Text(stats, "kicker", "CENTER")
+        kicker:SetPoint("TOP", value, "BOTTOM", 0, -4)
+        kicker:SetWidth(numW)
+        kicker:SetText(label:upper())
+        p.numbers[i] = value
+    end
+    p.month = T.Text(stats, "small")
+    p.month:SetPoint("TOPLEFT", 16, -84)
+    p.month:SetWidth(rightWidth - 32)
+    p.classes = T.Text(stats, "muted")
+    p.classes:SetPoint("TOPLEFT", p.month, "BOTTOMLEFT", 0, -6)
+    p.classes:SetWidth(rightWidth - 32)
+    p.classes:SetSpacing(2)
+    p.since = T.Text(stats, "muted")
+    p.since:SetPoint("BOTTOMLEFT", 16, 10)
+
+    -- Rechts unten: lange nicht online
+    local inactive = StartCard(p, "Lange nicht online", 0)
+    inactive:SetPoint("TOPRIGHT", stats, "BOTTOMRIGHT", 0, -12)
+    inactive:SetPoint("BOTTOMRIGHT")
+    inactive:SetWidth(rightWidth)
+    p.threshold = T.Button(inactive, "", 130)
+    p.threshold:SetHeight(20)
+    p.threshold:SetPoint("TOPRIGHT", -12, -8)
+    p.threshold:SetScript("OnClick", function() L:NextThreshold() end)
+    p.threshold:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_TOP")
+        GameTooltip:AddLine("Ab wann gilt jemand als lange weg?")
+        GameTooltip:AddLine("Klick wechselt zwischen 1, 2, 3, 6 und 12 Monaten. Gilt für diese Liste und für die Meldung "
+            .. "„Wieder da“, wenn so jemand wieder einloggt.", 1, 1, 1, true)
+        GameTooltip:Show()
+    end)
+    p.threshold:SetScript("OnLeave", GameTooltip_Hide)
+    local inColumns = {
+        { key = "name", label = "Spieler", x = 4, w = 150 },
+        { key = "rank", label = "Rang", x = 156, w = 96 },
+        { key = "last", label = "Zuletzt online", x = 254, right = -6 },
+    }
+    local inList = CreateList(inactive, inColumns)
+    inList.panel:SetPoint("TOPLEFT", 6, -30)
+    inList.panel:SetPoint("BOTTOMRIGHT", -6, 6)
+    inList.panel:SetBackdrop(nil)
+    inList.onEnter = function(row, d)
+        local m = d.member
+        GameTooltip:SetOwner(row, "ANCHOR_LEFT")
+        GameTooltip:AddLine("|c" .. ClassHex(m.classFile) .. m.display .. "|r")
+        GameTooltip:AddLine((m.class or "") .. ", Stufe " .. (m.level or "?") .. " · " .. (m.rank or ""), 1, 1, 1)
+        GameTooltip:AddLine("Zuletzt online am " .. date("%d.%m.%Y", d.last) .. " (vor " .. L.Duration(d.away, true) .. ")", 0.78, 0.75, 0.68)
+        if #m.twinks > 0 then
+            local names = {}
+            for _, t in ipairs(m.twinks) do table.insert(names, t.display) end
+            GameTooltip:AddLine("Twinks (auch nicht online): " .. table.concat(names, ", "), 0.78, 0.75, 0.68, true)
+        end
+        GameTooltip:Show()
+    end
+    p.inEmpty = T.Text(inactive, "muted", "CENTER")
+    p.inEmpty:SetPoint("CENTER", 0, -10)
+    p.inEmpty:SetText("Niemand – alle waren in dieser Zeit online.")
+
+    p:SetScript("OnShow", function()
+        -- Blizzards Protokoll höchstens alle 30 Sekunden neu holen
+        if GetTime() - (p.lastQuery or -100) > 30 then
+            p.lastQuery = GetTime()
+            L:RequestBlizzardLog()
+        end
+    end)
+
+    function p:Refresh()
+        for i, f in ipairs(FILTERS) do
+            p.filterButtons[i]:SetText(p.filter == f[1] and T.Hex("goldBright", f[2]) or f[2])
+        end
+
+        local events = L:Events(p.filter)
+        list:SetData(events, function(row, e)
+            local c = row.cols
+            local kind = L.TYPES[e.type] or { label = e.type, color = "cream" }
+            c.time:SetText(T.Hex("muted", date("%d.%m. %H:%M", e.t)))
+            c.kind:SetText(T.Hex(kind.color, kind.label))
+            c.name:SetText("|c" .. ClassHex(e.class) .. ns.ShortName(e.name) .. "|r")
+            c.text:SetText(L.Describe(e))
+        end)
+        p.empty:SetShown(#events == 0)
+        p.empty:SetText(p.filter and "Dazu steht noch nichts in der Chronik."
+            or "Noch keine Einträge. Die Chronik füllt sich, sobald jemand ein- oder austritt, befördert wird "
+            .. "oder nach langer Pause wieder einloggt.")
+
+        local s = L:Stats()
+        p.numbers[1]:SetText(s.players)
+        p.numbers[2]:SetText(s.chars)
+        p.numbers[3]:SetText(T.Hex("green", s.online))
+        p.numbers[4]:SetText(s.max)
+        p.month:SetText("Letzte 30 Tage:  " .. T.Hex("green", "+" .. s.joined .. (s.joined == 1 and " Eintritt" or " Eintritte"))
+            .. "  ·  " .. T.Hex("red", "-" .. s.left .. (s.left == 1 and " Austritt" or " Austritte"))
+            .. "  ·  " .. T.Hex("goldBright", s.back .. " wieder da"))
+        local classes = {}
+        for name, n in pairs(s.classes) do table.insert(classes, { name, n }) end
+        table.sort(classes, function(a, b) if a[2] ~= b[2] then return a[2] > b[2] end return a[1] < b[1] end)
+        local parts = {}
+        for _, cl in ipairs(classes) do table.insert(parts, cl[1] .. " " .. cl[2]) end
+        p.classes:SetText(table.concat(parts, "  ·  "))
+        p.since:SetText(s.since and ("Chronik auf diesem Rechner seit " .. date("%d.%m.%Y", s.since)) or "")
+
+        local days = L:Threshold()
+        p.threshold:SetText("über " .. (L.THRESHOLD_LABEL[days] or (days .. " Tage")))
+        local away = L:Inactive()
+        inactive.kicker:SetText(("Lange nicht online (" .. #away .. ")"):upper())
+        inList:SetData(away, function(row, d)
+            local c, m = row.cols, d.member
+            c.name:SetText("|c" .. ClassHex(m.classFile) .. m.display .. "|r" .. (#m.twinks > 0 and T.Hex("dim", " +" .. #m.twinks) or ""))
+            c.rank:SetText(T.Hex("muted", m.rank or ""))
+            c.last:SetText("vor " .. L.Duration(d.away, true))
+        end)
+        p.inEmpty:SetShown(#away == 0)
     end
 
     return p

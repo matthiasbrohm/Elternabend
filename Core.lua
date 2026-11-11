@@ -35,6 +35,7 @@ local defaults = {
     myChars = {},     -- eigene Charaktere auf diesem Account
     myMain = nil,     -- Schlüssel des eigenen Mains
     memberSuggestions = {}, -- alt (bis 4.5): Twink-Vorschläge für Offiziere
+    guildlog = {},    -- Gildenchronik für die Leitung: Gildenname -> { snapshot, events, since }
     links = {},       -- Twink-Zuordnungen im Addon: Twink-Schlüssel -> { twink, main, t, by, k }
     away = {         -- „Kind wach, gleich zurück“
         showButton = true, -- Elternknopf auf dem Bildschirm, solange man in einer Gruppe ist
@@ -393,6 +394,8 @@ SlashCmdList.ELTERNABENDRAID = function(input)
         ns.UI:Show("berufe")
     elseif cmd == "notizen" or cmd == "notiz" then
         ns.UI:Show("notizen")
+    elseif cmd == "leitung" or cmd == "chronik" then
+        ns.UI:Show("leitung")
     elseif cmd == "lagerfeuer" or cmd == "camp" then
         ns.Ready:PrintCamp()
     elseif cmd == "raidgruppen" or cmd == "aufstellung" then

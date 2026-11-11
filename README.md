@@ -239,6 +239,15 @@ Der Reiter **Gilde** zeigt allen Gildenmitgliedern:
 ## Gildenwappen
 Das Wappen erscheint im Addon-Menü, oben links im Fenster und am Minimap-Button. Es liegt als `Media/Wappen.tga` im Addon. Ein neues Wappen: Bild als `Grafik/wappen.webp` ablegen und `python3 Grafik/wappen.py` ausführen.
 
+## Leitung: Gildenchronik
+Den Reiter **Leitung** (`/ea leitung`) sehen nur Offiziere und Gildenleitung. Er hält fest, was sich in der Gilde tut:
+
+- **Chronik** mit Filter: Eintritte (mit wem eingeladen hat), Austritte (ausgetreten oder entfernt – und von wem), Rangänderungen, Charaktere mit Stufe 60 und **„Wieder da“** – Spieler, die nach langer Pause wieder online sind. Dann gibt es auch eine Meldung im Chat.
+- **Die Gilde in Zahlen:** Spieler, Charaktere, gerade online, Stufe 60, Ein- und Austritte der letzten 30 Tage, Klassenverteilung.
+- **Lange nicht online:** Spieler, die mit keinem ihrer Charaktere in der eingestellten Zeit da waren (Knopf oben rechts: 1, 2, 3, 6 oder 12 Monate; Standard 3 Monate). Dieselbe Schwelle gilt für „Wieder da“.
+
+Die Chronik entsteht aus dem Vergleich der Gildenliste mit dem zuletzt gemerkten Stand und aus Blizzards Gildenprotokoll (die letzten 100 Einträge – damit ist sie beim ersten Öffnen schon gefüllt). Sie liegt auf dem eigenen Rechner; jeder Offizier führt seine eigene. Was passiert, während kein Offizier online ist, wird beim nächsten Einloggen bemerkt und – soweit Blizzards Protokoll es noch kennt – mit der richtigen Zeit nachgetragen.
+
 ## Tasten
 Unter **Optionen » Tastaturbelegung » Elternabend** (eigener Abschnitt, unten in der Liste) lassen sich Tasten vergeben: „Fenster öffnen / schließen“ und je eine für die Reiter Gilde, Gruppen, Raid, Kalender und Pinnwand. Ein zweiter Druck auf dieselbe Taste schließt das Fenster wieder. Dazu kommen die Tasten „Kind wach / Wieder da“ und „Nächste Gildenanfrage einladen“.
 
@@ -273,6 +282,7 @@ Unter **Optionen » Tastaturbelegung » Elternabend** (eigener Abschnitt, unten 
 | `/ea leistung` | Zeigt, wie oft und wie lange das Addon die Gildenliste auswertet (bei Rucklern) |
 | `/ea pinnwand` | Pinnwand öffnen (auch `/ea zettel`) |
 | `/ea design` | Design des Addons wählen |
+| `/ea leitung` | Gildenchronik für Offiziere: Ein- und Austritte, Rückkehrer, lange Inaktive |
 | `/ea lagerfeuer` | Zeigt, welche Lagerfeuer-Buffs das Addon an dir erkennt (mit Zauber-IDs) |
 | `/ea lagerfeuer` | Zeigt, welche Lagerfeuer-Buffs das Addon an dir erkennt (mit Zauber-IDs) |
 | `/ea raidgruppen` | Geplante Raidgruppen ansehen und im Schlachtzug bauen |

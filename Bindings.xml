@@ -22,6 +22,9 @@
     <Binding name="ELTERNABEND_KALENDER" category="Elternabend">
         Elternabend.UI:ToggleTab("kalender")
     </Binding>
+    <Binding name="ELTERNABEND_LEITUNG" category="Elternabend">
+        Elternabend.UI:ToggleTab("leitung")
+    </Binding>
     <Binding name="ELTERNABEND_PINNWAND" category="Elternabend">
         Elternabend.UI:ToggleTab("pinnwand")
     </Binding>
