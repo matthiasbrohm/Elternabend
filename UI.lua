@@ -433,7 +433,7 @@ function UI:QueueRefresh()
 end
 
 for _, msg in ipairs({ "ROSTER_UPDATE", "SR_UPDATE", "LOOT_UPDATE", "ROLL_UPDATE", "HISTORY_UPDATE", "SESSION_UPDATE", "NOTES_UPDATE", "INFO_UPDATE", "MEMBERS_UPDATE", "JOIN_UPDATE", "PROF_UPDATE",
-    "GROUPS_UPDATE", "ORDERS_UPDATE", "FAME_UPDATE", "READY_UPDATE", "BOARD_UPDATE", "CALENDAR_UPDATE", "GUILDLOG_UPDATE" }) do
+    "GROUPS_UPDATE", "ORDERS_UPDATE", "FAME_UPDATE", "READY_UPDATE", "BOARD_UPDATE", "CALENDAR_UPDATE", "GUILDLOG_UPDATE", "PROFILE_UPDATE" }) do
     ns:Listen(msg, function() UI:QueueRefresh() end)
 end
 
@@ -577,6 +577,7 @@ function UI:CreateStartPanel()
         { key = "groups", title = "Gruppen", button = "Öffnen", tab = "gruppen" },
         { key = "fame", title = "Ruhmeshalle", button = "Öffnen", tab = "fame" },
         { key = "away", title = "Elternknopf", button = "An/Aus" },
+        { key = "steps", title = "Erste Schritte", button = "Ansehen" }, -- nur solange noch etwas offen ist
     }
     local rowHeight = 46
     p.now = {}
@@ -604,6 +605,8 @@ function UI:CreateStartPanel()
                 ns.Print("Elternknopf: " .. (ns.db.away.showButton and "an – er erscheint, sobald du in einer Gruppe bist" or "aus"))
                 ns.Away:UpdateButton()
                 p:Refresh()
+            elseif r.key == "steps" then
+                UI:ShowSteps()
             else
                 UI:Show(r.tab)
             end
@@ -688,6 +691,12 @@ function UI:CreateStartPanel()
 
         p.now.away.text:SetText(ns.db.away.showButton and "Knopf auf dem Bildschirm: " .. T.Hex("green", "an")
             or "Knopf auf dem Bildschirm: aus  ·  /ea kind geht immer")
+
+        -- Erste Schritte: verschwindet, sobald alles erledigt ist
+        local open = ns.Profile.OpenSteps(ns.Profile:StepMask())
+        p.now.steps:SetShown(#open > 0)
+        p.now.steps.extra:SetText(T.Hex("goldBright", #open .. " von " .. #ns.Profile.STEPS .. " offen"))
+        p.now.steps.text:SetText(table.concat(open, "  ·  "))
     end
 
     function p:Refresh()
@@ -1040,6 +1049,21 @@ function UI:CreateMembersPanel()
         if not M:CanView() and not ns.db.twinkMap then
             GameTooltip:AddLine("Wer wessen Twink ist, kommt automatisch, sobald ein Offizier mit Addon online ist.", 0.78, 0.75, 0.68, true)
         end
+        -- Spielzeiten (und für die Gildenleitung: offene erste Schritte)
+        local prof = ns.Profile:For(e)
+        if prof then
+            local times = ns.Profile.TimesText(prof.times)
+            if times ~= "" then
+                GameTooltip:AddLine("Spielt meist: " .. times .. ((prof.note or "") ~= "" and (" – " .. prof.note) or ""), 0.55, 0.85, 0.5, true)
+                local count, common = ns.Profile.Common(ns.Profile.Me().times, prof.times)
+                if count > 0 and ns.db.profiles[ns.PlayerKey() or ""] ~= prof then
+                    GameTooltip:AddLine("Wie du: " .. ns.Profile.TimesText(common), 0.95, 0.86, 0.6, true)
+                end
+            end
+            if UI:IsLeader() and (prof.steps or 0) < ns.Profile.ALL_STEPS then
+                GameTooltip:AddLine("Erste Schritte offen: " .. table.concat(ns.Profile.OpenSteps(prof.steps), ", "), 0.78, 0.75, 0.68, true)
+            end
+        end
         GameTooltip:AddLine("Klick: Charaktere zeigen  ·  Rechtsklick: anflüstern, einladen"
             .. (ns.Board:AmOfficer() and ", Twink zuordnen" or "")
             .. (((CanGuildPromote and CanGuildPromote()) or (CanGuildDemote and CanGuildDemote())) and ", Rang ändern" or ""), 0.84, 0.69, 0.35)
@@ -1055,7 +1079,7 @@ function UI:CreateMembersPanel()
     noAccess:SetWidth(420)
 
     -- Rechts unten: eigene Charaktere (für alle)
-    local mine = StartCard(p, "Meine Charaktere", 150)
+    local mine = StartCard(p, "Meine Charaktere", 182)
     mine:SetPoint("BOTTOMRIGHT")
     mine:SetWidth(rightWidth)
     p.mine = T.Text(mine, "small")
@@ -1065,6 +1089,19 @@ function UI:CreateMembersPanel()
     local setMine = T.Button(mine, "Diesen Charakter als Main festlegen", rightWidth - 32, "primary")
     setMine:SetPoint("BOTTOMLEFT", 16, 12)
     setMine:SetScript("OnClick", function() M:SetMyMain() end)
+    -- Wann spiele ich meist? (für alle sichtbar, hilft beim Finden von Mitspielern)
+    local myTimes = T.Button(mine, "Meine Spielzeiten …", rightWidth - 32)
+    myTimes:SetPoint("BOTTOMLEFT", setMine, "TOPLEFT", 0, 6)
+    myTimes:SetScript("OnClick", function() UI:ShowPlayTimes() end)
+    myTimes:SetScript("OnEnter", function(self)
+        local own = ns.Profile.TimesText(ns.Profile.Me().times)
+        GameTooltip:SetOwner(self, "ANCHOR_TOP")
+        GameTooltip:AddLine("Meine Spielzeiten")
+        GameTooltip:AddLine(own ~= "" and ("Eingetragen: " .. own) or "Noch nichts eingetragen.", 1, 1, 1, true)
+        GameTooltip:AddLine("Die Gilde sieht deine Zeiten im Tooltip der Gildenliste – und du siehst, wer zur selben Zeit spielt.", 0.78, 0.75, 0.68, true)
+        GameTooltip:Show()
+    end)
+    myTimes:SetScript("OnLeave", GameTooltip_Hide)
 
     -- Rechts Mitte: die zuletzt im Addon zugeordneten Twinks
     local sugg = StartCard(p, "Zuletzt zugeordnet", 0)
@@ -2108,7 +2145,7 @@ function UI:CreateLeadPanel()
     local leftWidth = CONTENT_W - rightWidth - 12
 
     -- Links: Chronik mit Filter
-    local FILTERS = { { nil, "Alle", 60 }, { "join", "Eintritte", 86 }, { "leave", "Austritte", 86 }, { "back", "Wieder da", 90 }, { "rank", "Ränge", 70 }, { "level", "Stufe 60", 80 } }
+    local FILTERS = { { nil, "Alle", 60 }, { "join", "Eintritte", 86 }, { "leave", "Austritte", 86 }, { "back", "Wieder da", 90 }, { "rank", "Ränge", 70 }, { "level", "Stufe 60", 80 }, { "jubilee", "Jubiläen", 84 } }
     p.filterButtons = {}
     local buttons = {}
     for i, f in ipairs(FILTERS) do
@@ -2141,7 +2178,19 @@ function UI:CreateLeadPanel()
         elseif e.since then GameTooltip:AddLine("Bemerkt beim Abgleich – passiert seit " .. date("%d.%m. %H:%M", e.since), 0.6, 0.6, 0.6) end
         local m = M:Find(e.name)
         if m and m.main then GameTooltip:AddLine("Twink von " .. m.main.display, 0.78, 0.75, 0.68) end
+        if m and L.Congrats(e) then GameTooltip:AddLine("Klick: im Gildenchat gratulieren", 0.84, 0.69, 0.35) end
         GameTooltip:Show()
+    end
+    -- Jubiläum oder Stufe 60: Glückwunsch für den Gildenchat vorschlagen (abschicken muss man selbst)
+    list.onClick = function(_, e)
+        local text = L.Congrats(e)
+        if not text or not M:Find(e.name) then return end
+        UI:TextDialog("Glückwunsch im Gildenchat", "So geht der Text in den Gildenchat – du kannst ihn vorher ändern.", text, function(msg)
+            msg = strtrim(((msg or ""):gsub("[\r\n]+", " ")))
+            if msg == "" then return false end
+            if #msg > 250 then msg = (msg:sub(1, 250):gsub("[\192-\255][\128-\191]*$", "")) end
+            ns.WhenChatFree(function() C_ChatInfo.SendChatMessage(msg, "GUILD") end)
+        end, "In den Gildenchat")
     end
     p.empty = T.Text(list.panel, "muted", "CENTER")
     p.empty:SetPoint("CENTER", 0, 0)
@@ -2193,6 +2242,19 @@ function UI:CreateLeadPanel()
         GameTooltip:Show()
     end)
     roster:SetScript("OnLeave", GameTooltip_Hide)
+    -- Erste Schritte der Mitglieder: wer hat noch etwas offen?
+    local steps = T.Button(stats, "Erste Schritte", 110)
+    steps:SetHeight(20)
+    steps:SetPoint("RIGHT", roster, "LEFT", -8, 0)
+    steps:SetScript("OnClick", function() UI:ShowStepsReport() end)
+    steps:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_TOP")
+        GameTooltip:AddLine("Erste Schritte der Mitglieder")
+        GameTooltip:AddLine("Zeigt, wer bei den ersten Schritten noch etwas offen hat (Discord, Main, Berufe, Spielzeiten, "
+            .. "Raidtermine) – und welche Neuen sich noch gar nicht gemeldet haben.", 1, 1, 1, true)
+        GameTooltip:Show()
+    end)
+    steps:SetScript("OnLeave", GameTooltip_Hide)
 
     -- Rechts unten: lange nicht online
     local inactive = StartCard(p, "Lange nicht online", 0)
@@ -2284,7 +2346,7 @@ function UI:CreateLeadPanel()
             local cl = classes[i]
             cell:SetText(cl and ("|c" .. ClassHex(cl[3]) .. cl[1] .. "|r  " .. T.Hex("cream", cl[2])) or "")
         end
-        p.since:SetText(s.since and ("Chronik auf diesem Rechner seit " .. date("%d.%m.%Y", s.since)) or "")
+        p.since:SetText(s.since and ("Chronik seit " .. date("%d.%m.%Y", s.since)) or "")
 
         local days = L:Threshold()
         p.threshold:SetText("über " .. (L.THRESHOLD_LABEL[days] or (days .. " Tage")))
@@ -4910,6 +4972,225 @@ function UI:ShowSkinPicker()
     end
     d:Refresh()
     d:Show()
+end
+
+-- Kleines Dialogfenster im Stil des Addons: Titel oben, „Schließen“ unten rechts
+local function NewDialog(name, width, height, title)
+    local d = CreateFrame("Frame", name, UIParent, "BackdropTemplate")
+    d:SetSize(width, height)
+    d:SetPoint("CENTER")
+    d:SetFrameStrata("DIALOG")
+    d:SetToplevel(true)
+    d:SetMovable(true)
+    d:EnableMouse(true)
+    d:RegisterForDrag("LeftButton")
+    d:SetScript("OnDragStart", d.StartMoving)
+    d:SetScript("OnDragStop", d.StopMovingOrSizing)
+    T.Backdrop(d, T.colors.navy, 0.98, 0.7)
+    tinsert(UISpecialFrames, name)
+    local kicker = T.Text(d, "kicker")
+    kicker:SetPoint("TOPLEFT", 20, -18)
+    kicker:SetText("ELTERNABEND")
+    d.title = T.Text(d, "heading")
+    d.title:SetPoint("TOPLEFT", kicker, "BOTTOMLEFT", 0, -6)
+    d.title:SetText(title)
+    d.close = T.Button(d, "Schließen", 110)
+    d.close:SetPoint("BOTTOMRIGHT", -20, 18)
+    d.close:SetScript("OnClick", function() d:Hide() end)
+    d:Hide()
+    return d
+end
+
+-- Meine Spielzeiten: Wochentage × Tageszeiten zum Ankreuzen, daneben wer genauso spielt
+function UI:ShowPlayTimes()
+    local P = ns.Profile
+    local d = self.timesDialog
+    if not d then
+        d = NewDialog("ElternabendPlayTimes", 720, 400, "Meine Spielzeiten")
+        local hint = T.Text(d, "muted")
+        hint:SetPoint("TOPLEFT", d.title, "BOTTOMLEFT", 0, -8)
+        hint:SetWidth(680)
+        hint:SetSpacing(3)
+        hint:SetText("Wann bist du meist online? Kreuze an, was ungefähr passt. Die Gilde sieht es in der Gildenliste, "
+            .. "und du findest Mitspieler mit denselben Zeiten.")
+
+        local X0, Y0, COL, ROW = 170, -128, 36, 30
+        for i, day in ipairs(P.DAYS) do
+            local t = T.Text(d, "small", "CENTER")
+            t:SetPoint("TOPLEFT", X0 + (i - 1) * COL - 11, Y0 + 22)
+            t:SetWidth(COL)
+            t:SetText(day)
+        end
+        d.boxes = {}
+        for s, slot in ipairs(P.SLOTS) do
+            local label = T.Text(d, "small")
+            label:SetPoint("TOPLEFT", 20, Y0 - (s - 1) * ROW)
+            label:SetText(slot.label .. T.Hex("muted", "  " .. slot.hint))
+            d.boxes[s] = {}
+            for i = 1, 7 do
+                local cb = T.Checkbox(d, "")
+                cb:SetPoint("TOPLEFT", X0 + (i - 1) * COL, Y0 - (s - 1) * ROW + 2)
+                cb.onChange = function() d:UpdateMatches() end
+                d.boxes[s][i] = cb
+            end
+        end
+
+        local noteLabel = T.Text(d, "small")
+        noteLabel:SetPoint("TOPLEFT", 20, Y0 - #P.SLOTS * ROW - 12)
+        noteLabel:SetText("Notiz dazu (wenn du magst)")
+        d.note = T.EditBox(d, 380, "z. B. meist ab 20:30, am Wochenende auch länger")
+        d.note:SetPoint("TOPLEFT", noteLabel, "BOTTOMLEFT", 0, -6)
+        d.note:SetMaxLetters(60)
+
+        -- Rechts: wer passt zu mir?
+        local who = T.Text(d, "kicker")
+        who:SetPoint("TOPLEFT", 450, Y0 + 22)
+        who:SetText("SPIELT WIE DU")
+        d.matches = T.Text(d, "small")
+        d.matches:SetPoint("TOPLEFT", who, "BOTTOMLEFT", 0, -8)
+        d.matches:SetWidth(250)
+        d.matches:SetSpacing(4)
+        d.matches:SetJustifyV("TOP")
+
+        function d:Current()
+            local days = {}
+            for i = 1, 7 do
+                days[i] = 0
+                for s, slot in ipairs(P.SLOTS) do
+                    if self.boxes[s][i]:GetChecked() then days[i] = days[i] + slot.bit end
+                end
+            end
+            return P.Pack(days)
+        end
+        function d:UpdateMatches()
+            local list = P:Matches(self:Current())
+            local lines = {}
+            for i = 1, math.min(#list, 8) do
+                local m = list[i]
+                table.insert(lines, "|c" .. ClassHex(m.member.classFile) .. m.member.display .. "|r"
+                    .. T.Hex("muted", "  " .. P.TimesText(m.common)))
+            end
+            if #list > 8 then table.insert(lines, T.Hex("muted", "… und " .. (#list - 8) .. " weitere")) end
+            self.matches:SetText(#lines > 0 and table.concat(lines, "\n")
+                or T.Hex("muted", "Noch niemand mit denselben Zeiten – oder die anderen haben ihre noch nicht eingetragen."))
+        end
+        function d:Load()
+            local me = P.Me()
+            local days = P.Parse(me.times) or {}
+            for s, slot in ipairs(P.SLOTS) do
+                for i = 1, 7 do
+                    self.boxes[s][i]:SetChecked(math.floor((days[i] or 0) / slot.bit) % 2 == 1)
+                end
+            end
+            self.note:SetText(me.note or "")
+            self:UpdateMatches()
+        end
+
+        d.save = T.Button(d, "Speichern", 140, "primary")
+        d.save:SetPoint("RIGHT", d.close, "LEFT", -8, 0)
+        d.save:SetScript("OnClick", function()
+            P:SetTimes(d:Current(), d.note:GetText())
+            local text = P.TimesText(P.Me().times)
+            ns.Print(text ~= "" and ("Deine Spielzeiten: " .. text .. ".") or "Deine Spielzeiten sind geleert.")
+            d:Hide()
+        end)
+        d.clear = T.Button(d, "Alles leeren", 110)
+        d.clear:SetPoint("BOTTOMLEFT", 20, 18)
+        d.clear:SetScript("OnClick", function()
+            for s = 1, #P.SLOTS do
+                for i = 1, 7 do d.boxes[s][i]:SetChecked(false) end
+            end
+            d:UpdateMatches()
+        end)
+        self.timesDialog = d
+    end
+    d:Load()
+    d:Show()
+end
+
+-- Erste Schritte: kleine Liste für Neue, mit Sprung an die passende Stelle
+function UI:ShowSteps()
+    local P = ns.Profile
+    local d = self.stepsDialog
+    if not d then
+        local ROW = 56
+        d = NewDialog("ElternabendSteps", 600, 152 + #P.STEPS * ROW, "Erste Schritte")
+        local hint = T.Text(d, "muted")
+        hint:SetPoint("TOPLEFT", d.title, "BOTTOMLEFT", 0, -8)
+        hint:SetWidth(560)
+        hint:SetText("Ein paar Dinge, mit denen du in der Gilde gut ankommst. Was erledigt ist, wird abgehakt.")
+        d.rows = {}
+        for i, step in ipairs(P.STEPS) do
+            local row = CreateFrame("Frame", nil, d)
+            row:SetPoint("TOPLEFT", 20, -98 - (i - 1) * ROW)
+            row:SetPoint("TOPRIGHT", -20, -98 - (i - 1) * ROW)
+            row:SetHeight(ROW - 4)
+            row.box = T.Checkbox(row, "")
+            row.box:SetPoint("TOPLEFT", 0, -3)
+            row.box:EnableMouse(false)
+            row.label = T.Text(row, "body")
+            row.label:SetPoint("TOPLEFT", 26, 0)
+            row.hint = T.Text(row, "muted")
+            row.hint:SetPoint("TOPLEFT", row.label, "BOTTOMLEFT", 0, -3)
+            row.hint:SetWidth(400)
+            row.hint:SetSpacing(2)
+            row.hint:SetText(step.hint)
+            if step.button then
+                row.button = T.Button(row, step.button, 118)
+                row.button:SetHeight(22)
+                row.button:SetPoint("TOPRIGHT", 0, -2)
+                row.button:SetScript("OnClick", function()
+                    if step.manual then P:MarkDone(step.key) end
+                    if step.times then
+                        d:Hide()
+                        UI:ShowPlayTimes()
+                    elseif step.tab then
+                        d:Hide()
+                        UI:Show(step.tab)
+                    else
+                        d:Refresh()
+                    end
+                end)
+            end
+            d.rows[i] = row
+        end
+        function d:Refresh()
+            for i, step in ipairs(P.STEPS) do
+                local row, done = self.rows[i], P:StepDone(step)
+                row.box:SetChecked(done)
+                row.label:SetText(T.Hex(done and "green" or "goldBright", step.label))
+                -- „Bin drin“ braucht man nach dem Abhaken nicht mehr; Sprünge bleiben
+                if row.button then row.button:SetShown(not done or step.tab ~= nil or step.times == true) end
+            end
+        end
+        ns:Listen("PROFILE_UPDATE", function() if d:IsShown() then d:Refresh() end end)
+        self.stepsDialog = d
+    end
+    d:Refresh()
+    d:Show()
+end
+
+-- Für die Gildenleitung: wer hat bei den ersten Schritten noch etwas offen?
+function UI:ShowStepsReport()
+    if not self:IsLeader() then return end
+    local P = ns.Profile
+    local lines, done, silent = P:StepsReport()
+    local out = { done .. (done == 1 and " Spieler hat" or " Spieler haben") .. " alles erledigt." }
+    if #lines > 0 then
+        table.insert(out, "")
+        table.insert(out, "Noch etwas offen (" .. #lines .. "):")
+        for _, l in ipairs(lines) do table.insert(out, "  " .. l) end
+    end
+    if #silent > 0 then
+        table.insert(out, "")
+        table.insert(out, "Neu in den letzten 30 Tagen und noch ohne Meldung (kein Addon oder eine ältere Version):")
+        table.insert(out, "  " .. table.concat(silent, ", "))
+    end
+    local labels = {}
+    for _, step in ipairs(P.STEPS) do table.insert(labels, step.label) end
+    self:TextDialog("Erste Schritte der Mitglieder",
+        "Ihren Stand melden nur Mitglieder mit dem Addon ab Version 4.11. Die Schritte: " .. table.concat(labels, ", ") .. ".",
+        table.concat(out, "\n"))
 end
 
 function UI:TextDialog(title, hint, text, onAccept, acceptLabel)

@@ -251,10 +251,17 @@ Den Reiter **Leitung** (`/ea leitung`) sehen nur Offiziere und Gildenleitung. Er
 
 - **Chronik** mit Filter: Eintritte (mit wem eingeladen hat), Austritte (ausgetreten oder entfernt – und von wem), Rangänderungen, Charaktere mit Stufe 60 und **„Wieder da“** – Spieler, die nach langer Pause wieder online sind. Dann gibt es auch eine Meldung im Chat.
 - **Die Gilde in Zahlen:** Spieler, Charaktere, gerade online, Stufe 60, Ein- und Austritte der letzten 30 Tage, Klassenverteilung.
+- **Jubiläen:** Aus den Eintritten in der Chronik meldet das Addon, wer seit einem Monat, 100 Tagen, einem halben Jahr oder einem (weiteren) Jahr dabei ist – einmal im Chat und als Eintrag in der Chronik. Ein Klick auf ein Jubiläum oder auf „Stufe 60“ schlägt einen Glückwunsch für den Gildenchat vor; abschicken muss man ihn selbst.
 - **Lange nicht online:** Spieler, die mit keinem ihrer Charaktere in der eingestellten Zeit da waren (Knopf oben rechts: 1, 2, 3, 6 oder 12 Monate; Standard 3 Monate). Dieselbe Schwelle gilt für „Wieder da“.
 - **Klassenliste für die Webseite:** Der Knopf „Für die Webseite“ (oder `/ea klassenliste`) erstellt einen Text mit allen Mitgliedern – Name, Klasse, Stufe, Rang und wer wessen Twink ist. Kopieren und auf gilde-elternabend.de unter **Gilde » Klassenliste** bei „Für die Gildenleitung“ einfügen. Wann jemand zuletzt online war und die Notizen werden nicht übertragen.
 
 Die Chronik entsteht aus dem Vergleich der Gildenliste mit dem zuletzt gemerkten Stand und aus Blizzards Gildenprotokoll (die letzten 100 Einträge – damit ist sie beim ersten Öffnen schon gefüllt). Sie liegt auf dem eigenen Rechner; jeder Offizier führt seine eigene. Was passiert, während kein Offizier online ist, wird beim nächsten Einloggen bemerkt und – soweit Blizzards Protokoll es noch kennt – mit der richtigen Zeit nachgetragen.
+
+## Spielzeiten
+Im Reiter **Gilde** öffnet „Meine Spielzeiten …“ (oder `/ea spielzeiten`) ein kleines Raster: Wochentage × Vormittag, Nachmittag, Abend, Spät – dazu eine kurze Notiz wie „meist ab 20:30“. Die Addons reichen die Angaben in der Gilde weiter. Im Tooltip der Gildenliste steht dann „Spielt meist: abends Di, Do · spät Sa“ und, was ihr gemeinsam habt („Wie du: …“). Der Dialog zeigt rechts, wer zu denselben Zeiten spielt – die mit der größten Überschneidung zuerst.
+
+## Erste Schritte
+Für Neue gibt es auf der Startseite die Zeile **Erste Schritte** (oder `/ea schritte`): Discord beitreten, Main festlegen, Berufe erfassen, Spielzeiten eintragen, Raidtermine ansehen. Main, Berufe und Spielzeiten haken sich von selbst ab; die Zeile verschwindet, sobald alles erledigt ist. Die Gildenleitung sieht im Tooltip der Gildenliste und unter **Leitung » „Erste Schritte“**, wer noch etwas offen hat – und welche Neuen der letzten 30 Tage sich noch gar nicht gemeldet haben (kein Addon oder eine ältere Version).
 
 ## Abgleich mit der Webseite über die Mac-App
 Ein Addon kann nicht ins Internet – deshalb läuft der Austausch mit gilde-elternabend.de sonst über Kopieren und Einfügen. Die kleine Mac-App **Elternabend Abgleich** (Ordner `Mac-App`, für die Gildenleitung) nimmt das ab:
@@ -300,6 +307,8 @@ Unter **Optionen » Tastaturbelegung » Elternabend** (eigener Abschnitt, unten 
 | `/ea design` | Design des Addons wählen |
 | `/ea leitung` | Gildenchronik für Offiziere: Ein- und Austritte, Rückkehrer, lange Inaktive |
 | `/ea klassenliste` | Klassenliste für die Webseite erstellen (nur Gildenleitung) |
+| `/ea spielzeiten` | Eigene Spielzeiten eintragen und sehen, wer zur selben Zeit spielt |
+| `/ea schritte` | Die „Ersten Schritte“ für neue Mitglieder zeigen |
 | `/ea abgleich` | Stand des Abgleichs über die Mac-App zeigen und den Raid von der Webseite übernehmen |
 | `/ea lagerfeuer` | Zeigt, welche Lagerfeuer-Buffs das Addon an dir erkennt (mit Zauber-IDs) |
 | `/ea raidgruppen` | Geplante Raidgruppen ansehen und im Schlachtzug bauen |

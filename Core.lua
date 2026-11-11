@@ -38,6 +38,8 @@ local defaults = {
     guildlog = {},    -- Gildenchronik für die Leitung: Gildenname -> { snapshot, events, since }
     links = {},       -- Twink-Zuordnungen im Addon: Twink-Schlüssel -> { twink, main, t, by, k }
     sync = {},        -- Abgleich über die Mac-App: wann zuletzt ein Raid von der Webseite übernommen wurde
+    profiles = {},    -- Spielzeiten und „Erste Schritte“ der Gilde: Schlüssel -> { name, t, times, steps, note }
+    me = {},          -- eigene Spielzeiten und abgehakte Schritte (accountweit)
     away = {         -- „Kind wach, gleich zurück“
         showButton = true, -- Elternknopf auf dem Bildschirm, solange man in einer Gruppe ist
         announce = true,   -- zusätzlich eine Zeile im Gruppenchat (für Spieler ohne Addon)
@@ -399,6 +401,10 @@ SlashCmdList.ELTERNABENDRAID = function(input)
         ns.UI:Show("leitung")
     elseif cmd == "klassenliste" or cmd == "mitgliederliste" then
         ns.UI:ShowRoster()
+    elseif cmd == "spielzeiten" or cmd == "zeiten" then
+        ns.UI:ShowPlayTimes()
+    elseif cmd == "schritte" or cmd == "ersteschritte" then
+        ns.UI:ShowSteps()
     elseif cmd == "abgleich" or cmd == "sync" then
         ns.Sync:Status()
         ns.Sync:ApplyRaid(true)

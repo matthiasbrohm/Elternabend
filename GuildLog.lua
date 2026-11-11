@@ -27,7 +27,16 @@ Log.TYPES = {
     back = { label = "Wieder da", color = "goldBright" },
     rank = { label = "Rang", color = "cream" },
     level = { label = "Stufe " .. MAX_LEVEL, color = "cream" },
+    jubilee = { label = "Jubiläum", color = "goldBright" },
 }
+
+-- Jubiläen: so lange nach dem Eintritt gibt es einen Hinweis (danach jedes Jahr)
+Log.MILESTONES = {
+    { days = 30, label = "einem Monat" },
+    { days = 100, label = "100 Tagen" },
+    { days = 182, label = "einem halben Jahr" },
+}
+local JUBILEE_WINDOW = 7 -- Tage: so lange nach dem Stichtag wird ein verpasstes Jubiläum noch gemeldet
 
 local function Store()
     local guild = IsInGuild() and GetGuildInfo("player")
@@ -245,6 +254,61 @@ function Log:Check()
     end
 end
 
+-- Jubiläen -------------------------------------------------------------------------------
+-- Welcher Meilenstein ist nach so vielen Tagen fällig? Liefert Tage und Bezeichnung („einem Jahr“) oder nil.
+function Log.Milestone(days)
+    for _, m in ipairs(Log.MILESTONES) do
+        if days >= m.days and days < m.days + JUBILEE_WINDOW then return m.days, m.label end
+    end
+    local years = math.floor(days / 365)
+    if years >= 1 and days - years * 365 < JUBILEE_WINDOW then
+        return years * 365, years == 1 and "einem Jahr" or (years .. " Jahren")
+    end
+end
+
+-- Aus den Eintritten in der Chronik: Wer ist seit einem Monat, 100 Tagen, einem halben Jahr, einem Jahr …
+-- dabei? Gemeldet wird jedes Jubiläum einmal (für den Spieler, nicht für jeden Twink).
+function Log:CheckJubilees()
+    if not self:Active() then return end
+    local store = Store()
+    if not store or #ns.Members.list == 0 then return end
+    store.jubilees = store.jubilees or {}
+    local now = time()
+    local seen, found = {}, {}
+    for _, e in ipairs(store.events) do -- neueste zuerst: der letzte Eintritt zählt
+        local key = e.type == "join" and ns.NameKey(e.name)
+        if key and not seen[key] then
+            seen[key] = true
+            local m = ns.Members:Find(e.name)
+            if m and not m.main then
+                local days = math.floor((now - e.t) / 86400)
+                local mark, label = Log.Milestone(days)
+                if mark and not store.jubilees[key .. ":" .. mark] then
+                    store.jubilees[key .. ":" .. mark] = now
+                    table.insert(found, { t = now, type = "jubilee", name = m.name, class = m.classFile, label = label, joined = e.t })
+                end
+            end
+        end
+    end
+    for _, e in ipairs(found) do
+        Add(store, e)
+        ns.Print(ns.Theme.Hex("goldBright", "Jubiläum: ") .. ns.ShortName(e.name) .. " ist seit " .. e.label
+            .. " in der Gilde. Im Reiter Leitung kannst du per Klick gratulieren.")
+    end
+    if #found > 0 then ns:Fire("GUILDLOG_UPDATE") end
+end
+
+-- Vorschlag für einen Glückwunsch im Gildenchat (nur zu Jubiläen und Stufe 60)
+function Log.Congrats(e)
+    local first = ns.ShortName(e.name) or e.name
+    first = first:match("^(%S+)") or first
+    if e.type == "jubilee" then
+        return "Glückwunsch, " .. first .. "! Du bist seit " .. e.label .. " bei uns im Elternabend – schön, dass du da bist!"
+    elseif e.type == "level" then
+        return "Glückwunsch zu Stufe " .. MAX_LEVEL .. ", " .. first .. "!"
+    end
+end
+
 -- Blizzards Protokoll ist da: Chronik vorbelegen und frische Ereignisse ergänzen
 function Log:OnBlizzardLog()
     if not self:Active() then return end
@@ -287,6 +351,9 @@ function Log.Describe(e)
         return verb .. (e.from and (": " .. e.from .. " » " .. (e.to or "?")) or (e.to and (" zu " .. e.to) or "")) .. (e.by and (" – von " .. e.by) or "")
     elseif e.type == "level" then
         return T.Hex("goldBright", "hat Stufe " .. MAX_LEVEL .. " erreicht")
+    elseif e.type == "jubilee" then
+        return T.Hex("goldBright", "ist seit " .. (e.label or "?") .. " in der Gilde")
+            .. (e.joined and (" (Eintritt am " .. date("%d.%m.%Y", e.joined) .. ")") or "")
     end
     return ""
 end
@@ -342,5 +409,9 @@ ns:On("GUILD_EVENT_LOG_UPDATE", function() Log:OnBlizzardLog() end)
 ns:On("PLAYER_LOGIN", function()
     C_Timer.After(12, function()
         if IsInGuild() and Log:Active() then Log:RequestBlizzardLog() end
+    end)
+    -- Jubiläen einmal nach dem Einloggen prüfen, wenn Gildenliste und Chronik stehen
+    C_Timer.After(40, function()
+        if IsInGuild() then Log:CheckJubilees() end
     end)
 end)
