@@ -41,6 +41,7 @@ end
 function Web:ImportPlan(text)
     local plan = { signups = {}, importedAt = time() }
     local entries = {}
+    local dates = {} -- kommende Raidtermine für den Kalender („termin;…“)
 
     for line in text:gmatch("[^\r\n]+") do
         local f = Split(line)
@@ -63,6 +64,10 @@ function Web:ImportPlan(text)
                     if f[i] ~= "" then table.insert(plan.groups[g], f[i]) end
                 end
             end
+        elseif kind == "termin" and f[2] and tonumber(f[4]) then
+            -- termin;ID;Name;Start;Dauer;Zusagen;Plätze;Status → Zeile im Format des Kalenders
+            table.insert(dates, table.concat({ "R", f[2], (f[3] or ""):gsub("[%^~]", " "), f[4], tonumber(f[5]) or 120,
+                tonumber(f[6]) or 0, tonumber(f[7]) or 0, f[8] or "offen" }, "^"))
         elseif kind == "sr" and f[2] and tonumber(f[3]) then
             table.insert(entries, { name = f[2], itemId = tonumber(f[3]), itemName = f[4], boss = f[5] ~= "" and f[5] or nil, plus = 0 })
         end
@@ -79,6 +84,13 @@ function Web:ImportPlan(text)
     for _ in pairs(plan.signups) do count = count + 1 end
     ns.Print(string.format("Raid „%s“ geladen: %d Anmeldungen, %d Soft-Reserves%s.", plan.title or "?", count, #entries,
         plan.groups and " – mit Raidgruppen (Raid » Raidgruppen)" or ""))
+    -- Ein Text für alles: die Raidtermine gleich in den Kalender (nur Offiziere dürfen sie verteilen)
+    if #dates > 0 and ns.Board:AmOfficer() then
+        local ok, n, changed = ns.Calendar:Import("EART1^" .. time() .. "\n" .. table.concat(dates, "\n"), true)
+        if ok and changed then
+            ns.Print(n .. (n == 1 and " Raidtermin" or " Raidtermine") .. " im Kalender aktualisiert und an die Gilde geschickt.")
+        end
+    end
     if IsInGroup() and ns.IsTrusted(ns.UnitFullName("player")) then
         ns.Print("Tipp: Mit „An Gruppe senden“ sehen alle die Soft-Reserves.")
     end

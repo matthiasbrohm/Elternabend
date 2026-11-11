@@ -2553,8 +2553,10 @@ end
 function UI:ShowCalendarImport()
     self:TextDialog("Raidtermine einfügen",
         "Im Raidplaner auf " .. ns.WEBSITE .. " unter „Termine fürs Addon“ auf „Kopieren“ klicken und hier mit Strg+V einfügen.\n" ..
-        "Das Addon schickt die Termine an alle in der Gilde, die das Addon haben.",
+        "Das Addon schickt die Termine an alle in der Gilde. Der Text „Für das Addon“ eines Raids geht hier auch – er enthält die Termine.",
         "", function(text)
+            -- Der Raid-Text („Für das Addon“) bringt die Termine mit: dann gleich alles einlesen
+            if (text or ""):find("#ELTERNABEND%-RAID") then return ns.Web:Import(text) end
             local ok, result = ns.Calendar:Import(text)
             if not ok then
                 ns.Print(result)
@@ -2974,7 +2976,7 @@ function UI:CreateGroupsPanel()
     site:SetPoint("LEFT", siteLabel, "RIGHT", 10, 0)
 
     -- Rechts oben: eigene Gruppe suchen
-    local own = StartCard(p, "Gruppe suchen", 232)
+    local own = StartCard(p, "Gruppe suchen", 264)
     own:SetPoint("TOPRIGHT")
     own:SetWidth(rightWidth)
     local inner = rightWidth - 32
@@ -3031,6 +3033,19 @@ function UI:CreateGroupsPanel()
     p.ownState:SetPoint("TOPLEFT", p.post, "BOTTOMLEFT", 0, -10)
     p.ownState:SetWidth(inner)
     p.ownState:SetWordWrap(false)
+    -- Findet sich in der Gilde niemand: Blizzards Gruppensuche öffnen (eintragen muss man dort selbst)
+    p.outside = T.Button(own, "Außerhalb der Gilde suchen", inner)
+    p.outside:SetHeight(22)
+    p.outside:SetPoint("BOTTOMLEFT", 16, 10)
+    p.outside:SetScript("OnClick", function() G:OpenBlizzardFinder() end)
+    p.outside:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_BOTTOM")
+        GameTooltip:AddLine("Außerhalb der Gilde suchen")
+        GameTooltip:AddLine("Öffnet Blizzards Gruppensuche. Den Eintrag legst du dort selbst an – das Addon sagt dir im Chat, "
+            .. "was du eintragen sollst. Dein Gesuch in der Gilde läuft weiter.", 1, 1, 1, true)
+        GameTooltip:Show()
+    end)
+    p.outside:SetScript("OnLeave", GameTooltip_Hide)
 
     -- Rechts unten: wer möchte mit?
     local apps = StartCard(p, "Meldungen", 0)
@@ -3105,6 +3120,7 @@ function UI:CreateGroupsPanel()
         for role, b in pairs(p.needButtons) do b:SetText(G.ROLES[role] .. ": " .. p.need[role]) end
         p.post:SetText(mine and "Aktualisieren" or "Gruppe suchen")
         p.close:SetEnabled(mine ~= nil)
+        p.outside:SetEnabled(mine ~= nil)
         local applicants = G:Applicants()
         if mine then
             p.ownState:SetText(T.Hex("green", "Läuft") .. "  ·  seit " .. math.floor((GetTime() - mine.started) / 60) ..
@@ -3117,7 +3133,7 @@ function UI:CreateGroupsPanel()
         p.appsHint:SetShown(#applicants == 0)
         p.appsHint:SetText(mine and "Noch hat sich niemand gemeldet." or
             "Wer sich auf dein Gesuch meldet, steht hier – mit Knopf zum Einladen.")
-        local maxRows = 6
+        local maxRows = 5
         for i = 1, math.max(#applicants, #p.appRows) do
             local a = applicants[i]
             local row = p.appRows[i] or (a and i <= maxRows and AppRow(i))
@@ -4876,7 +4892,7 @@ end
 function UI:ShowImport()
     self:TextDialog("Raid einfügen",
         "Im Raidplaner auf " .. ns.WEBSITE .. " den Text „Für das Addon“ kopieren und hier mit Strg+V einfügen.\n" ..
-        "Ein CSV-Export von softres.it funktioniert auch.",
+        "Ein Text für alles: Aufstellung, Raidgruppen, Soft-Reserves und die Raidtermine für den Kalender. Ein CSV-Export von softres.it geht auch.",
         "", function(text)
             -- Versehentlich die Termine eingefügt? Dann in den Kalender damit
             if strtrim(text or ""):sub(1, 5) == "EART1" then

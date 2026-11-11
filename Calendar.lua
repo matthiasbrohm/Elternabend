@@ -68,16 +68,27 @@ function Cal:Raids()
 end
 
 -- Offizier fügt den Export aus dem Raidplaner ein
-function Cal:Import(text)
+-- onlyIfChanged: nichts tun (und nichts verteilen), wenn die Termine schon genau so da sind –
+-- für den Raid-Text, der die Termine bei jedem Einfügen mitbringt
+local function Signature(list)
+    local parts = {}
+    for _, r in ipairs(list or {}) do
+        table.insert(parts, table.concat({ r.id, r.name, r.start, r.dur, r.yes, r.slots, r.status }, "^"))
+    end
+    return table.concat(parts, "~")
+end
+
+function Cal:Import(text, onlyIfChanged)
     if not ns.Board:AmOfficer() then return false, "Raidtermine einfügen dürfen nur Offiziere." end
     local data, err = self:Parse(text)
     if not data then return false, err end
+    if onlyIfChanged and Signature(data.list) == Signature(DB().raids.list) then return true, #data.list, false end
     data.from = ns.UnitFullName("player") or ""
     data.version = math.max(data.version, (DB().raids.version or 0) + 1)
     DB().raids = data
     self:Broadcast()
     ns:Fire("CALENDAR_UPDATE")
-    return true, #data.list
+    return true, #data.list, true
 end
 
 function Cal:Broadcast()

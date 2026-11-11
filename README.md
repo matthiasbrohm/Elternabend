@@ -55,6 +55,8 @@ spieler;Beta;Priester;heal;dabei
 spieler;Ronbuhjaa;Jäger;dd;ersatz
 sr;Deltana;30904;Savior's Grasp;Rage Winterchill
 sr;Beta;30911;Scepter of Purification;Anetheron
+gruppe;1;Deltana;Beta
+termin;42;Hyjal Summit;1794517200;180;12;20;offen
 #ENDE
 ```
 
@@ -63,6 +65,10 @@ sr;Beta;30911;Scepter of Purification;Anetheron
 | `raid` | Raid-ID, Titel, Vorlage (`barrow`, `hyjal`, `onyxia`), Datum und Uhrzeit |
 | `spieler` | Charaktername, Klasse (deutsch oder englisch), Rolle (`tank`, `heal`, `dd`), Status (`dabei`, `ersatz`, `vielleicht`, `abgemeldet`) |
 | `sr` | Charaktername, Item-ID, Itemname, Boss (optional) |
+| `gruppe` | Nummer der Raidgruppe (1–8), danach bis zu fünf Charakternamen |
+| `termin` | Raid-ID, Titel, Start (Unix-Zeit), Dauer in Minuten, Zusagen, Plätze, Status – alle kommenden Raids, für den Kalender |
+
+**Ein Text für alles:** Dieser eine Text bringt Aufstellung, Raidgruppen, Soft-Reserves und die Raidtermine für den Kalender mit. Fügt ihn ein Offizier ein, verteilt das Addon die Termine gleich an die Gilde (nur wenn sich etwas geändert hat). Beide Einfüge-Fenster – „Raid einfügen“ und „Raidtermine einfügen“ – nehmen beide Texte an.
 
 ### Addon → Webseite (Raid-Bericht)
 Das Addon schreibt im Raid automatisch mit (startet beim Betreten einer Raid-Instanz). Unter **Webseite → Bericht erzeugen** entsteht:
@@ -132,6 +138,8 @@ Wer einen Raid aus dem Raidplaner einfügt, verteilt dessen Termin an die Gilde.
 Im Reiter **Gruppen** einträgst du, wofür du Mitspieler suchst und wie viele Tanks, Heiler und DDs (Klick: mehr, Rechtsklick: weniger). Die Gilde sieht das Gesuch sofort (auch im Chat, abschaltbar mit `/ea gruppenhinweis`). Andere wählen es aus und melden sich als Tank, Heiler oder DD; du siehst die Meldungen und lädst mit einem Klick ein. Gesuche verschwinden nach 90 Minuten, beim Ausloggen oder mit **Beenden** – und von selbst, sobald deine Gruppe voll ist: Das Addon merkt sich beim Start, wie groß die Gruppe werden soll (wer schon drin ist plus die gesuchten Plätze), und schließt das Gesuch, wenn so viele Spieler in der Gruppe sind – auch wenn du per Hand eingeladen hast.
 
 Mit dem Häkchen **„Auch im Gildenchat posten“** (standardmäßig an) schreibt das Addon beim Start einmal eine Zeile in den Gildenchat, z. B. „Suche Gruppe für DM: 1 Tank, 2 DD – gemütlich. Mit Addon über /ea gruppen melden, sonst anflüstern!“ So sehen auch Mitglieder ohne Addon das Gesuch und melden sich per Flüstern. Addon-Nutzer bekommen dann keine zweite Meldung.
+
+Findet sich in der Gilde niemand, öffnet **„Außerhalb der Gilde suchen“** Blizzards Gruppensuche. Einen Eintrag dort dürfen Addons nicht selbst anlegen – das Addon sagt im Chat, was einzutragen ist; das Gesuch in der Gilde läuft weiter.
 
 ## Ruhmeshalle
 Fällt ein Raidboss zum ersten Mal in einer Gildengruppe (mindestens die Hälfte aus der Gilde), hält das Addon fest: Boss, Schwierigkeit, Raid, Datum und wer dabei war. Die Einträge werden an die ganze Gilde verteilt und beim Einloggen abgeglichen. Zu sehen unter **Raid » Ruhmeshalle** oder mit `/ea ruhm`.
