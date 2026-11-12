@@ -29,6 +29,59 @@ function Info:IsOurGuild()
     return guild ~= nil and self.GUILD_NAMES[guild] == true
 end
 
+-- Heimatgilde: die Gilde, deren Daten (Berufe, Raid, Pinnwand, Raidtermine) das Addon auf diesem Account
+-- gesammelt hat. Die Daten liegen accountweit auf dem Rechner – ein Charakter ohne Gilde oder in einer
+-- anderen Gilde soll sie trotzdem nicht sehen und auch nicht weitergeben.
+-- ns.db.homeGuild merkt sich die Gilde, ns.db.homeSeen, wann zuletzt ein Charakter dort eingeloggt war.
+local HOME_MOVE_AFTER = 60 * 86400 -- so lange kein Charakter mehr in der alten Gilde war, darf eine neue übernehmen
+
+-- Gildenwechsel: was der alten Gilde gehörte, geht nicht mit
+local function ForgetGuildData()
+    local db = ns.db
+    db.board.notes, db.board.seen = {}, {}
+    for key, char in pairs(db.professions) do
+        if not char.mine then db.professions[key] = nil end
+    end
+    db.calendar.raids = { version = 0, list = {} }
+    db.softres = { items = {} }
+    db.orders = { out = {}, inc = {}, outbox = {} }
+    db.links, db.profiles, db.fame, db.history = {}, {}, {}, {}
+    db.plan, db.nextRaid, db.session = nil, nil, nil
+end
+
+function Info:AtHome()
+    if not IsInGuild() then return false end
+    local guild = GetGuildInfo("player")
+    if not guild then return false end -- kurz nach dem Einloggen ist der Gildenname noch nicht da
+    local db = ns.db
+    if db.homeGuild == guild then
+        db.homeSeen = time()
+        return true
+    end
+    local function Adopt()
+        if db.homeGuild then ForgetGuildData() end
+        db.homeGuild, db.homeSeen = guild, time()
+        return true
+    end
+    -- Die eigene Gilde des Addons geht immer vor
+    if self:IsOurGuild() then return Adopt() end
+    if db.homeGuild then
+        -- War lange kein Charakter mehr in der alten Gilde, gehört das Addon jetzt hierher (ohne die alten Daten)
+        if time() - (db.homeSeen or 0) > HOME_MOVE_AFTER then return Adopt() end
+        return false
+    end
+    -- Andere Gilde und noch nichts gemerkt: Gehören die gespeicherten Berufe zu dieser Gilde?
+    local M = ns.Members
+    if not M or #M.list == 0 then return false end -- Gildenliste noch nicht geladen
+    local total, here = 0, 0
+    for key in pairs(db.professions or {}) do
+        total = total + 1
+        if M.byKey[key] then here = here + 1 end
+    end
+    if total == 0 or here * 2 > total then return Adopt() end
+    return false
+end
+
 -- Nachricht des Tages: kommt mit dem Event GUILD_MOTD (beim Einloggen und bei jeder Änderung).
 -- GetGuildRosterMOTD() selbst rufen wir nicht mehr auf – in WoW Forever wird der Aufruf
 -- aus Addons teils blockiert (ADDON_ACTION_BLOCKED). Gemerkt wird sie pro Gilde.

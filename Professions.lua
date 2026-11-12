@@ -252,7 +252,7 @@ end
 -- Ohne all nur die, die sich seit dem letzten Senden geändert haben.
 -- Mit target: alle per Flüstern an diesen einen Spieler (Antwort auf eine Anfrage).
 function Prof:SendMine(all, target)
-    if not IsInGuild() then return end
+    if not ns.Info:AtHome() then return end -- Berufe bleiben in der Gilde
     for _, char in pairs(DB()) do
         if char.mine and #char.profs > 0 and (all or (char.sent or 0) < (char.time or 0)) then
             if not target then char.sent = char.time end
@@ -282,6 +282,7 @@ end
 -- Die Anfrage geht über die Gilde und zusätzlich direkt an bekannte Addon-Nutzer,
 -- falls der Server die eigenen Gildennachrichten nicht verteilt.
 function Prof:RequestAll(silent)
+    if not ns.Info:AtHome() then return end
     ns.Comm:Send("PROFQ", nil, "GUILD")
     ns.Comm:SendToSeen("PROFQ")
     if not silent then ns.Print("Berufe angefragt – die Antworten kommen in den nächsten Sekunden.") end
@@ -298,6 +299,7 @@ ns:Listen("ADDON_USER_SEEN", function(sender, key)
 end)
 
 local function Receive(sender, parts, compact)
+    if not ns.Info:AtHome() then return end -- Charakter in einer anderen Gilde: deren Berufe mischen sich nicht darunter
     local data = ns.Comm:Assemble(sender, parts)
     if not data then
         ns:Fire("PROF_UPDATE") -- Fortschritt in der Übersicht zeigen

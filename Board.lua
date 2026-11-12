@@ -269,29 +269,9 @@ end
 
 -- Darf ich den Zettel sehen? Persönliche Zettel nur Absender und Empfänger.
 -- Die Pinnwand gehört der Gilde. Die Zettel sind zwar accountweit gespeichert, aber ein Charakter, der nicht
--- (mehr) in dieser Gilde ist, sieht sie nicht – weder den Reiter noch einzelne Zettel.
--- DB().guild merkt sich, welcher Gilde die Zettel gehören.
+-- (mehr) in dieser Gilde ist, sieht sie nicht – weder den Reiter noch einzelne Zettel (siehe Info:AtHome).
 function Board:Open()
-    if not IsInGuild() then return false end
-    local guild = GetGuildInfo("player")
-    if not guild then return false end -- kurz nach dem Einloggen ist der Gildenname noch nicht da
-    local owner = DB().guild
-    if owner == guild then return true end
-    -- Hängt nichts mehr, gehört die Pinnwand der Gilde, die den nächsten Zettel anheftet
-    local now, live = Now(), false
-    for _, n in pairs(DB().notes) do
-        if n.state ~= "entfernt" and (n.expires or 0) > now then live = true break end
-    end
-    if not live then return true end
-    -- Zettel aus der Zeit vor dieser Prüfung gehören zum Elternabend
-    if not owner then return ns.Info:IsOurGuild() end
-    return false
-end
-
--- Merken, wem die Pinnwand gehört (beim Anheften und beim Empfangen)
-local function Claim()
-    local guild = IsInGuild() and GetGuildInfo("player")
-    if guild then DB().guild = guild end
+    return ns.Info:AtHome()
 end
 
 function Board:IsVisible(n)
@@ -420,7 +400,6 @@ function Board:Post(opts)
         keep = (opts.keep and self:AmOfficer()) or nil,
         title = title, text = Clean(opts.text, TEXT_MAX, true), reacts = {}, replies = {},
     }
-    Claim()
     DB().notes[n.id] = n
     DB().seen[n.id] = self:Digest(n)
     self:Broadcast(n)
@@ -671,7 +650,6 @@ function Board:Receive(data, sender)
     if not self:Open() then return end
     local n = self:Parse(data)
     if not n then return end
-    Claim()
     local old = DB().notes[n.id]
     local before = old and Copy(old)
     local result = self:Merge(n, true)

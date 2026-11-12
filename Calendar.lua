@@ -63,7 +63,9 @@ function Cal:Serialize(data)
     return table.concat(lines, "~") -- „~“ statt Zeilenumbruch, wie bei der Pinnwand
 end
 
+-- Raidtermine der Gilde – ein Charakter ohne Gilde oder in einer anderen Gilde sieht sie nicht
 function Cal:Raids()
+    if not ns.Info:AtHome() then return {} end
     return DB().raids.list
 end
 
@@ -92,7 +94,7 @@ function Cal:Import(text, onlyIfChanged)
 end
 
 function Cal:Broadcast()
-    if not IsInGuild() then return end
+    if not ns.Info:AtHome() then return end
     local payload = self:Serialize(DB().raids)
     ns.WhenChatFree(function() ns.Comm:SendLarge("CALR", payload, "GUILD") end)
 end
@@ -100,6 +102,7 @@ end
 -- Angenommen werden Termine, die ein Offizier eingefügt hat – auch wenn sie ein anderes
 -- Mitglied weiterreicht (Antwort auf CALQ beim Einloggen)
 function Cal:Receive(sender, text)
+    if not ns.Info:AtHome() then return end
     local data = self:Parse(text)
     if not data or data.version <= (DB().raids.version or 0) then return end
     if not (ns.Board:IsOfficer(data.from ~= "" and data.from or sender) or ns.Board:IsOfficer(sender)) then return end
@@ -119,6 +122,7 @@ ns.Comm.handlers.CALR = function(sender, parts)
 end
 
 ns.Comm.handlers.CALQ = function(_, parts)
+    if not ns.Info:AtHome() then return end
     local theirs = tonumber(parts[2]) or 0
     local mine = DB().raids.version or 0
     if mine <= theirs or #DB().raids.list == 0 then return end
@@ -341,6 +345,6 @@ end)
 
 ns:On("PLAYER_LOGIN", function()
     C_Timer.After(30 + math.random() * 15, function()
-        if IsInGuild() then ns.Comm:Send("CALQ", tostring(DB().raids.version or 0), "GUILD") end
+        if ns.Info:AtHome() then ns.Comm:Send("CALQ", tostring(DB().raids.version or 0), "GUILD") end
     end)
 end)

@@ -10,11 +10,11 @@ local TABS = {
     { key = "start", label = "Start" },
     { key = "mitglieder", label = "Gilde" },
     { key = "kalender", label = "Kalender" },
-    { key = "pinnwand", label = "Pinnwand", board = true }, -- nur für Charaktere in der Gilde
-    { key = "berufe", label = "Berufe" },
+    { key = "pinnwand", label = "Pinnwand", home = true }, -- home: nur für Charaktere in der Gilde
+    { key = "berufe", label = "Berufe", home = true },
     { key = "gruppen", label = "Gruppen" },
     { key = "notizen", label = "Notizen" },
-    { key = "raid", label = "Raid" },
+    { key = "raid", label = "Raid", home = true },
     { key = "gilde", label = "Invite", invite = true },
     { key = "web", label = "Webseite", leaders = true },
     { key = "leitung", label = "Leitung", leaders = true },
@@ -333,10 +333,11 @@ for _, tab in ipairs(TABS) do TAB_BY_KEY[tab.key] = tab end
 
 function UI:CanSee(key)
     local tab = TAB_BY_KEY[key]
-    if not tab then return true end
+    -- Unterreiter von „Raid“ (Soft-Reserve, Taktik, Ruhmeshalle …) gehören zur Gilde wie der Reiter selbst
+    if not tab then return not IN_RAID_GROUP[key] or ns.Info:AtHome() end
     if tab.invite then return IsInGuild() and CanGuildInvite() and true or false end
     if tab.leaders then return self:IsLeader() end
-    if tab.board then return ns.Board:Open() end
+    if tab.home then return ns.Info:AtHome() end
     return true
 end
 
@@ -371,7 +372,8 @@ function UI:Show(key)
     self:Create()
     if key and not self:CanSee(key) then
         ns.Print(key == "gilde" and "Den Reiter „Invite“ sieht nur, wer in die Gilde einladen darf."
-            or key == "pinnwand" and "Die Pinnwand gibt es nur für Charaktere in der Gilde."
+            or (key == "pinnwand" or key == "berufe" or IN_RAID_GROUP[key])
+                and "Pinnwand, Berufe und Raid gibt es nur für Charaktere in der Gilde."
             or "Dieser Reiter ist nur für Offiziere und Gildenleitung.")
         key = nil
     end
@@ -665,8 +667,10 @@ function UI:CreateStartPanel()
             or open == 0 and "Noch hängt nichts – heft doch was an."
             or (open == 1 and "1 Zettel hängt an der Pinnwand." or (open .. " Zettel hängen an der Pinnwand.")))
 
+        local home = ns.Info:AtHome()
         local orders = ns.Orders:OpenCount()
-        p.now.orders.text:SetText(orders > 0 and T.Hex("goldBright", orders == 1 and "1 offener Auftrag an dich"
+        p.now.orders.text:SetText(not home and "Nur für Charaktere in der Gilde."
+            or orders > 0 and T.Hex("goldBright", orders == 1 and "1 offener Auftrag an dich"
             or (orders .. " offene Aufträge an dich")) or "Keine offenen Aufträge an dich.")
 
         local online = 0
@@ -689,7 +693,8 @@ function UI:CreateStartPanel()
         end
 
         local last = ns.Fame:List()[1]
-        p.now.fame.text:SetText(last and ("Zuletzt: " .. last.name .. (last.diffName ~= "" and (" (" .. last.diffName .. ")") or "")
+        p.now.fame.text:SetText(not home and "Nur für Charaktere in der Gilde."
+            or last and ("Zuletzt: " .. last.name .. (last.diffName ~= "" and (" (" .. last.diffName .. ")") or "")
             .. " am " .. date("%d.%m.", last.time)) or "Noch kein Erstkill – der erste Boss wartet.")
 
         p.now.away.text:SetText(ns.db.away.showButton and "Knopf auf dem Bildschirm: " .. T.Hex("green", "an")

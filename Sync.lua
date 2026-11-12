@@ -92,6 +92,11 @@ function Sync:ApplyRaid(manual)
         end
         return false
     end
+    -- Raiddaten gehören der Gilde: ein Charakter ohne Gilde oder in einer anderen Gilde bekommt sie nicht
+    if not ns.Info:AtHome() then
+        if manual then ns.Print("Abgleich: Die Raiddaten gibt es nur für Charaktere in der Gilde.") end
+        return false
+    end
     local st = Store()
     local raid = type(d.raid) == "string" and d.raid or ""
     local stamp = tonumber(d.zeit) or 0
