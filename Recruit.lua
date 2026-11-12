@@ -87,6 +87,35 @@ local function Remove(key)
     end
 end
 
+-- Stumm: Neue Anfragen melden sich nicht mit Fenster und Ton, sondern sammeln sich still im Reiter „Invite“
+-- (mit Plakette am Reiter). Entweder von Hand ausgeschaltet oder automatisch in Dungeons und Raids.
+-- Liefert true und den Grund ("aus" oder "instanz").
+function Recruit:Quiet()
+    local s = Settings()
+    if s.popup == false then return true, "aus" end
+    if s.quietInstance ~= false then
+        local inInstance, kind = IsInInstance()
+        if inInstance and (kind == "party" or kind == "raid" or kind == "scenario") then return true, "instanz" end
+    end
+    return false
+end
+
+-- Fenster und Ton für neue Anfragen ein- oder ausschalten
+function Recruit:SetPopup(on)
+    Settings().popup = on and true or false
+    local waiting = #self.queue
+    if on then
+        local quiet = self:Quiet()
+        ns.Print("Gildenanfragen: Fenster und Ton sind " .. ns.Theme.Hex("green", "an") .. "."
+            .. (quiet and " Hier im Dungeon oder Raid bleibt es trotzdem still (Einstellung im Reiter Invite)." or "")
+            .. (waiting > 0 and (" " .. (waiting == 1 and "1 Anfrage wartet." or (waiting .. " Anfragen warten."))) or ""))
+    else
+        ns.Print("Gildenanfragen sind stumm: kein Fenster, kein Ton. Neue Anfragen sammeln sich im Reiter Invite. "
+            .. "Wieder einschalten: dort oder mit |cfff3dc9a/ea anfragen|r.")
+    end
+    ns:Fire("RECRUIT_UPDATE")
+end
+
 -- source: nil = per Flüstern, "Addon" = Knopf „Der Gilde beitreten“.
 -- Liefert true, wenn die Anfrage in der Warteschlange steht.
 function Recruit:Request(sender, source)
@@ -109,7 +138,7 @@ function Recruit:Request(sender, source)
     end
     table.insert(self.queue, { name = sender, key = key, time = time(), source = source })
     self:Log(sender, source and ("angefragt (" .. source .. ")") or "angefragt")
-    PlaySound(SOUNDKIT.READY_CHECK)
+    if not self:Quiet() then PlaySound(SOUNDKIT.READY_CHECK) end
     return true
 end
 
@@ -229,3 +258,25 @@ ns:On("CHAT_MSG_SYSTEM", function(msg)
     name = CleanName(ALREADY and msg:match(ALREADY))
     if name then Recruit:Log(name, "schon in einer Gilde") end
 end)
+
+-- Aus dem Dungeon oder Raid zurück: Anfragen, die sich still gesammelt haben, jetzt zeigen
+local function AfterZoneChange()
+    C_Timer.After(3, function()
+        if not ns.db or #Recruit.queue == 0 then return end
+        local quiet = Recruit:Quiet()
+        if Recruit.wasQuiet and not quiet then
+            local n = #Recruit.queue
+            ns.Print(n == 1 and "Eine Gildenanfrage hat gewartet, solange du im Dungeon oder Raid warst."
+                or (n .. " Gildenanfragen haben gewartet, solange du im Dungeon oder Raid warst."))
+            PlaySound(SOUNDKIT.READY_CHECK)
+        end
+        Recruit.wasQuiet = quiet
+        ns:Fire("RECRUIT_UPDATE")
+    end)
+end
+ns:On("PLAYER_ENTERING_WORLD", function()
+    Recruit.wasQuiet = ns.db and Recruit:Quiet() or false
+    AfterZoneChange()
+end)
+ns:On("ZONE_CHANGED_NEW_AREA", AfterZoneChange)
+ns:Listen("RECRUIT_UPDATE", function() Recruit.wasQuiet = Recruit:Quiet() end)

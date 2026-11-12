@@ -449,13 +449,19 @@ end
 function UI:UpdateBadges()
     -- Gruppensuchen: nur neue, die man im Reiter „Gruppen“ noch nicht gesehen hat
     local groups = (self.frame and self.frame:IsShown() and self.currentTab == "gruppen") and 0 or ns.Groups:UnseenCount()
-    if self.minimapButton and self.minimapButton.badge then self.minimapButton.badge:SetCount(groups) end
+    -- an der Minimap zählen auch Gildenanfragen mit, die still warten (Fenster stumm geschaltet)
+    local waiting = ns.Recruit:Quiet() and #ns.Recruit.queue or 0
+    if self.minimapButton and self.minimapButton.badge then self.minimapButton.badge:SetCount(groups + waiting) end
     if self.tabs.gruppen and self.tabs.gruppen.badge then self.tabs.gruppen.badge:SetCount(groups) end
     if self.tabs.pinnwand and self.tabs.pinnwand.badge then
         self.tabs.pinnwand.badge:SetCount(self.currentTab ~= "pinnwand" and ns.Board:UnreadCount() or 0)
     end
+    -- Wartende Gildenanfragen (vor allem, wenn das Fenster stumm geschaltet ist)
+    if self.tabs.gilde and self.tabs.gilde.badge then
+        self.tabs.gilde.badge:SetCount(self.currentTab ~= "gilde" and #ns.Recruit.queue or 0)
+    end
 end
-for _, msg in ipairs({ "GROUPS_UPDATE", "BOARD_UPDATE", "MEMBERS_UPDATE" }) do
+for _, msg in ipairs({ "GROUPS_UPDATE", "BOARD_UPDATE", "MEMBERS_UPDATE", "RECRUIT_UPDATE" }) do
     ns:Listen(msg, function() UI:UpdateBadges() end)
 end
 ns:Listen("INIT", function()
@@ -2817,11 +2823,33 @@ function UI:CreateGuildPanel()
     toggle:SetPoint("TOPLEFT", intro, "BOTTOMLEFT", 0, -14)
     toggle:SetScript("OnClick", function()
         S().enabled = not S().enabled
+        ns:Fire("RECRUIT_UPDATE") -- auch den versteckten Anfrage-Kanal betreten oder verlassen
         p:Refresh()
     end)
 
+    -- Fenster und Ton bei neuen Anfragen: schnell aus, wenn man gerade keine Zeit hat – die Anfragen sammeln sich
+    local popupBtn = T.Button(card, "", 294)
+    popupBtn:SetPoint("TOPLEFT", toggle, "BOTTOMLEFT", 0, -8)
+    popupBtn:SetScript("OnClick", function() ns.Recruit:SetPopup(S().popup == false) end)
+    popupBtn:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        GameTooltip:AddLine("Fenster bei Anfragen")
+        GameTooltip:AddLine("An: Bei jeder neuen Gildenanfrage erscheint das kleine Fenster mit Ton.", 1, 1, 1, true)
+        GameTooltip:AddLine("Aus: Nichts poppt auf. Die Anfragen sammeln sich in der Liste rechts (mit Plakette am Reiter Invite), "
+            .. "und du lädst ein, wenn du Zeit hast.", 1, 1, 1, true)
+        GameTooltip:AddLine("Auch im Anfrage-Fenster über „Stumm“ oder mit /ea anfragen.", 0.78, 0.75, 0.68, true)
+        GameTooltip:Show()
+    end)
+    popupBtn:SetScript("OnLeave", GameTooltip_Hide)
+    local quietBox = T.Checkbox(card, "In Dungeons und Raids automatisch stumm")
+    quietBox:SetPoint("TOPLEFT", popupBtn, "BOTTOMLEFT", 0, -10)
+    quietBox.onChange = function(checked)
+        S().quietInstance = checked
+        ns:Fire("RECRUIT_UPDATE")
+    end
+
     local kwLabel = T.Text(card, "kicker")
-    kwLabel:SetPoint("TOPLEFT", toggle, "BOTTOMLEFT", 0, -16)
+    kwLabel:SetPoint("TOPLEFT", quietBox, "BOTTOMLEFT", 0, -14)
     kwLabel:SetText("STICHWÖRTER, MIT KOMMA GETRENNT")
     local keywords = T.EditBox(card, 294)
     keywords:SetPoint("TOPLEFT", kwLabel, "BOTTOMLEFT", 0, -6)
@@ -2871,6 +2899,12 @@ function UI:CreateGuildPanel()
     function p:Refresh()
         local s = S()
         toggle:SetText(s.enabled and "Flüster-Einladung ist an" or "Flüster-Einladung ist aus")
+        local quiet, why = ns.Recruit:Quiet()
+        popupBtn:SetText(s.popup == false and "Fenster bei Anfragen: " .. T.Hex("orange", "aus") .. " (still sammeln)"
+            or why == "instanz" and "Fenster bei Anfragen: an (hier gerade stumm)"
+            or "Fenster bei Anfragen: " .. T.Hex("green", "an"))
+        popupBtn:SetEnabled(s.enabled and true or false)
+        quietBox:SetChecked(s.quietInstance ~= false)
         if not keywords:HasFocus() then keywords:SetText(s.keywords or "") end
         if not reply:HasFocus() then reply:SetText(s.reply or "") end
 
@@ -2910,7 +2944,9 @@ end
 function UI:UpdateRecruitToast(focusName)
     local queue = ns.Recruit.queue
     local t = self.recruitToast
-    if #queue == 0 then
+    -- Stumm (von Hand oder im Dungeon/Raid): Anfragen sammeln sich nur im Reiter Invite. Wer dort auf
+    -- „Einladen“ klickt (focusName), bekommt das Fenster trotzdem.
+    if #queue == 0 or (not focusName and ns.Recruit:Quiet()) then
         if t then t:Hide() end
         return
     end
@@ -2975,6 +3011,21 @@ function UI:UpdateRecruitToast(focusName)
             local q = ns.Recruit.queue[1]
             if q then ns.Recruit:Decline(q.name) end
         end)
+        -- Gerade keine Zeit: Fenster und Ton für neue Anfragen ausschalten (sie sammeln sich im Reiter Invite)
+        local mute = T.Button(t, "Stumm", 100)
+        mute:SetPoint("BOTTOMRIGHT", drop, "TOPRIGHT", 0, 6)
+        mute:SetScript("OnClick", function()
+            GameTooltip:Hide()
+            ns.Recruit:SetPopup(false)
+        end)
+        mute:SetScript("OnEnter", function(self)
+            GameTooltip:SetOwner(self, "ANCHOR_BOTTOM")
+            GameTooltip:AddLine("Gerade keine Zeit?")
+            GameTooltip:AddLine("Schaltet Fenster und Ton für Gildenanfragen aus. Die Anfragen gehen nicht verloren: Sie sammeln sich "
+                .. "im Reiter Invite. Wieder einschalten dort oder mit /ea anfragen.", 1, 1, 1, true)
+            GameTooltip:Show()
+        end)
+        mute:SetScript("OnLeave", GameTooltip_Hide)
         self.recruitToast = t
     end
 

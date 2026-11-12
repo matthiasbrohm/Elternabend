@@ -26,6 +26,8 @@ local defaults = {
     softres = { items = {} },
     recruit = {      -- Gildeneinladung per Flüstern
         enabled = true,
+        popup = true,          -- Fenster und Ton bei neuen Anfragen (aus = still im Reiter Invite sammeln)
+        quietInstance = true,  -- in Dungeons und Raids automatisch stumm
         keywords = "ginv, gildeninvite, gilde",
         reply = "Die Einladung in die Gilde Elternabend ist unterwegs – einfach annehmen. Willkommen!",
         log = {},
@@ -451,6 +453,8 @@ SlashCmdList.ELTERNABENDRAID = function(input)
         ns.Members:SetMyMain()
     elseif cmd == "invite" or cmd == "einladen" then
         ns.UI:Show("gilde")
+    elseif cmd == "anfragen" or cmd == "stumm" then
+        ns.Recruit:SetPopup(ns.db.recruit.popup == false)
     elseif cmd == "ginv" then
         ns.db.recruit.enabled = not ns.db.recruit.enabled
         ns.Print("Flüster-Einladung in die Gilde: " .. (ns.db.recruit.enabled and "an" or "aus"))

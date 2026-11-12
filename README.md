@@ -104,6 +104,8 @@ Ein Addon kann keine Bilder aus dem Internet laden oder verschicken. Die Bilder 
 „Dem Raid zeigen“ verschickt nur die Kennung des Bildes. Wer eine ältere Addon-Version hat, bekommt den Hinweis, das Addon zu aktualisieren.
 
 ## Der Gilde beitreten per Knopf
+**Gerade keine Zeit für Anfragen?** Im Anfrage-Fenster schaltet **„Stumm“** Fenster und Ton aus (ebenso im Reiter Invite „Fenster bei Anfragen“ oder `/ea anfragen`). Die Anfragen gehen nicht verloren: Sie sammeln sich still im Reiter Invite, mit Plakette am Reiter und an der Minimap. In Dungeons und Raids ist das Fenster von selbst stumm (abschaltbar im Reiter Invite); nach dem Verlassen meldet das Addon, was gewartet hat.
+
 Wer das Addon hat, aber noch nicht in der Gilde ist, sieht im Start-Reiter den Knopf **„Der Gilde beitreten“**. Ein Klick schreibt `ginv` in einen versteckten, passwortgeschützten Chat-Kanal („ElternabendTreff“). Alle Mitglieder mit Addon, die einladen dürfen, sitzen im Hintergrund darin; bei ihnen erscheint das Gildenanfrage-Fenster mit dem Befehl zum Kopieren. Im Chat sieht man den Kanal nicht – auch keine Meldungen, wer ihn betritt oder verlässt. Wer anfragt, tritt dem Kanal erst mit dem Klick auf den Knopf bei und verlässt ihn nach zwei Minuten wieder; Charaktere ohne Gilde sitzen also nicht dauerhaft darin. Sobald die Person beigetreten ist, verschwindet die Anfrage bei allen. Landet der Kanal beim Einloggen vor Allgemein und Handel (etwa auf Nummer 1), schiebt das Addon ihn automatisch ans Ende der Kanalliste.
 
 Zusätzlich flüstert der Knopf `ginv` an die Namen in `Join.INVITERS` (oben in `Join.lua`) – als Rückfallebene. Wer davon offline ist, bekommt nichts; die Meldung „Kein Spieler namens …“ blendet das Addon aus.
@@ -312,6 +314,7 @@ Unter **Optionen » Tastaturbelegung » Elternabend** (eigener Abschnitt, unten 
 | `/ea klassenliste` | Klassenliste für die Webseite erstellen (nur Gildenleitung) |
 | `/ea spielzeiten` | Eigene Spielzeiten eintragen und sehen, wer zur selben Zeit spielt |
 | `/ea schritte` | Die „Ersten Schritte“ für neue Mitglieder zeigen |
+| `/ea anfragen` | Fenster und Ton für Gildenanfragen aus- oder einschalten (Anfragen sammeln sich im Reiter Invite) |
 | `/ea abgleich` | Stand des Abgleichs über die Mac-App zeigen und den Raid von der Webseite übernehmen |
 | `/ea lagerfeuer` | Zeigt, welche Lagerfeuer-Buffs das Addon an dir erkennt (mit Zauber-IDs) |
 | `/ea raidgruppen` | Geplante Raidgruppen ansehen und im Schlachtzug bauen |
