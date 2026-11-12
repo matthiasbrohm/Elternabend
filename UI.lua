@@ -3916,6 +3916,8 @@ function UI:CreateProfessionsPanel()
         local entries = { { label = "Alle Berufe" } }
         for _, n in ipairs(names) do table.insert(entries, { label = n .. "  (" .. count[n] .. ")", value = n }) end
         table.insert(entries, { label = (p.onlySpecial and "Alle Rezepte zeigen" or "Nur Sonderrezepte"), special = true })
+        -- Was beim Aufheben gebunden wird, kann der Hersteller nicht weitergeben: von Haus aus ausgeblendet
+        table.insert(entries, { label = ns.db.settings.profShowBound and "Gebundenes ausblenden" or "Auch Gebundenes zeigen", bound = true })
         for i, e in ipairs(entries) do
             local b = menu.buttons[i]
             if not b then
@@ -3926,6 +3928,12 @@ function UI:CreateProfessionsPanel()
             end
             b:SetText(e.special and (P.SPECIAL_ICON .. e.label) or (e.value == p.profFilter and T.Hex("goldBright", e.label) or e.label))
             b:SetScript("OnClick", function()
+                if e.bound then
+                    ns.db.settings.profShowBound = not ns.db.settings.profShowBound or nil
+                    menu:Hide()
+                    p:Refresh()
+                    return
+                end
                 if e.special then
                     -- Sonderrezepte gibt es nur in Rezeptlisten: dafür in die Ansicht „Nach Rezepten“ wechseln
                     p.onlySpecial = not p.onlySpecial
@@ -3968,8 +3976,11 @@ function UI:CreateProfessionsPanel()
                         for _, id in ipairs(pr.recipes or {}) do
                             if not seen[id] then
                                 seen[id] = true
-                                local slot = P:RecipeSlot(id)
-                                if slot then count[slot.key] = (count[slot.key] or 0) + 1 end
+                                if ns.db.settings.profShowBound or P:RecipeBound(id) ~= true then
+                                    local slot = P:RecipeSlot(id)
+                                    local key = slot and slot.key or "none" -- none: nichts zum Anlegen (Rüstungssets, Tränke …)
+                                    count[key] = (count[key] or 0) + 1
+                                end
                             end
                         end
                     end
@@ -3985,6 +3996,9 @@ function UI:CreateProfessionsPanel()
             if count[slot.key] or slot.key == p.slotFilter then
                 table.insert(entries, { label = slot.label .. "  (" .. (count[slot.key] or 0) .. ")", value = slot.key })
             end
+        end
+        if count.none or p.slotFilter == "none" then
+            table.insert(entries, { label = "Verschiedenes  (" .. (count.none or 0) .. ")", value = "none" })
         end
         table.insert(entries, { label = p.sortSlot and T.Hex("goldBright", "Nach Platz sortiert") or "Nach Platz sortieren", sort = true })
         for i, e in ipairs(entries) do
@@ -4373,7 +4387,9 @@ function UI:CreateProfessionsPanel()
         local filter = p.profFilter
         filterBtn:SetText((p.onlySpecial and P.SPECIAL_ICON or "") .. (filter and T.Hex("goldBright", filter) or "Alle Berufe"))
         local slotFilter = p.slotFilter
-        local slotLabel = slotFilter and P.SLOT_BY_KEY[slotFilter] and P.SLOT_BY_KEY[slotFilter].label or nil
+        local slotLabel = slotFilter == "none" and "Verschiedenes"
+            or slotFilter and P.SLOT_BY_KEY[slotFilter] and P.SLOT_BY_KEY[slotFilter].label or nil
+        local showBound = ns.db.settings.profShowBound
         slotBtn:SetText(slotLabel and T.Hex("goldBright", slotLabel) or (p.sortSlot and "Nach Platz sortiert" or "Alle Plätze"))
         local function SlotOrder(id)
             local slot = P:RecipeSlot(id)
@@ -4381,13 +4397,17 @@ function UI:CreateProfessionsPanel()
         end
         local function Shown(id)
             if p.onlySpecial and P:SpecialItem(id) == nil then return false end
+            -- Beim Aufheben Gebundenes kann niemand weitergeben (solange die Daten laden, bleibt es stehen)
+            if not showBound and P:RecipeBound(id) == true then return false end
             if slotFilter then
                 local slot = P:RecipeSlot(id)
+                if slotFilter == "none" then return slot == nil end -- Verschiedenes: alles ohne Platz
                 return slot ~= nil and slot.key == slotFilter
             end
             return true
         end
-        local slotNote = slotLabel and ("  ·  Platz: " .. T.Hex("goldBright", slotLabel)) or ""
+        local slotNote = (slotLabel and ("  ·  Platz: " .. T.Hex("goldBright", slotLabel)) or "")
+            .. (showBound and "" or "  ·  ohne Gebundenes")
 
         viewBtn:SetText(p.byRecipe and T.Hex("goldBright", "Nach Rezepten") or "Nach Personen")
         local text = strtrim(search:GetText() or "")
@@ -4520,7 +4540,7 @@ function UI:CreateProfessionsPanel()
                 .. (p.onlySpecial and " (nur Sonderrezepte)" or "") .. slotNote .. "  ·  " .. P.SPECIAL_ICON .. "= Sonderrezept")
         elseif searching then
             local hits = P:Search(text, slotFilter and 2000 or 200)
-            if filter or p.onlySpecial or slotFilter then
+            if filter or p.onlySpecial or slotFilter or not showBound then
                 local only = {}
                 for _, h in ipairs(hits) do
                     if (not filter or h.prof == filter) and Shown(h.id) then table.insert(only, h) end

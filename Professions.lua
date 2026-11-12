@@ -417,6 +417,28 @@ function Prof:RecipeColor(id)
     return c and c.hex or nil
 end
 
+-- Wird der hergestellte Gegenstand beim Aufheben gebunden? Dann kann ihn nur der Hersteller selbst tragen –
+-- für alle anderen ist das Rezept uninteressant. true/false; nil, solange die Gegenstandsdaten noch laden.
+local boundCache = {}
+function Prof:RecipeBound(id)
+    local c = boundCache[id]
+    if c ~= nil then return c end
+    local sch = self:Schematic(id)
+    local info = (C_Item and C_Item.GetItemInfo) or GetItemInfo
+    if not sch or not sch.item or not info then
+        boundCache[id] = false
+        return false
+    end
+    local r = { pcall(info, sch.item) } -- ok, Name, Link, Qualität, …; die Bindung ist der 14. Wert von GetItemInfo
+    if not r[1] or not r[2] then
+        RequestItem(sch.item)
+        return nil
+    end
+    c = r[15] == 1 -- 1 = wird beim Aufheben gebunden
+    boundCache[id] = c
+    return c
+end
+
 -- Rüstungsplatz ----------------------------------------------------------------
 -- Wohin gehört, was ein Rezept herstellt (Kopf, Brust, Waffe …)? Für Filter und Sortierung im Berufe-Reiter.
 Prof.SLOTS = {
