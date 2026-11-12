@@ -174,6 +174,8 @@ Klick auf ein Rezept (in der Suche oder in der Rezeptliste eines Charakters) sch
 ## Pinnwand
 Das schwarze Brett der Gilde (`/ea pinnwand`). Jedes Mitglied heftet Zettel an – als **Info**, **Aktion** (mit Termin), **Suche**, **Biete**, **Hilfe gesucht** oder **Danke** – und wählt, an wen er geht: alle, Offiziere, einen Rang, eine Klasse oder eine einzelne Person. Ein Zettel hat eine Überschrift (bis 80 Zeichen) und eine mehrzeilige Beschreibung (bis 2000 Zeichen); Antworten dürfen bis 400 Zeichen lang sein. Zettel hängen 1 Tag bis 2 Wochen (Aktionen bis kurz nach dem Termin) und verschwinden dann von selbst.
 
+**Gegenstände im Zettel:** Steht der Cursor in der Beschreibung oder im Antwortfeld, fügt ein Umschalt-Klick auf einen Gegenstand (Tasche, Berufsfenster, Chat) ihn in den Text ein – etwa ein gefundenes Muster. Im Zettel erscheint er in der Farbe seiner Qualität: Drüberfahren zeigt den Tooltip, ein Klick zeigt ihn groß, Umschalt-Klick verlinkt ihn im Chat. Auf der Webseite steht der Name hervorgehoben in eckigen Klammern.
+
 **Nur für die Gilde:** Pinnwand, Berufe, Gruppensuche und die Raidtermine im Kalender sieht nur ein Charakter, der in der Gilde ist. Den Reiter Raid (mit Soft-Reserve, Taktik, Loot und Ruhmeshalle) sehen außerdem Gäste, solange sie in einer Gruppe oder einem Schlachtzug sind. Die Daten sind zwar für den ganzen Account gespeichert, ein Charakter ohne Gilde oder in einer anderen Gilde bekommt die Reiter aber nicht zu sehen – und gibt auch nichts davon weiter. Wechselt jemand dauerhaft die Gilde (60 Tage kein Charakter mehr in der alten), beginnt das Addon in der neuen ohne die alten Daten.
 
 - Andere melden sich mit einem Klick („Bin dabei“, „Ich helfe“, „Interesse“ …) oder schreiben eine kurze Antwort dran.

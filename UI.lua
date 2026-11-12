@@ -3401,7 +3401,7 @@ function UI:CreateBoardPanel()
     list.onEnter = function(row, n)
         GameTooltip:SetOwner(row, "ANCHOR_RIGHT")
         GameTooltip:AddLine(n.title, 0.95, 0.86, 0.6, true)
-        if n.text ~= "" then GameTooltip:AddLine(n.text, 1, 1, 1, true) end
+        if n.text ~= "" then GameTooltip:AddLine(B.Markup(n.text, true), 1, 1, 1, true) end
         GameTooltip:AddLine("Klick: lesen  ·  Rechtsklick: " .. (ns.ShortName(n.author) or "") .. " anflüstern", 0.84, 0.69, 0.35)
         GameTooltip:Show()
     end
@@ -3515,6 +3515,21 @@ function UI:CreateBoardPanel()
     p.dBody:SetWidth(inner - 8)
     p.dBody:SetSpacing(3)
     p.dBody:SetJustifyV("TOP")
+    -- Gegenstände im Text: Tooltip beim Drüberfahren, Klick zeigt ihn groß, Umschalt-Klick verlinkt ihn im Chat
+    sf.content:SetHyperlinksEnabled(true)
+    sf.content:SetScript("OnHyperlinkEnter", function(self, link)
+        GameTooltip:SetOwner(self, "ANCHOR_CURSOR_RIGHT")
+        if pcall(GameTooltip.SetHyperlink, GameTooltip, link) then GameTooltip:Show() else GameTooltip:Hide() end
+    end)
+    sf.content:SetScript("OnHyperlinkLeave", GameTooltip_Hide)
+    sf.content:SetScript("OnHyperlinkClick", function(_, link, text, button)
+        if IsModifiedClick("CHATLINK") then
+            local insert = (ChatFrameUtil and ChatFrameUtil.InsertLink) or ChatEdit_InsertLink
+            if insert then pcall(insert, text) end
+        elseif SetItemRef then
+            pcall(SetItemRef, link, text, button)
+        end
+    end)
     p.dNone = T.Text(detail, "muted", "CENTER")
     p.dNone:SetPoint("CENTER", 0, 20)
     p.dNone:SetWidth(inner)
@@ -3657,6 +3672,24 @@ function UI:CreateBoardPanel()
     textBox:SetScript("OnMouseDown", function() newText:SetFocus() end)
     p.newText, p.newTextBox = newText, textBox
     textCount:SetText(T.Hex("dim", "0 / " .. B.TEXT_MAX))
+    local linkHint = T.Text(form, "small")
+    linkHint:SetPoint("TOPLEFT", textBox, "BOTTOMLEFT", 0, -3)
+    linkHint:SetText(T.Hex("dim", "Umschalt-Klick auf einen Gegenstand fügt ihn ein"))
+
+    -- Umschalt-Klick auf einen Gegenstand (Tasche, Berufsfenster, Chat …): Link in die Beschreibung oder ins
+    -- Antwortfeld setzen, wenn dort gerade der Cursor steht. Die Eingabezeile des Chats fasst das Addon nicht an.
+    local lastLink, lastAt = nil, 0
+    local function OnInsertLink(link)
+        if type(link) ~= "string" or ns.IsSecret(link) or not link:find("|Hitem:", 1, true) then return end
+        local box = (newText:IsVisible() and newText:HasFocus() and newText) or (reply:IsVisible() and reply:HasFocus() and reply)
+        if not box then return end
+        local now = GetTime()
+        if link == lastLink and now - lastAt < 0.3 then return end -- beide Wege melden denselben Klick
+        lastLink, lastAt = link, now
+        box:Insert(link)
+    end
+    if ChatFrameUtil and ChatFrameUtil.InsertLink then hooksecurefunc(ChatFrameUtil, "InsertLink", OnInsertLink) end
+    if type(ChatEdit_InsertLink) == "function" then hooksecurefunc("ChatEdit_InsertLink", OnInsertLink) end
 
     -- Termin (nur bei Aktionen): Tag durchklicken, Uhrzeit eintippen
     p.dayBtn = T.Button(form, "", inner - 108)
@@ -3874,7 +3907,7 @@ function UI:CreateBoardPanel()
         p.dMeta:SetText(table.concat(meta, "\n"))
 
         local body = {}
-        if n.text ~= "" then table.insert(body, n.text) end
+        if n.text ~= "" then table.insert(body, B.Markup(n.text)) end
         local reacts = B:Reactions(n)
         if #reacts > 0 then
             local names = {}
@@ -3887,7 +3920,7 @@ function UI:CreateBoardPanel()
             table.insert(body, T.Hex("gold", "ANTWORTEN"))
             for _, a in ipairs(replies) do
                 table.insert(body, T.Hex("goldBright", ns.ShortName(a.author) or "?") .. T.Hex("dim", "  " .. date("%d.%m. %H:%M", a.time))
-                    .. "\n" .. a.text)
+                    .. "\n" .. B.Markup(a.text))
             end
         end
         if #body == 0 then table.insert(body, T.Hex("muted", "Kein weiterer Text.")) end

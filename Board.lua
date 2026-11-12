@@ -92,6 +92,41 @@ local function Clean(s, max, lines)
     return s
 end
 Board.Clean = Clean
+
+-- Gegenstände im Text ------------------------------------------------------------------
+-- Per Umschalt-Klick landet ein Gegenstandslink im Zettel. Links enthalten „|“ und sind lang; übertragen und
+-- gespeichert wird deshalb die Kurzform {Name#Gegenstands-ID}. Beim Anzeigen wird daraus wieder ein Link
+-- mit Tooltip (Board.Markup). Ältere Addon-Versionen und die Webseite zeigen die Kurzform bzw. den Namen.
+function Board.Pack(text)
+    text = tostring(text or "")
+    local function Short(id, name)
+        name = name:gsub("|A.-|a", ""):gsub("|T.-|t", ""):gsub("[{}#|]", ""):gsub("%s+", " ")
+        name = strtrim(name)
+        if name == "" then return "" end
+        return "{" .. name .. "#" .. id .. "}"
+    end
+    -- mit Farbe (alt: |cffa335ee…, neu: |cnIQ4:…) und ohne
+    text = text:gsub("|c[^|]*|Hitem:(%d+)[^|]*|h%[(.-)%]|h|r", Short)
+    text = text:gsub("|Hitem:(%d+)[^|]*|h%[(.-)%]|h", Short)
+    return text
+end
+
+-- Kurzform → anklickbarer Link in der Farbe der Qualität. plain: nur farbiger Name (für Tooltips)
+function Board.Markup(text, plain)
+    if not text or not text:find("{", 1, true) then return text end
+    return (text:gsub("{([^{}#\n]+)#(%d+)}", function(name, id)
+        local quality
+        if C_Item and C_Item.GetItemQualityByID then
+            local ok, q = pcall(C_Item.GetItemQualityByID, tonumber(id))
+            if ok then quality = q end
+        end
+        local c = quality and ITEM_QUALITY_COLORS and ITEM_QUALITY_COLORS[quality]
+        local color = c and c.hex or "|cffffffff"
+        if plain then return color .. "[" .. name .. "]|r" end
+        return color .. "|Hitem:" .. id .. "::::::::|h[" .. name .. "]|h|r"
+    end))
+end
+
 local function Encode(s) return (tostring(s or ""):gsub("\n", NL)) end
 local function Decode(s) return (tostring(s or ""):gsub(NL, "\n")) end
 Board.Clean = Clean
@@ -398,7 +433,7 @@ function Board:Post(opts)
         cat = self.CAT[opts.cat] and opts.cat or "info", to = opts.to or "all", when = when,
         pinned = opts.pinned and self:AmOfficer() or false, state = "offen", editedBy = "",
         keep = (opts.keep and self:AmOfficer()) or nil,
-        title = title, text = Clean(opts.text, TEXT_MAX, true), reacts = {}, replies = {},
+        title = title, text = Clean(Board.Pack(opts.text), TEXT_MAX, true), reacts = {}, replies = {},
     }
     DB().notes[n.id] = n
     DB().seen[n.id] = self:Digest(n)
@@ -476,7 +511,7 @@ end
 function Board:Reply(id, text)
     local n = DB().notes[id]
     if not n then return false end
-    text = Clean(text, REPLY_MAX, true)
+    text = Clean(Board.Pack(text), REPLY_MAX, true)
     if text == "" then return false end
     local count = 0
     for _ in pairs(n.replies) do count = count + 1 end
