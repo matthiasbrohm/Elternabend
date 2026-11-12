@@ -14,7 +14,7 @@ local TABS = {
     { key = "berufe", label = "Berufe", home = true },
     { key = "gruppen", label = "Gruppen" },
     { key = "notizen", label = "Notizen" },
-    { key = "raid", label = "Raid", home = true },
+    { key = "raid", label = "Raid", guests = true }, -- Gilde – und Gäste, solange sie in der Gruppe sind
     { key = "gilde", label = "Invite", invite = true },
     { key = "web", label = "Webseite", leaders = true },
     { key = "leitung", label = "Leitung", leaders = true },
@@ -333,8 +333,12 @@ for _, tab in ipairs(TABS) do TAB_BY_KEY[tab.key] = tab end
 
 function UI:CanSee(key)
     local tab = TAB_BY_KEY[key]
-    -- Unterreiter von „Raid“ (Soft-Reserve, Taktik, Ruhmeshalle …) gehören zur Gilde wie der Reiter selbst
-    if not tab then return not IN_RAID_GROUP[key] or ns.Info:AtHome() end
+    -- „Raid“ mit seinen Unterreitern (Soft-Reserve, Taktik, Ruhmeshalle …): für die Gilde – und für Gäste,
+    -- solange sie in einer Gruppe oder einem Schlachtzug sind (wir nehmen Gäste mit in den Raid)
+    if (tab and tab.guests) or (not tab and IN_RAID_GROUP[key]) then
+        return ns.Info:AtHome() or IsInGroup()
+    end
+    if not tab then return true end
     if tab.invite then return IsInGuild() and CanGuildInvite() and true or false end
     if tab.leaders then return self:IsLeader() end
     if tab.home then return ns.Info:AtHome() end
@@ -372,8 +376,8 @@ function UI:Show(key)
     self:Create()
     if key and not self:CanSee(key) then
         ns.Print(key == "gilde" and "Den Reiter „Invite“ sieht nur, wer in die Gilde einladen darf."
-            or (key == "pinnwand" or key == "berufe" or IN_RAID_GROUP[key])
-                and "Pinnwand, Berufe und Raid gibt es nur für Charaktere in der Gilde."
+            or IN_RAID_GROUP[key] and "Den Reiter „Raid“ sehen Charaktere außerhalb der Gilde nur, solange sie in einer Gruppe oder einem Schlachtzug sind."
+            or (key == "pinnwand" or key == "berufe") and "Pinnwand und Berufe gibt es nur für Charaktere in der Gilde."
             or "Dieser Reiter ist nur für Offiziere und Gildenleitung.")
         key = nil
     end
@@ -693,7 +697,7 @@ function UI:CreateStartPanel()
         end
 
         local last = ns.Fame:List()[1]
-        p.now.fame.text:SetText(not home and "Nur für Charaktere in der Gilde."
+        p.now.fame.text:SetText(not (home or IsInGroup()) and "Nur für Charaktere in der Gilde."
             or last and ("Zuletzt: " .. last.name .. (last.diffName ~= "" and (" (" .. last.diffName .. ")") or "")
             .. " am " .. date("%d.%m.", last.time)) or "Noch kein Erstkill – der erste Boss wartet.")
 
