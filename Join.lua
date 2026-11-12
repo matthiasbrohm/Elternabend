@@ -1,9 +1,11 @@
 -- Elternabend: „Der Gilde beitreten“ per Knopf
 --
 -- Wer noch nicht in der Gilde ist, erreicht den Gildenkanal des Addons nicht. Deshalb
--- treten Einladende (alle, die einladen dürfen) und Anfragende im Hintergrund einem
--- versteckten Chat-Kanal bei; darüber gehen nur Addon-Nachrichten, im Chat sieht man
--- ihn nicht. Die Anfrage landet bei den Einladenden im bekannten Gildenanfrage-Fenster;
+-- sitzen Einladende (alle, die einladen dürfen) im Hintergrund in einem versteckten
+-- Chat-Kanal; darüber gehen nur Beitrittsanfragen, im Chat sieht man ihn nicht.
+-- Wer anfragt, tritt dem Kanal erst mit dem Klick auf „Der Gilde beitreten“ bei und
+-- verlässt ihn kurz danach wieder – Charaktere ohne Gilde sitzen nicht dauerhaft darin.
+-- Die Anfrage landet bei den Einladenden im bekannten Gildenanfrage-Fenster;
 -- eingeladen wird weiterhin per Klick (WoW erlaubt es nicht ohne).
 --
 -- In WoW Forever kommen Addon-Nachrichten über den Kanal von Nicht-Mitgliedern nicht an
@@ -123,15 +125,29 @@ function Join:CanReceive()
     return IsInGuild() and CanGuildInvite() and ns.db.recruit.enabled
 end
 
--- Im Kanal sind: alle, die einladen dürfen – und alle, die noch nicht in der Gilde sind.
--- Letztere schon vor dem Klick: WoW lässt Addons nur im Moment eines Klicks in einen
--- Kanal schreiben. Müsste man erst beitreten, wäre der Klick vorbei und die Anfrage weg.
+-- Im Kanal sind: alle, die einladen dürfen – und wer gerade anfragt, nur für diese Zeit.
+-- WoW lässt Addons nur im Moment eines Klicks in einen Kanal schreiben. Deshalb tritt der
+-- Anfragende schon beim ersten Klick („Möchtest du beitreten?“) bei; beim zweiten Klick,
+-- der die Anfrage abschickt, ist er dann drin.
+local REQUEST_STAY = 120 -- Sekunden, die ein Anfragender nach dem Abschicken im Kanal bleibt
+
+function Join:Asking()
+    return not IsInGuild() and self.wantUntil ~= nil and GetTime() < self.wantUntil
+end
+
 function Join:UpdateMembership()
-    if self:CanReceive() or not IsInGuild() then
+    if self:CanReceive() or self:Asking() then
         self:EnsureChannel()
     else
         self:LeaveChannel()
     end
+end
+
+-- Als Anfragender für eine Weile im Kanal bleiben, danach von selbst wieder gehen
+function Join:StayFor(seconds)
+    self.wantUntil = GetTime() + seconds
+    self:EnsureChannel()
+    C_Timer.After(seconds + 1, function() Join:UpdateMembership() end)
 end
 
 -- Anfragende Seite --------------------------------------------------------------
@@ -147,6 +163,8 @@ function Join:Click()
     end
     self.confirmAt = GetTime()
     self.state = "confirm"
+    -- Schon jetzt in den Kanal: beim zweiten Klick muss man drin sein
+    if not IsInGuild() then self:StayFor(CONFIRM_SECONDS + 5) end
     ns:Fire("JOIN_UPDATE")
     C_Timer.After(CONFIRM_SECONDS, function()
         if self.state == "confirm" and self.confirmAt and GetTime() - self.confirmAt >= CONFIRM_SECONDS - 0.1 then
@@ -163,6 +181,7 @@ function Join:Request()
     end
     wipe(self.acks)
     self.state = "sending"
+    self:StayFor(REQUEST_STAY)
     ns:Fire("JOIN_UPDATE")
 
     -- Zuverlässiger Weg: „ginv“ an alle Einladenden flüstern
@@ -178,8 +197,8 @@ function Join:Request()
         -- Alter Weg als Addon-Nachricht (für ältere Addon-Versionen)
         ns.Comm:Send("JOINREQ", ns.UnitFullName("player"), "CHANNEL", id)
     else
-        -- Noch nicht im Kanal (z. B. direkt nach dem Einloggen): jetzt beitreten, nächster Klick klappt
-        self:EnsureChannel()
+        -- Noch nicht im Kanal (der Beitritt braucht einen Moment): Geflüstert ist schon; der nächste Klick
+        -- erreicht zusätzlich alle im Kanal
         ns.Print("Einen Moment – bitte in ein paar Sekunden nochmal auf „Der Gilde beitreten“ klicken.")
     end
     C_Timer.After(ANSWER_WAIT, function()
