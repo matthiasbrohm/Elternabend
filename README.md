@@ -171,6 +171,8 @@ Klick auf ein Rezept (in der Suche oder in der Rezeptliste eines Charakters) sch
 ## Pinnwand
 Das schwarze Brett der Gilde (`/ea pinnwand`). Jedes Mitglied heftet Zettel an – als **Info**, **Aktion** (mit Termin), **Suche**, **Biete**, **Hilfe gesucht** oder **Danke** – und wählt, an wen er geht: alle, Offiziere, einen Rang, eine Klasse oder eine einzelne Person. Ein Zettel hat eine Überschrift (bis 80 Zeichen) und eine mehrzeilige Beschreibung (bis 2000 Zeichen); Antworten dürfen bis 400 Zeichen lang sein. Zettel hängen 1 Tag bis 2 Wochen (Aktionen bis kurz nach dem Termin) und verschwinden dann von selbst.
 
+Die Pinnwand gehört der Gilde: Den Reiter und die Zettel sieht nur ein Charakter, der in der Gilde ist. Die Zettel sind zwar für den ganzen Account gespeichert, ein Charakter ohne Gilde oder in einer anderen Gilde bekommt sie aber nicht zu sehen – und gibt sie auch nicht weiter.
+
 - Andere melden sich mit einem Klick („Bin dabei“, „Ich helfe“, „Interesse“ …) oder schreiben eine kurze Antwort dran.
 - Der Ersteller hakt ab oder nimmt den Zettel ab; Offiziere (Rang 1–3) können zusätzlich anpinnen und jeden Zettel abnehmen.
 - Offiziere können einen Zettel an alle mit **„Auf der Webseite dauerhaft behalten“** markieren (beim Anheften oder rechts im Zettel): Im Spiel läuft er normal ab, auf der Webseite bleibt er hängen, bis ihn ein Offizier dort abnimmt.

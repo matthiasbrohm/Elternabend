@@ -268,7 +268,34 @@ function Board:IsForMe(n)
 end
 
 -- Darf ich den Zettel sehen? Persönliche Zettel nur Absender und Empfänger.
+-- Die Pinnwand gehört der Gilde. Die Zettel sind zwar accountweit gespeichert, aber ein Charakter, der nicht
+-- (mehr) in dieser Gilde ist, sieht sie nicht – weder den Reiter noch einzelne Zettel.
+-- DB().guild merkt sich, welcher Gilde die Zettel gehören.
+function Board:Open()
+    if not IsInGuild() then return false end
+    local guild = GetGuildInfo("player")
+    if not guild then return false end -- kurz nach dem Einloggen ist der Gildenname noch nicht da
+    local owner = DB().guild
+    if owner == guild then return true end
+    -- Hängt nichts mehr, gehört die Pinnwand der Gilde, die den nächsten Zettel anheftet
+    local now, live = Now(), false
+    for _, n in pairs(DB().notes) do
+        if n.state ~= "entfernt" and (n.expires or 0) > now then live = true break end
+    end
+    if not live then return true end
+    -- Zettel aus der Zeit vor dieser Prüfung gehören zum Elternabend
+    if not owner then return ns.Info:IsOurGuild() end
+    return false
+end
+
+-- Merken, wem die Pinnwand gehört (beim Anheften und beim Empfangen)
+local function Claim()
+    local guild = IsInGuild() and GetGuildInfo("player")
+    if guild then DB().guild = guild end
+end
+
 function Board:IsVisible(n)
+    if not self:Open() then return false end
     if n.state == "entfernt" or (n.expires or 0) <= Now() then return false end
     if self:IsPersonal(n) then return self:IsMePerson(n.author) or self:IsForMe(n) end
     return true
@@ -369,6 +396,7 @@ end
 
 -- Neuen Zettel anheften. opts: cat, to, title, text, days, when, pinned
 function Board:Post(opts)
+    if not self:Open() then return false, "Die Pinnwand gibt es nur für Charaktere in der Gilde." end
     local me = ns.UnitFullName("player")
     local title = Clean(opts.title, TITLE_MAX)
     if title == "" then return false, "Bitte eine Überschrift eingeben." end
@@ -392,6 +420,7 @@ function Board:Post(opts)
         keep = (opts.keep and self:AmOfficer()) or nil,
         title = title, text = Clean(opts.text, TEXT_MAX, true), reacts = {}, replies = {},
     }
+    Claim()
     DB().notes[n.id] = n
     DB().seen[n.id] = self:Digest(n)
     self:Broadcast(n)
@@ -638,8 +667,11 @@ function Board:Receive(data, sender)
         table.insert(self.waiting, { data, sender })
         return
     end
+    -- Zettel einer anderen Gilde (Charakter desselben Accounts dort) mischen sich nicht darunter
+    if not self:Open() then return end
     local n = self:Parse(data)
     if not n then return end
+    Claim()
     local old = DB().notes[n.id]
     local before = old and Copy(old)
     local result = self:Merge(n, true)
@@ -661,7 +693,7 @@ function Board:Inventory()
 end
 
 function Board:RequestSync()
-    if not IsInGuild() then return end
+    if not self:Open() then return end -- nur in der Gilde, der die Pinnwand gehört
     local req = string.format("%x", math.random(0, 16777215))
     self.myRequest = req
     ns.WhenChatFree(function() ns.Comm:SendLarge("BRDQ", req .. "#" .. Board:Inventory(), "GUILD") end)
@@ -674,6 +706,7 @@ local function ParseInventory(s)
 end
 
 function Board:AnswerRequest(sender, data)
+    if not self:Open() then return end -- Zettel verlassen die Gilde nicht
     local req, inv = data:match("^([^#]*)#(.*)$")
     if not req then return end
     local theirs = ParseInventory(inv)
@@ -710,6 +743,7 @@ function Board:AnswerRequest(sender, data)
 end
 
 function Board:SendWanted(list)
+    if not self:Open() then return end
     for id in (list or ""):gmatch("[^;]+") do
         local n = DB().notes[id]
         if n and n.expires > Now() then

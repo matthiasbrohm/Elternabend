@@ -10,7 +10,7 @@ local TABS = {
     { key = "start", label = "Start" },
     { key = "mitglieder", label = "Gilde" },
     { key = "kalender", label = "Kalender" },
-    { key = "pinnwand", label = "Pinnwand" },
+    { key = "pinnwand", label = "Pinnwand", board = true }, -- nur für Charaktere in der Gilde
     { key = "berufe", label = "Berufe" },
     { key = "gruppen", label = "Gruppen" },
     { key = "notizen", label = "Notizen" },
@@ -336,6 +336,7 @@ function UI:CanSee(key)
     if not tab then return true end
     if tab.invite then return IsInGuild() and CanGuildInvite() and true or false end
     if tab.leaders then return self:IsLeader() end
+    if tab.board then return ns.Board:Open() end
     return true
 end
 
@@ -370,6 +371,7 @@ function UI:Show(key)
     self:Create()
     if key and not self:CanSee(key) then
         ns.Print(key == "gilde" and "Den Reiter „Invite“ sieht nur, wer in die Gilde einladen darf."
+            or key == "pinnwand" and "Die Pinnwand gibt es nur für Charaktere in der Gilde."
             or "Dieser Reiter ist nur für Offiziere und Gildenleitung.")
         key = nil
     end
@@ -659,7 +661,8 @@ function UI:CreateStartPanel()
 
         local unread, open = ns.Board:UnreadCount(), #ns.Board:List()
         p.now.board.extra:SetText(unread > 0 and T.Hex("goldBright", unread == 1 and "1 neuer Zettel" or (unread .. " neue Zettel")) or "")
-        p.now.board.text:SetText(open == 0 and "Noch hängt nichts – heft doch was an."
+        p.now.board.text:SetText(not ns.Board:Open() and "Nur für Charaktere in der Gilde."
+            or open == 0 and "Noch hängt nichts – heft doch was an."
             or (open == 1 and "1 Zettel hängt an der Pinnwand." or (open .. " Zettel hängen an der Pinnwand.")))
 
         local orders = ns.Orders:OpenCount()
