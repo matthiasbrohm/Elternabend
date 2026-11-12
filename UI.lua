@@ -12,7 +12,7 @@ local TABS = {
     { key = "kalender", label = "Kalender" },
     { key = "pinnwand", label = "Pinnwand", home = true }, -- home: nur für Charaktere in der Gilde
     { key = "berufe", label = "Berufe", home = true },
-    { key = "gruppen", label = "Gruppen" },
+    { key = "gruppen", label = "Gruppen", home = true },
     { key = "notizen", label = "Notizen" },
     { key = "raid", label = "Raid", guests = true }, -- Gilde – und Gäste, solange sie in der Gruppe sind
     { key = "gilde", label = "Invite", invite = true },
@@ -377,7 +377,7 @@ function UI:Show(key)
     if key and not self:CanSee(key) then
         ns.Print(key == "gilde" and "Den Reiter „Invite“ sieht nur, wer in die Gilde einladen darf."
             or IN_RAID_GROUP[key] and "Den Reiter „Raid“ sehen Charaktere außerhalb der Gilde nur, solange sie in einer Gruppe oder einem Schlachtzug sind."
-            or (key == "pinnwand" or key == "berufe") and "Pinnwand und Berufe gibt es nur für Charaktere in der Gilde."
+            or (key == "pinnwand" or key == "berufe" or key == "gruppen") and "Pinnwand, Berufe und Gruppensuche gibt es nur für Charaktere in der Gilde."
             or "Dieser Reiter ist nur für Offiziere und Gildenleitung.")
         key = nil
     end
@@ -642,7 +642,10 @@ function UI:CreateStartPanel()
         end
         local m = ns.Groups.mine
         local row = p.now.groups
-        if m then
+        if not ns.Info:AtHome() then
+            row.extra:SetText("")
+            row.text:SetText("Nur für Charaktere in der Gilde.")
+        elseif m then
             -- Eigenes Gesuch: wofür, wer noch fehlt, neue Meldungen; daneben die Gesuche der anderen
             local new = 0
             for _, ap in ipairs(ns.Groups:Applicants()) do

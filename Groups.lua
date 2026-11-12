@@ -42,8 +42,8 @@ function Groups:Post(what, need, note)
         ns.Print("Bitte eintragen, wofür du eine Gruppe suchst.")
         return false
     end
-    if not IsInGuild() then
-        ns.Print("Die Gruppensuche läuft über die Gilde.")
+    if not ns.Info:AtHome() then
+        ns.Print("Die Gruppensuche läuft über die Gilde – sie gibt es nur für Charaktere in der Gilde.")
         return false
     end
     local mine = self.mine
@@ -205,6 +205,7 @@ function Groups.NeedText(need)
 end
 
 ns.Comm.handlers.LFG = function(sender, parts)
+    if not ns.Info:AtHome() then return end -- Gruppensuche nur innerhalb der Gilde
     local id = parts[2]
     if not id or not parts[3] then return end
     local isNew = Groups.list[id] == nil
@@ -228,7 +229,7 @@ ns.Comm.handlers.LFGEND = function(_, parts)
 end
 
 ns.Comm.handlers.LFGQ = function(sender)
-    if Groups.mine then
+    if Groups.mine and ns.Info:AtHome() then
         C_Timer.After(math.random() * 3, function() Groups:Broadcast("WHISPER", sender) end)
     end
 end
