@@ -113,6 +113,9 @@ if AddFilter then
     AddFilter("CHAT_MSG_CHANNEL_NOTICE", FilterNotice)
     AddFilter("CHAT_MSG_CHANNEL_NOTICE_USER", FilterNotice)
     AddFilter("CHAT_MSG_CHANNEL", FilterNotice)
+    -- „X ist dem Channel beigetreten / hat den Channel verlassen“ (wenn die Beitrittsmeldungen eingeschaltet sind)
+    AddFilter("CHAT_MSG_CHANNEL_JOIN", FilterNotice)
+    AddFilter("CHAT_MSG_CHANNEL_LEAVE", FilterNotice)
 end
 
 -- Wer einladen darf, ist im Kanal; alle anderen in der Gilde nicht
