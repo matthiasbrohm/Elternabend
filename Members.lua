@@ -517,3 +517,39 @@ ns:On("PLAYER_LOGIN", function()
         if IsInGuild() then C_GuildInfo.GuildRoster() end
     end)
 end)
+
+-- Einloggen im Chat ---------------------------------------------------------------------
+-- „[Alpha Elternabend] ist jetzt online.“ bekommt bei Twinks den Main dazu: „(Twink von Beta Lux)“.
+-- So erkennt man auch bei fremden Namen, wer da gerade kommt.
+local onlinePattern
+do
+    local text = ERR_FRIEND_ONLINE_SS -- deutsch: „|Hplayer:%s|h[%s]|h ist jetzt online.“
+    if type(text) == "string" then
+        -- Sonderzeichen für die Mustersuche entschärfen, die beiden %s werden zu Platzhaltern für den Namen
+        local p = text:gsub("([%(%)%.%+%-%*%?%[%]%^%$])", "%%%1"):gsub("%%s", "(.-)")
+        onlinePattern = "^" .. p .. "$"
+    end
+end
+
+-- Liefert die ergänzte Zeile – oder nil, wenn es keine Einlog-Meldung eines Twinks mit bekanntem Main ist
+function Members:OnlineLine(msg)
+    if not onlinePattern or type(msg) ~= "string" or ns.IsSecret(msg) then return nil end
+    local name = msg:match(onlinePattern)
+    if not name or name == "" then return nil end
+    local e = self:Find(name)
+    local main = e and e.main
+    if not main or main == e then return nil end
+    local color = RAID_CLASS_COLORS and main.classFile and RAID_CLASS_COLORS[main.classFile]
+    local shown = ns.ShortName(main.name) or main.name
+    if color and color.colorStr then shown = "|c" .. color.colorStr .. shown .. "|r" end
+    return msg .. " (Twink von " .. shown .. ")"
+end
+
+local addFilter = ChatFrame_AddMessageEventFilter or (ChatFrameUtil and ChatFrameUtil.AddMessageEventFilter)
+if addFilter then
+    addFilter("CHAT_MSG_SYSTEM", function(_, _, msg, ...)
+        local ok, line = pcall(Members.OnlineLine, Members, msg)
+        if ok and line then return false, line, ... end
+        return false
+    end)
+end
