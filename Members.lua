@@ -569,7 +569,24 @@ function Members:OnlineTest()
     if self.lastOnlineSeen then
         ns.Print("Letzte Meldung mit „online“: " .. Show(self.lastOnlineSeen))
         local line = self:OnlineLine(self.lastOnlineSeen)
-        ns.Print(line and "Erkannt – ergänzt wird: " .. line or "Dazu wurde nichts ergänzt (kein Twink mit bekanntem Main – oder nicht erkannt).")
+        if line then
+            ns.Print("Erkannt – ergänzt wird: " .. line)
+        else
+            -- Warum nicht? Den Namen heraussuchen und sagen, was das Addon über ihn weiß
+            local name = self.lastOnlineSeen:match("|Hplayer:([^|:]+)")
+            local e = name and self:Find(name)
+            if not name then
+                ns.Print("Dazu wurde nichts ergänzt: In der Meldung steht kein Spielername, den ich erkenne.")
+            elseif not e then
+                ns.Print("Dazu wurde nichts ergänzt: " .. name .. " steht nicht in der Gildenliste.")
+            elseif e.twinks and #e.twinks > 0 then
+                ns.Print("Dazu wurde nichts ergänzt: " .. name .. " ist selbst ein Main (" .. #e.twinks
+                    .. (#e.twinks == 1 and " Twink" or " Twinks") .. "). Der Zusatz kommt nur, wenn ein Twink einloggt.")
+            else
+                ns.Print("Dazu wurde nichts ergänzt: Für " .. name .. " ist kein Main hinterlegt – also ein Main ohne Twinks "
+                    .. "oder ein Twink, der noch nicht zugeordnet ist.")
+            end
+        end
     else
         ns.Print("Seit dem Einloggen kam noch keine Meldung mit „online“ im Chat an.")
     end
