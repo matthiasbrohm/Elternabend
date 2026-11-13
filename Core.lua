@@ -453,6 +453,8 @@ SlashCmdList.ELTERNABENDRAID = function(input)
         ns.Members:SetMyMain()
     elseif cmd == "invite" or cmd == "einladen" then
         ns.UI:Show("gilde")
+    elseif cmd == "einlogtest" then
+        ns.Members:OnlineTest()
     elseif cmd == "anfragen" or cmd == "stumm" then
         ns.Recruit:SetPopup(ns.db.recruit.popup == false)
     elseif cmd == "ginv" then

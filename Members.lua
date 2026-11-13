@@ -521,20 +521,36 @@ end)
 -- Einloggen im Chat ---------------------------------------------------------------------
 -- „[Alpha Elternabend] ist jetzt online.“ bekommt bei Twinks den Main dazu: „(Twink von Beta Lux)“.
 -- So erkennt man auch bei fremden Namen, wer da gerade kommt.
-local onlinePattern
+-- Woran erkennt man die Meldung? Am festen Text hinter dem Namen („ ist jetzt online.“), unabhängig davon, ob der
+-- Name als Link, mit Zusätzen im Link oder ganz ohne Link kommt. Farben werden beim Vergleich ignoriert.
+local function NoColor(s) return (s:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|cn[^:]*:", ""):gsub("|r", "")) end
+local onlineSuffix
 do
     local text = ERR_FRIEND_ONLINE_SS -- deutsch: „|Hplayer:%s|h[%s]|h ist jetzt online.“
     if type(text) == "string" then
-        -- Sonderzeichen für die Mustersuche entschärfen, die beiden %s werden zu Platzhaltern für den Namen
-        local p = text:gsub("([%(%)%.%+%-%*%?%[%]%^%$])", "%%%1"):gsub("%%s", "(.-)")
-        onlinePattern = "^" .. p .. "$"
+        local tail = NoColor(text):match("^.*%%s(.-)$") or ""
+        tail = tail:gsub("^%]|h", "")
+        if #tail >= 4 then onlineSuffix = tail end
     end
 end
 
+-- Für die Fehlersuche (/ea einlogtest): die letzte Systemmeldung, in der „online“ vorkam
+Members.lastOnlineSeen = nil
+
 -- Liefert die ergänzte Zeile – oder nil, wenn es keine Einlog-Meldung eines Twinks mit bekanntem Main ist
 function Members:OnlineLine(msg)
-    if not onlinePattern or type(msg) ~= "string" or ns.IsSecret(msg) then return nil end
-    local name = msg:match(onlinePattern)
+    if type(msg) ~= "string" or ns.IsSecret(msg) then return nil end
+    local clean = NoColor(msg)
+    if clean:lower():find("online", 1, true) then self.lastOnlineSeen = msg end
+    if not onlineSuffix then return nil end
+    local at = clean:find(onlineSuffix, 1, true)
+    if not at then return nil end
+    -- Name: aus dem Spieler-Link, sonst der Text vor dem festen Teil (ohne eckige Klammern)
+    local name = msg:match("|Hplayer:([^|:]+)")
+    if not name then
+        name = clean:sub(1, at - 1):gsub("|H.-|h", ""):gsub("|h", ""):gsub("[%[%]]", "")
+        name = strtrim(name)
+    end
     if not name or name == "" then return nil end
     local e = self:Find(name)
     local main = e and e.main
@@ -543,6 +559,20 @@ function Members:OnlineLine(msg)
     local shown = ns.ShortName(main.name) or main.name
     if color and color.colorStr then shown = "|c" .. color.colorStr .. shown .. "|r" end
     return msg .. " (Twink von " .. shown .. ")"
+end
+
+-- /ea einlogtest: zeigt, was das Spiel beim Einloggen meldet und ob das Addon es erkennt
+function Members:OnlineTest()
+    local function Show(s) return (tostring(s):gsub("|", "||")) end
+    ns.Print("Einlog-Meldung laut Spiel: " .. Show(ERR_FRIEND_ONLINE_SS or "(fehlt)"))
+    ns.Print("Fester Teil, an dem ich sie erkenne: „" .. Show(onlineSuffix or "(keiner)") .. "“")
+    if self.lastOnlineSeen then
+        ns.Print("Letzte Meldung mit „online“: " .. Show(self.lastOnlineSeen))
+        local line = self:OnlineLine(self.lastOnlineSeen)
+        ns.Print(line and "Erkannt – ergänzt wird: " .. line or "Dazu wurde nichts ergänzt (kein Twink mit bekanntem Main – oder nicht erkannt).")
+    else
+        ns.Print("Seit dem Einloggen kam noch keine Meldung mit „online“ im Chat an.")
+    end
 end
 
 -- Gilden- und Offizierschat: Schreibt ein Twink, steht der Vorname des Mains in Klammern vor der Nachricht –
