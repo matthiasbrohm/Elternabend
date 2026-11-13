@@ -237,6 +237,7 @@ Wer wessen Twink ist, regelt das Addon selbst – **ohne Offiziersnotiz**. In Wo
 
 - **Selbst melden:** Spieler legen mit „Diesen Charakter als Main festlegen“ (oder `/ea main`) ihren Main fest. Das Addon kennt alle ihre Charaktere auf dem Account und meldet sie der Gilde – die Zuordnung gilt sofort.
 - **Beim Einloggen:** Loggt ein Twink ein, steht der Main gleich in der Chatzeile dabei – „[Alpha Elternabend] ist jetzt online. (Twink von Beta Lux)“.
+- **Im Gilden- und Offizierschat:** Schreibt ein Twink, steht der Vorname des Mains in Klammern vor der Nachricht – „[Alpha Elternabend]: (Beta) Hat jemand Lust auf Barrow Deeps?“. Mains bleiben unmarkiert; Flüstern, Gruppe und Schlachtzug bleiben, wie sie sind.
 - **Offiziere ordnen zu:** Rechtsklick auf einen Charakter » **„Twink von …“**, dann den Main aus der Liste wählen (Suche, wer online ist, steht oben). „Ist kein Twink (Main)“ hebt eine Zuordnung auf. Für Mitglieder ohne Addon und für Twinks auf einem anderen Account.
 - **Verteilung:** Jede Änderung geht sofort an alle in der Gilde mit Addon; wer später einloggt, holt sich den Stand von einem anderen Mitglied. Zuordnungen von Offizieren gehen vor Selbstmeldungen, sonst gewinnt die neueste. Eine Selbstmeldung von einem Twink zählt nicht für Offiziersrechte.
 - **Alte Offiziersnotizen** mit dem Namen des Mains werden weiter gelesen, solange es im Addon keine Zuordnung gibt.

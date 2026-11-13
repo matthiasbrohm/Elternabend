@@ -545,6 +545,21 @@ function Members:OnlineLine(msg)
     return msg .. " (Twink von " .. shown .. ")"
 end
 
+-- Gilden- und Offizierschat: Schreibt ein Twink, steht der Vorname des Mains in Klammern vor der Nachricht –
+-- „[Alpha Elternabend]: (Beta) Hat jemand Lust auf Barrow Deeps?“. Mains bleiben unmarkiert.
+-- (Am Namen selbst ändert das Addon nichts: An ihm hängt der Klick zum Anflüstern.)
+function Members:ChatPrefix(sender)
+    if type(sender) ~= "string" or ns.IsSecret(sender) then return nil end
+    local e = self:Find(sender)
+    local main = e and e.main
+    if not main or main == e then return nil end
+    local first = (ns.ShortName(main.name) or main.name):match("^(%S+)")
+    if not first then return nil end
+    local color = RAID_CLASS_COLORS and main.classFile and RAID_CLASS_COLORS[main.classFile]
+    if color and color.colorStr then first = "|c" .. color.colorStr .. first .. "|r" end
+    return "(" .. first .. ") "
+end
+
 local addFilter = ChatFrame_AddMessageEventFilter or (ChatFrameUtil and ChatFrameUtil.AddMessageEventFilter)
 if addFilter then
     addFilter("CHAT_MSG_SYSTEM", function(_, _, msg, ...)
@@ -552,4 +567,12 @@ if addFilter then
         if ok and line then return false, line, ... end
         return false
     end)
+    local function MainInChat(_, _, msg, sender, ...)
+        if type(msg) ~= "string" or ns.IsSecret(msg) then return false end
+        local ok, prefix = pcall(Members.ChatPrefix, Members, sender)
+        if ok and prefix then return false, prefix .. msg, sender, ... end
+        return false
+    end
+    addFilter("CHAT_MSG_GUILD", MainInChat)
+    addFilter("CHAT_MSG_OFFICER", MainInChat)
 end
