@@ -138,7 +138,7 @@ function Recruit:Request(sender, source)
     end
     table.insert(self.queue, { name = sender, key = key, time = time(), source = source })
     self:Log(sender, source and ("angefragt (" .. source .. ")") or "angefragt")
-    if not self:Quiet() then PlaySound(SOUNDKIT.READY_CHECK) end
+    if not self:Quiet() then ns.Sound(SOUNDKIT.READY_CHECK) end
     return true
 end
 
@@ -268,7 +268,7 @@ local function AfterZoneChange()
             local n = #Recruit.queue
             ns.Print(n == 1 and "Eine Gildenanfrage hat gewartet, solange du im Dungeon oder Raid warst."
                 or (n .. " Gildenanfragen haben gewartet, solange du im Dungeon oder Raid warst."))
-            PlaySound(SOUNDKIT.READY_CHECK)
+            ns.Sound(SOUNDKIT.READY_CHECK)
         end
         Recruit.wasQuiet = quiet
         ns:Fire("RECRUIT_UPDATE")

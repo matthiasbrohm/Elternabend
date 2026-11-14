@@ -604,6 +604,7 @@ local function Short(text, max)
 end
 
 function Board:Notify(n, kind, extra)
+    if not ns.Opt("chatBoard") then return end
     table.insert(self.pendingNotify, { n = n, kind = kind, extra = extra })
     if self.notifyQueued then return end
     self.notifyQueued = true
@@ -628,7 +629,7 @@ function Board:Notify(n, kind, extra)
         elseif #fresh > 1 then
             ns.Print("|cfff3dc9aPinnwand:|r " .. #fresh .. " neue Zettel – /ea pinnwand")
         end
-        if personal then PlaySound(SOUNDKIT and SOUNDKIT.TELL_MESSAGE or 3081, "Master") end
+        if personal then ns.Sound(SOUNDKIT and SOUNDKIT.TELL_MESSAGE or 3081, "Master") end
     end)
 end
 

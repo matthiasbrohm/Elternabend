@@ -630,12 +630,13 @@ end
 local addFilter = ChatFrame_AddMessageEventFilter or (ChatFrameUtil and ChatFrameUtil.AddMessageEventFilter)
 if addFilter then
     addFilter("CHAT_MSG_SYSTEM", function(_, _, msg, ...)
+        if not ns.Opt("chatOnline") then return false end
         local ok, line = pcall(Members.OnlineLine, Members, msg)
         if ok and line then return false, line, ... end
         return false
     end)
     local function MainInChat(_, _, msg, sender, ...)
-        if type(msg) ~= "string" or ns.IsSecret(msg) then return false end
+        if type(msg) ~= "string" or ns.IsSecret(msg) or not ns.Opt("chatMain") then return false end
         local ok, prefix = pcall(Members.ChatPrefix, Members, sender)
         if ok and prefix then return false, prefix .. msg, sender, ... end
         return false

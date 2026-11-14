@@ -310,7 +310,8 @@ ns:Listen("INIT", function()
     SR:RebuildIndex()
 
     TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Item, function(tooltip, data)
-        if (tooltip == GameTooltip or tooltip == ItemRefTooltip) and data and not ns.IsSecret(data.id) then
+        if (tooltip == GameTooltip or tooltip == ItemRefTooltip) and data and not ns.IsSecret(data.id)
+            and ns.Opt("tooltipSR") then
             AddTooltipLines(tooltip, data.id)
         end
     end)

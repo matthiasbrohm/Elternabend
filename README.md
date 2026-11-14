@@ -275,6 +275,15 @@ Im Reiter **Gilde** öffnet „Meine Spielzeiten …“ (oder `/ea spielzeiten`)
 ## Erste Schritte
 Für Neue gibt es auf der Startseite die Zeile **Erste Schritte** (oder `/ea schritte`): Discord beitreten, Main festlegen, Berufe erfassen, Spielzeiten eintragen, Raidtermine ansehen. Main, Berufe und Spielzeiten haken sich von selbst ab; die Zeile verschwindet, sobald alles erledigt ist. Die Gildenleitung sieht im Tooltip der Gildenliste und unter **Leitung » „Erste Schritte“**, wer noch etwas offen hat – und welche Neuen der letzten 30 Tage sich noch gar nicht gemeldet haben (kein Addon oder eine ältere Version).
 
+## Einstellungen
+Oben rechts im Fenster öffnet **„Einstellungen“** (oder `/ea einstellungen`) eine Liste mit Schaltern für alles, was das Addon außerhalb seines Fensters am Spiel verändert – wer etwas davon nicht möchte, schaltet es einzeln ab:
+
+- **Im Chat:** Main vor Nachrichten von Twinks, Main hinter der Einlog-Meldung, Meldungen der Pinnwand, neue Gruppengesuche, „Kind wach“ im Gruppenchat.
+- **Auf dem Bildschirm:** Elternknopf, Knopf an der Minimap, Knopf am Gildenfenster, Soft-Reserves im Tooltip, Erinnerung vor dem Raid, Fenster beim Plündern.
+- **Töne:** alle Töne des Addons.
+
+„Alles aus“ macht das Addon zu einem reinen Gildenfenster, das sich nur noch mit `/ea` öffnet. Der Austausch mit der Gilde (Berufe, Twinks, Pinnwand, Kalender) läuft in jedem Fall weiter.
+
 ## Quiz
 Für Zeltlager, Lagerfeuer und Wartezeiten: Im Reiter **Raid » Übersicht** öffnet „Quiz“ (oder `/ea quiz`) das Quizfenster. Die Leitung der Gruppe (Raidleitung und Assistenten, in der Fünfergruppe der Anführer) startet die Runde für alle: Das Addon zieht zehn Fragen zufällig aus hundert, bei allen mit Addon geht das Fenster auf, und jeder beantwortet dieselben Fragen – vier Antworten zur Auswahl, 20 Sekunden je Frage. Die Uhr läuft erst nach dem Klick auf „Los geht's“.
 
@@ -328,6 +337,7 @@ Unter **Optionen » Tastaturbelegung » Elternabend** (eigener Abschnitt, unten 
 | `/ea klassenliste` | Klassenliste für die Webseite erstellen (nur Gildenleitung) |
 | `/ea spielzeiten` | Eigene Spielzeiten eintragen und sehen, wer zur selben Zeit spielt |
 | `/ea schritte` | Die „Ersten Schritte“ für neue Mitglieder zeigen |
+| `/ea einstellungen` | Chat-Zusätze, Knöpfe, Meldungen und Töne einzeln an- und abschalten |
 | `/ea quiz` | Quiz öffnen: in der Gruppe startet es die Leitung für alle, allein ist es eine Proberunde |
 | `/ea anfragen` | Fenster und Ton für Gildenanfragen aus- oder einschalten (Anfragen sammeln sich im Reiter Invite) |
 | `/ea abgleich` | Stand des Abgleichs über die Mac-App zeigen und den Raid von der Webseite übernehmen |

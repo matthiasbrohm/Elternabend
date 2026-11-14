@@ -239,7 +239,7 @@ ns.Comm.handlers.LFGJOIN = function(sender, parts)
     if not m or parts[2] ~= m.id or not Groups.ROLES[parts[3]] then return end
     local key = ns.NameKey(sender)
     Groups.applicants[key] = { name = sender, role = parts[3], classFile = parts[4], time = GetTime(), state = "new" }
-    PlaySound(SOUNDKIT and SOUNDKIT.READY_CHECK or 8960, "Master")
+    ns.Sound(SOUNDKIT and SOUNDKIT.READY_CHECK or 8960, "Master")
     ns.Print(string.format("%s möchte als %s mit – /ea gruppen", ns.ShortName(sender), Groups.ROLES[parts[3]]))
     ns:Fire("GROUPS_UPDATE")
 end

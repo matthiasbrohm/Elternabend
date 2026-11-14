@@ -42,6 +42,7 @@ local defaults = {
     sync = {},        -- Abgleich über die Mac-App: wann zuletzt ein Raid von der Webseite übernommen wurde
     profiles = {},    -- Spielzeiten und „Erste Schritte“ der Gilde: Schlüssel -> { name, t, times, steps, note }
     me = {},          -- eigene Spielzeiten und abgehakte Schritte (accountweit)
+    options = {},     -- Einstellungen: abgeschaltete Bereiche (Schlüssel -> false), siehe ns.OPTIONS
     quiz = { best = 0 }, -- Quiz: längste Serie; als Leitung zusätzlich, welche Fragen schon dran waren
     away = {         -- „Kind wach, gleich zurück“
         showButton = true, -- Elternknopf auf dem Bildschirm, solange man in einer Gruppe ist
@@ -317,6 +318,83 @@ function ns.IsTrusted(name)
     return false
 end
 
+-- Einstellungen -----------------------------------------------------------
+-- Alles, was das Addon außerhalb seines Fensters am Spiel verändert (Chat, Knöpfe auf dem
+-- Bildschirm, Tooltips, Töne), lässt sich einzeln abstellen: Fenster „Einstellungen“ oder
+-- /ea einstellungen. Ohne get/set liegt der Wert in ns.db.options (nil = an).
+ns.OPTIONS = {
+    { group = "IM CHAT" },
+    { key = "chatMain", label = "Main vor Nachrichten von Twinks",
+        hint = "Gilden- und Offizierschat: „(Beta) Wer kommt mit?“" },
+    { key = "chatOnline", label = "Main hinter der Einlog-Meldung",
+        hint = "„… ist jetzt online. (Twink von Beta Lux)“" },
+    { key = "chatBoard", label = "Neue Zettel und Antworten der Pinnwand melden" },
+    { key = "chatGroups", label = "Neue Gruppengesuche melden",
+        get = function() return ns.db.groups.notify end,
+        set = function(on) ns.db.groups.notify = on end },
+    { key = "awayChat", label = "„Kind wach“ zusätzlich in den Gruppenchat schreiben",
+        hint = "für Mitspieler ohne Addon",
+        get = function() return ns.db.away.announce end,
+        set = function(on) ns.db.away.announce = on end },
+    { group = "AUF DEM BILDSCHIRM" },
+    { key = "awayButton", label = "Elternknopf, solange du in einer Gruppe bist",
+        get = function() return ns.db.away.showButton end,
+        set = function(on)
+            ns.db.away.showButton = on
+            ns.Away:UpdateButton()
+        end },
+    { key = "minimap", label = "Knopf an der Minimap", hint = "ohne ihn öffnet /ea das Fenster",
+        get = function() return not ns.db.settings.minimapHidden end,
+        set = function(on)
+            ns.db.settings.minimapHidden = not on
+            ns.UI:UpdateMinimapButton()
+        end },
+    { key = "guildButton", label = "Knopf am Gildenfenster von Blizzard",
+        get = function() return not ns.db.settings.guildButtonHidden end,
+        set = function(on)
+            ns.db.settings.guildButtonHidden = not on
+            ns.GuildButton:Refresh()
+        end },
+    { key = "tooltipSR", label = "Soft-Reserves im Tooltip von Gegenständen" },
+    { key = "raidReminder", label = "Erinnerung kurz vor dem Raid", hint = "Meldung in der Bildschirmmitte" },
+    { key = "lootOpen", label = "Fenster beim Plündern öffnen", hint = "im Raid, wenn es Beute zu verteilen gibt",
+        get = function() return ns.db.settings.autoOpenLoot end,
+        set = function(on) ns.db.settings.autoOpenLoot = on end },
+    { group = "TÖNE" },
+    { key = "sounds", label = "Töne des Addons",
+        hint = "Aufträge, Gruppenanfragen, Zettel an dich, Raid-Erinnerung, Pause" },
+}
+
+local optionByKey = {}
+for _, o in ipairs(ns.OPTIONS) do
+    if o.key then optionByKey[o.key] = o end
+end
+
+-- Ist ein Bereich eingeschaltet? (Vor dem Laden der gespeicherten Daten: ja.)
+function ns.Opt(key)
+    local o = optionByKey[key]
+    if not o or not ns.db then return true end
+    if o.get then return o.get() and true or false end
+    return ns.db.options[key] ~= false
+end
+
+function ns.SetOpt(key, on)
+    local o = optionByKey[key]
+    if not o or not ns.db then return end
+    on = on and true or false
+    if o.set then
+        o.set(on)
+    else
+        if on then ns.db.options[key] = nil else ns.db.options[key] = false end
+    end
+    ns:Fire("OPTIONS_UPDATE", key)
+end
+
+-- Töne des Addons laufen hierüber, damit der Schalter „Töne“ sie alle abstellt
+function ns.Sound(kit, channel)
+    if kit and ns.Opt("sounds") then PlaySound(kit, channel) end
+end
+
 -- Initialisierung --------------------------------------------------------
 ns:On("ADDON_LOADED", function(name)
     if name ~= ADDON then return end
@@ -333,6 +411,7 @@ local function Help()
     print("  /ea – Fenster öffnen/schließen")
     print("  /ea start | raid | sr | loot | beute | taktik | gruppen | gilde | kalender | pinnwand | berufe | notizen | invite – Bestimmten Reiter öffnen")
     print("  /ea ruhm – Ruhmeshalle: die Erstkills der Gilde")
+    print("  /ea einstellungen – Chat-Zusätze, Knöpfe auf dem Bildschirm, Meldungen und Töne einzeln an- und abschalten")
     print("  /ea design – Design des Addons wählen (Elternabend, Allianz, Horde, Klassisch)")
     print("  /ea pause [Minuten] – Pause für den ganzen Raid (Leitung), /ea weiter beendet sie")
     print("  /ea vorbereitung – Fläschchen, Essen, Rüstung und Verzauberungen im Raid prüfen")
@@ -409,6 +488,8 @@ SlashCmdList.ELTERNABENDRAID = function(input)
         ns.UI:ShowPlayTimes()
     elseif cmd == "schritte" or cmd == "ersteschritte" then
         ns.UI:ShowSteps()
+    elseif cmd == "einstellungen" or cmd == "optionen" or cmd == "schalter" then
+        ns.UI:ShowOptions()
     elseif cmd == "quiz" then
         ns.Quiz:Open()
     elseif cmd == "abgleich" or cmd == "sync" then

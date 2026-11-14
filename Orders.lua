@@ -150,7 +150,7 @@ ns.Comm.handlers.ORDER = function(sender, parts)
             id = id, from = sender, fromKey = ns.NameKey(sender), crafter = parts[4], recipeId = recipeId,
             recipe = ns.Professions:RecipeName(recipeId), note = parts[5] or "", time = time(), state = "neu",
         }
-        PlaySound(SOUNDKIT and SOUNDKIT.READY_CHECK or 8960, "Master")
+        ns.Sound(SOUNDKIT and SOUNDKIT.READY_CHECK or 8960, "Master")
         ns.Print(string.format("Neuer Auftrag von %s für %s: %s – /ea berufe", ns.ShortName(sender),
             ns.ShortName(parts[4]) or "dich", DB().inc[id].recipe or ("Rezept " .. recipeId)))
         ns:Fire("ORDERS_UPDATE")

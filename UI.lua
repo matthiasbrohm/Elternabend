@@ -233,6 +233,9 @@ function UI:Create()
     local design = T.Button(header, "Design", 70)
     design:SetPoint("RIGHT", close, "LEFT", -8, 0)
     design:SetScript("OnClick", function() UI:ShowSkinPicker() end)
+    local options = T.Button(header, "Einstellungen", 110)
+    options:SetPoint("RIGHT", design, "LEFT", -8, 0)
+    options:SetScript("OnClick", function() UI:ShowOptions() end)
 
     for _, tab in ipairs(TABS) do
         local b = T.NavButton(header, tab.label)
@@ -2867,7 +2870,7 @@ function UI:ShowTactic(t, from)
     v:ClearAllPoints()
     v:SetPoint("CENTER")
     v:Show()
-    if from then PlaySound(SOUNDKIT.READY_CHECK) end
+    if from then ns.Sound(SOUNDKIT.READY_CHECK) end
 end
 
 -- Reiter: Gilde (Flüster-Einladung) -------------------------------------------
@@ -5575,6 +5578,63 @@ StaticPopupDialogs["ELTERNABEND_CLEAR_HISTORY"] = {
 }
 
 -- Minimap-Button -----------------------------------------------------------
+-- Einstellungen: jeder Bereich, der außerhalb des Fensters etwas am Spiel verändert, mit eigenem Schalter
+function UI:ShowOptions()
+    local d = self.optionsDialog
+    if not d then
+        local rows, groups = 0, 0
+        for _, o in ipairs(ns.OPTIONS) do
+            if o.key then rows = rows + 1 else groups = groups + 1 end
+        end
+        d = NewDialog("ElternabendOptions", 640, 150 + rows * 24 + groups * 34, "Einstellungen")
+        local hint = T.Text(d, "muted")
+        hint:SetPoint("TOPLEFT", d.title, "BOTTOMLEFT", 0, -8)
+        hint:SetWidth(600)
+        hint:SetSpacing(3)
+        hint:SetText("Was das Addon außerhalb dieses Fensters tut. Stört dich etwas, schalte es ab – "
+            .. "alles andere läuft weiter, und die Gilde merkt davon nichts.")
+
+        d.boxes = {}
+        local y = -104
+        for _, o in ipairs(ns.OPTIONS) do
+            if o.group then
+                y = y - 10
+                local head = T.Text(d, "kicker")
+                head:SetPoint("TOPLEFT", 20, y)
+                head:SetText(o.group)
+                y = y - 24
+            else
+                local box = T.Checkbox(d, o.label .. (o.hint and ("   " .. T.Hex("muted", o.hint)) or ""))
+                box:SetPoint("TOPLEFT", 20, y)
+                box.onChange = function(checked) ns.SetOpt(o.key, checked) end
+                d.boxes[o.key] = box
+                y = y - 24
+            end
+        end
+
+        local function SetAll(on)
+            for _, o in ipairs(ns.OPTIONS) do
+                if o.key then ns.SetOpt(o.key, on) end
+            end
+            d:Refresh()
+        end
+        local allOn = T.Button(d, "Alles an", 100)
+        allOn:SetPoint("BOTTOMLEFT", 20, 18)
+        allOn:SetScript("OnClick", function() SetAll(true) end)
+        local allOff = T.Button(d, "Alles aus", 100)
+        allOff:SetPoint("LEFT", allOn, "RIGHT", 8, 0)
+        allOff:SetScript("OnClick", function() SetAll(false) end)
+
+        function d:Refresh()
+            for key, box in pairs(self.boxes) do box:SetChecked(ns.Opt(key)) end
+        end
+        d:SetScript("OnShow", function(self) self:Refresh() end)
+        self.optionsDialog = d
+    end
+    d:Refresh()
+    d:Show()
+end
+
 function UI:UpdateMinimapButton()
     local b = self.minimapButton
     if not b then return end
