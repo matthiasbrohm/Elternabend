@@ -268,8 +268,10 @@ end
 Comm.handlers.PING = function(sender, parts, channel)
     local nr = tonumber(parts[3])
     local intact = nr and PING_TEXTS[nr] == parts[4]
-    ns.Print(string.format("Ping %s von %s über %s angekommen%s", parts[3] or "?", ns.ShortName(sender),
-        channel or "?", intact and "" or " – |cffff6060Inhalt verändert|r"))
+    if ns.Opt("notices") then
+        ns.Print(string.format("Ping %s von %s über %s angekommen%s", parts[3] or "?", ns.ShortName(sender),
+            channel or "?", intact and "" or " – |cffff6060Inhalt verändert|r"))
+    end
     local answer = table.concat({ parts[2] or "", parts[3] or "", intact and "ok" or "kaputt" }, SEP)
     Comm:Send("PONG", answer, "WHISPER", sender)
     Comm:Send("PONG", answer, "GUILD")

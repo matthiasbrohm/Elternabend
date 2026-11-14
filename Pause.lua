@@ -67,14 +67,14 @@ function Pause:Finish()
     if not self.ends then return end
     self.ends = nil
     self.finished = GetTime()
-    ns.Sound(SOUNDKIT and SOUNDKIT.READY_CHECK or 8960, "Master")
+    ns.Sound(SOUNDKIT and SOUNDKIT.READY_CHECK or 8960, "Master", true)
     self:UpdateFrame()
 end
 
 ns.Comm.handlers.PAUSE = function(sender, parts)
     local seconds = tonumber(parts[2])
     if not seconds or not ns.IsTrusted(sender) then return end
-    if not Pause.ends then ns.Sound(SOUNDKIT and SOUNDKIT.RAID_WARNING or 8959, "Master") end
+    if not Pause.ends then ns.Sound(SOUNDKIT and SOUNDKIT.RAID_WARNING or 8959, "Master", true) end
     Pause:Set(seconds, ns.ShortName(sender))
 end
 

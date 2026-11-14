@@ -604,7 +604,9 @@ local function Short(text, max)
 end
 
 function Board:Notify(n, kind, extra)
-    if not ns.Opt("chatBoard") then return end
+    -- Zettel an dich und alles zu deinen Zetteln hat einen eigenen Schalter, Zettel an alle einen anderen
+    local mine = kind ~= "neu" or self:IsPersonal(n)
+    if not ns.Opt(mine and "chatBoardMine" or "chatBoard") then return end
     table.insert(self.pendingNotify, { n = n, kind = kind, extra = extra })
     if self.notifyQueued then return end
     self.notifyQueued = true

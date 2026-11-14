@@ -36,7 +36,8 @@ tests/beobachten.sh                    # bei jedem Speichern neu
 
 - `laden_test.lua`: Das Addon lädt und läuft eine Stunde ohne Lua-Fehler (allein, in der Gilde, in der Gruppe, als Offizier im Raid).
 - `befehle_test.lua`: Jeder `/ea`-Befehl und jeder Reiter läuft ohne Lua-Fehler.
-- `gilde_test.lua`: Twinks im Chat, Antworten auf HELLO und VER, Aufträge, die Schalter aus „Einstellungen“, die Begrüßung.
+- `gilde_test.lua`: Twinks im Chat, Antworten auf HELLO und VER, Aufträge, die Begrüßung.
+- `einstellungen_test.lua`: jeder Schalter aus „Einstellungen“ (aus → nichts mehr davon, an → wie bisher), die Umstellung alter Einstellungen und „Ruhig“ über eine Stunde Gildenleben.
 
 Ein neuer Test sieht so aus:
 ```lua
@@ -313,11 +314,16 @@ Für Neue gibt es auf der Startseite die Zeile **Erste Schritte** (oder `/ea sch
 ## Einstellungen
 Oben rechts im Fenster öffnet **„Einstellungen“** (oder `/ea einstellungen`) eine Liste mit Schaltern für alles, was das Addon außerhalb seines Fensters am Spiel verändert – wer etwas davon nicht möchte, schaltet es einzeln ab:
 
-- **Im Chat:** Main vor Nachrichten von Twinks, Main hinter der Einlog-Meldung, Meldungen der Pinnwand, neue Gruppengesuche, „Kind wach“ im Gruppenchat.
-- **Auf dem Bildschirm:** Elternknopf, Knopf an der Minimap, Knopf am Gildenfenster, Soft-Reserves im Tooltip, Erinnerung vor dem Raid, Fenster beim Plündern.
-- **Töne:** alle Töne des Addons.
+- **Im Chat:** Main vor Nachrichten von Twinks, Main hinter der Einlog-Meldung, Zettel an dich (und Antworten auf deine Zettel), neue Zettel an alle, neue Gruppengesuche, „Kind wach“ im Gruppenchat, Statusmeldungen („Raid-Protokoll läuft“, Pings anderer, die ganze Soft-Reserve-Liste – deine eigenen Reserves kommen immer).
+- **Auf dem Bildschirm:** Elternknopf – immer in der Gruppe oder nur, solange jemand weg ist –, Knopf an der Minimap, Knopf am Gildenfenster, Soft-Reserves im Tooltip, Erinnerung vor dem Raid (als Zeile im Chat und auf Wunsch groß in der Bildschirmmitte), Quizfenster, wenn die Leitung ein Quiz startet, Fenster bei Gildenanfragen, Fenster beim Plündern.
+- **Töne:** „Töne, wenn jemand auf dich wartet“ (deine Soft-Reserve wird ausgewürfelt, Pause, jemand will in deine Gruppe) und „Übrige Töne“ (Aufträge, Zettel an dich, Taktikbild, Raid-Erinnerung, Gildenanfragen).
 
-„Alles aus“ macht das Addon zu einem reinen Gildenfenster, das sich nur noch mit `/ea` öffnet. Der Austausch mit der Gilde (Berufe, Twinks, Pinnwand, Kalender) läuft in jedem Fall weiter.
+Drei Knöpfe stellen alles auf einmal:
+- **„Ruhig“:** Information ja, Unterbrechung nein. Nichts öffnet sich von selbst (Quiz und Gildenanfragen warten auf `/ea quiz` bzw. den Reiter Invite), kein Knopf an der Minimap, der Elternknopf nur, solange jemand weg ist, die Raid-Erinnerung als Zeile im Chat, Töne nur, wenn jemand auf dich wartet. Twinks im Chat, Zettel an dich, Gruppengesuche, Soft-Reserves im Tooltip und das Taktikbild der Leitung bleiben.
+- **„Alles an“:** wie bisher.
+- **„Alles aus“:** ein reines Gildenfenster, das sich nur noch mit `/ea` öffnet.
+
+Der Austausch mit der Gilde (Berufe, Twinks, Pinnwand, Kalender, Antworten auf Bereitschafts- und Versionsabfragen) läuft in jedem Fall weiter. Wer vor dieser Version „Töne“ oder die Pinnwand-Meldungen abgeschaltet hatte, hat danach beide neuen Teile davon aus.
 
 ## Quiz
 Für Zeltlager, Lagerfeuer und Wartezeiten: Im Reiter **Raid » Übersicht** öffnet „Quiz“ (oder `/ea quiz`) das Quizfenster. Die Leitung der Gruppe (Raidleitung und Assistenten, in der Fünfergruppe der Anführer) startet die Runde für alle: Das Addon zieht zehn Fragen zufällig aus hundert, bei allen mit Addon geht das Fenster auf, und jeder beantwortet dieselben Fragen – vier Antworten zur Auswahl, 20 Sekunden je Frage. Die Uhr läuft erst nach dem Klick auf „Los geht's“.

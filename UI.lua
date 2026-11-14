@@ -5592,7 +5592,8 @@ function UI:ShowOptions()
         hint:SetWidth(600)
         hint:SetSpacing(3)
         hint:SetText("Was das Addon außerhalb dieses Fensters tut. Stört dich etwas, schalte es ab – "
-            .. "alles andere läuft weiter, und die Gilde merkt davon nichts.")
+            .. "alles andere läuft weiter, und die Gilde merkt davon nichts. „Ruhig“: nichts öffnet sich "
+            .. "von selbst, Töne nur, wenn jemand auf dich wartet.")
 
         d.boxes = {}
         local y = -104
@@ -5612,18 +5613,19 @@ function UI:ShowOptions()
             end
         end
 
-        local function SetAll(on)
-            for _, o in ipairs(ns.OPTIONS) do
-                if o.key then ns.SetOpt(o.key, on) end
-            end
+        local function Preset(name)
+            ns.SetPreset(name)
             d:Refresh()
         end
+        local quiet = T.Button(d, "Ruhig", 100)
+        quiet:SetPoint("BOTTOMLEFT", 20, 18)
+        quiet:SetScript("OnClick", function() Preset("ruhig") end)
         local allOn = T.Button(d, "Alles an", 100)
-        allOn:SetPoint("BOTTOMLEFT", 20, 18)
-        allOn:SetScript("OnClick", function() SetAll(true) end)
+        allOn:SetPoint("LEFT", quiet, "RIGHT", 8, 0)
+        allOn:SetScript("OnClick", function() Preset("an") end)
         local allOff = T.Button(d, "Alles aus", 100)
         allOff:SetPoint("LEFT", allOn, "RIGHT", 8, 0)
-        allOff:SetScript("OnClick", function() SetAll(false) end)
+        allOff:SetScript("OnClick", function() Preset("aus") end)
 
         function d:Refresh()
             for key, box in pairs(self.boxes) do box:SetChecked(ns.Opt(key)) end

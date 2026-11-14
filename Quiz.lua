@@ -112,12 +112,13 @@ function Quiz:Start()
 end
 
 -- Neue Runde anlegen (eigene oder empfangene). id = nil: Proberunde allein.
-function Quiz:Begin(id, list, secs, host)
+-- hidden: Runde vorbereiten, aber das Fenster nicht öffnen (/ea quiz zeigt sie dann)
+function Quiz:Begin(id, list, secs, host, hidden)
     self:StopTimer()
     self.round = { id = id, solo = id == nil, list = list, secs = secs, host = host,
         pos = 0, correct = 0, time = 0, results = {} }
     self.view = "intro"
-    self:Show()
+    if not hidden then self:Show() end
 end
 
 function Quiz:NextQuestion()
@@ -259,8 +260,10 @@ ns.Comm.handlers.QZ = function(sender, parts, channel)
             end
         end
         if not secs or #list == 0 then return end
-        Quiz:Begin(id, list, math.max(5, math.min(60, secs)), sender)
-        ns.Print((ns.ShortName(sender) or "Die Leitung") .. " hat ein Quiz gestartet – das Fenster ist offen (sonst /ea quiz).")
+        local open = ns.Opt("quizOpen")
+        Quiz:Begin(id, list, math.max(5, math.min(60, secs)), sender, not open)
+        ns.Print((ns.ShortName(sender) or "Die Leitung") .. " hat ein Quiz gestartet – "
+            .. (open and "das Fenster ist offen (sonst /ea quiz)." or "mitmachen mit /ea quiz."))
     elseif kind == "R" then
         local r = Quiz.round
         local correct, tenths = tonumber(parts[4]), tonumber(parts[5])
