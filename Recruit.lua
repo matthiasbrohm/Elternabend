@@ -50,12 +50,22 @@ function Recruit:Keywords()
     return list
 end
 
--- Zählt, wenn das erste Wort der Nachricht ein Stichwort ist („ginv“, „ginv bitte“, „Ginv!“)
+-- Höflichkeit hinter dem Stichwort, die eine Anfrage nicht zu einem Satz macht
+local FILLER = { bitte = true, pls = true, plz = true, please = true, danke = true, thx = true, mal = true }
+
+-- Zählt, wenn die Nachricht ein Stichwort ist, höchstens mit Höflichkeit dahinter („ginv“, „ginv bitte“,
+-- „Ginv!“, „gilde?“). „Gilde heute Abend?“ ist dagegen ein Satz über die Gilde, keine Anfrage.
 function Recruit:Matches(msg)
-    local first = ns.Lower(strtrim(msg)):match("^(%S+)")
-    if not first then return false end
-    first = first:gsub("[%p]+$", "")
-    return self:Keywords()[first] == true
+    local words = {}
+    for word in ns.Lower(strtrim(msg)):gmatch("%S+") do
+        word = word:gsub("^%p+", ""):gsub("%p+$", "")
+        if word ~= "" then table.insert(words, word) end
+    end
+    if not words[1] or not self:Keywords()[words[1]] then return false end
+    for i = 2, #words do
+        if not FILLER[words[i]] then return false end
+    end
+    return true
 end
 
 -- Verlauf ----------------------------------------------------------------------

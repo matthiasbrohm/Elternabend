@@ -28,3 +28,30 @@ test("Begrüßung nur einmal pro Account, nicht auf jedem Twink", function()
     noErrors(twink)
 end)
 
+-- Gildenanfragen per Flüstern ------------------------------------------------------------------------------
+local function Whisper(w, msg) w:fire("CHAT_MSG_WHISPER", msg, "Fremder Gast") w:advance(1) end
+
+test("„Gilde heute Abend?“ ist keine Gildenanfrage", function()
+    local w = Gruppe({ canInvite = true })
+    Whisper(w, "Gilde heute Abend?")
+    notSeen(w, "window", "Gildenanfrage")
+    notSeen(w, "sound")
+    equal(#w.ns.Recruit.queue, 0, "Anfragen")
+end)
+
+test("„ginv“, „ginv bitte“, „Ginv!“ und „gilde?“ sind Gildenanfragen", function()
+    for _, msg in ipairs({ "ginv", "ginv bitte", "Ginv!", "gilde?", "gildeninvite pls" }) do
+        local w = Gruppe({ canInvite = true })
+        Whisper(w, msg)
+        equal(#w.ns.Recruit.queue, 1, "Anfragen nach „" .. msg .. "“")
+    end
+end)
+
+test("ohne Einladerecht: Hinweis nur bei einer echten Anfrage", function()
+    local w = Gruppe()
+    Whisper(w, "Gilde heute Abend?")
+    notSeen(w, "print", "möchte in die Gilde")
+    Whisper(w, "ginv")
+    seen(w, "print", "möchte in die Gilde")
+end)
+
