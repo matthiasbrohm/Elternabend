@@ -147,14 +147,14 @@ Wer das Addon hat, aber noch nicht in der Gilde ist, sieht im Start-Reiter den K
 Zusätzlich flüstert der Knopf `ginv` an die Namen in `Join.INVITERS` (oben in `Join.lua`) – als Rückfallebene. Wer davon offline ist, bekommt nichts; die Meldung „Kein Spieler namens …“ blendet das Addon aus.
 
 ## Gildeneinladung per Flüstern
-Wer dich mit `ginv` anflüstert (Stichwörter im Reiter **Invite** einstellbar, den nur sieht, wer in die Gilde einladen darf), landet in der Anfrageliste, und es erscheint ein kleines Fenster mit dem fertigen Befehl `/ginvite Anna Sturmwind` zum Kopieren: ins Feld klicken, **Cmd+C** (Windows: Strg+C), dann im Chat **Enter, Cmd+V, Enter**.
+Wer dich mit `ginv` anflüstert (Stichwörter im Reiter **Invite** einstellbar, den nur sieht, wer in die Gilde einladen darf), landet in der Anfrageliste. Es zählt nur das Stichwort allein, höchstens mit „bitte“, „pls“ o. Ä. dahinter: „ginv bitte“ und „Gilde?“ sind Anfragen, „Gilde heute Abend?“ nicht. Dann erscheint ein kleines Fenster mit dem fertigen Befehl `/ginvite Anna Sturmwind` zum Kopieren: ins Feld klicken, **Cmd+C** (Windows: Strg+C), dann im Chat **Enter, Cmd+V, Enter**.
 - **Den Befehl musst du selbst abschicken.** WoW Forever behält Gildeneinladungen der Blizzard-Oberfläche vor: Weder Addons noch Makros dürfen einladen, und ein Addon darf auch nichts in die Eingabezeile schreiben – sonst blockiert WoW sogar den selbst abgeschickten Befehl („Funktion, die der Blizzard-UI vorbehalten ist“). Das haben wir ausgiebig getestet.
 - Sobald WoW „Ihr habt … eingeladen“ meldet, verschwindet die Anfrage, und die Person bekommt eine Antwort per Flüstern. Eine automatische Begrüßung im Gildenchat gibt es nicht mehr – mit vielen Addons in der Gilde kam sie mehrfach.
 - „Einladen“ im Reiter **Invite** und die Taste „Nächste Gildenanfrage einladen“ (Tastaturbelegung → Elternabend) öffnen das Fenster mit dem Befehl gleich markiert.
 - Man braucht einen Gildenrang, der einladen darf. Das Addon „InviteOnWhisper“ sollte nicht gleichzeitig auf `ginv` reagieren, sonst kommen doppelte Fenster.
 
 ## Start: Begrüßung und Gildeninfos
-Der Reiter **Start** ist der erste beim Öffnen. Er zeigt:
+Der Reiter **Start** ist der erste beim Öffnen. Beim allerersten Start in der Gilde öffnet sich das Fenster damit von selbst – einmal pro Account, nicht auf jedem Twink. Er zeigt:
 - eine Begrüßung mit dem Vornamen und kurz, wer die Gilde ist,
 - die **Nachricht des Tages** live aus dem Spiel (die Gildenleitung ändert sie wie gewohnt im Gildenfenster),
 - die **Raidzeiten** und – falls geladen – den nächsten Raid aus dem Raidplaner,

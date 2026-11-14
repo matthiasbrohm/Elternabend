@@ -290,7 +290,16 @@ ns:On("CHAT_MSG_SYSTEM", function(msg)
 end)
 
 -- Hinweise für Raidmitglieder ohne Plündermeister-Rolle ----------------
+-- Würfeln und Vergeben darf nur, wer die Beute verteilt: Leitung, Assistenten oder Plündermeister.
+-- Sonst löst ein /ea roll eines Mitspielers bei allen „Deine Soft-Reserve wird ausgewürfelt“ aus.
+local function FromLootLead(sender)
+    if ns.IsTrusted(sender) then return true end
+    local ml = ns.Raid:GetMasterLooterName()
+    return ml ~= nil and ns.SameName(ml, sender)
+end
+
 ns.Comm.handlers.ROLL = function(sender, parts)
+    if not FromLootLead(sender) then return end
     local link, seconds = parts[2], parts[3]
     local itemId = ns.ItemIDFromLink(link)
     if not itemId then return end
@@ -301,6 +310,7 @@ ns.Comm.handlers.ROLL = function(sender, parts)
 end
 
 ns.Comm.handlers.AWARD = function(sender, parts)
+    if not FromLootLead(sender) then return end
     local link, winner = parts[2], parts[3]
     local itemId = ns.ItemIDFromLink(link)
     if itemId and winner then

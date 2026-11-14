@@ -108,14 +108,16 @@ function Info:MOTD()
     return motd
 end
 
--- Begrüßung einmal pro Charakter: beim ersten Start und nach dem Gildenbeitritt
+-- Begrüßung einmal pro Account: beim ersten Start und nach dem Gildenbeitritt
 function Info:MaybeWelcome()
     if not self:IsOurGuild() then return end
     local key = ns.PlayerKey()
     local seen = ns.db.welcomeSeen
     if not key or seen[key] then return end
+    -- Einmal pro Account: Wer sie auf einem Charakter gesehen hat, bekommt sie auf Twinks nicht noch einmal
+    local seenBefore = next(seen) ~= nil
     seen[key] = true
-    ns.UI:Show("start")
+    if not seenBefore then ns.UI:Show("start") end
 end
 
 ns:On("PLAYER_LOGIN", function() C_Timer.After(6, function() Info:MaybeWelcome() end) end)
