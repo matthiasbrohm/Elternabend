@@ -4,6 +4,7 @@ package-as: Elternabend
 ignore:
   - Taktik-Werkstatt
   - Mac-App
+  - tests
   - .gitkeep
 
 # Ohne eigene CHANGELOG-Datei baut der Packager die Änderungsliste aus den Commit-Nachrichten

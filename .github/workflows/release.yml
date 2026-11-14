@@ -54,6 +54,13 @@ jobs:
             echo "skip=true" >> "$GITHUB_OUTPUT"
           fi
 
+      # Kein Release, wenn das Addon nicht sauber lädt oder ein Test fehlschlägt (Ordner tests)
+      - name: Tests
+        if: steps.version.outputs.skip != 'true'
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq luajit >/dev/null
+          luajit tests/run.lua
+
       - name: ZIP-Dateien bauen
         if: steps.version.outputs.skip != 'true'
         env:
@@ -63,7 +70,7 @@ jobs:
           rsync -a ./ build/Elternabend/ \
             --exclude '.git' --exclude '.github' --exclude 'build' \
             --exclude '.gitignore' --exclude '.gitattributes' --exclude '.gitkeep' --exclude '.pkgmeta' \
-            --exclude 'Taktik-Werkstatt' --exclude 'Mac-App'
+            --exclude 'Taktik-Werkstatt' --exclude 'Mac-App' --exclude 'tests'
           sed -i "s/^## Version:.*/## Version: $VERSION/" build/Elternabend/Elternabend.toc
           cd build
           zip -rq "Elternabend-$VERSION.zip" Elternabend

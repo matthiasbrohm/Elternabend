@@ -22,6 +22,41 @@ Am besten installieren es alle Raidmitglieder: Dann sehen alle die Soft-Reserves
 2. Die Änderungen auf den Branch `main` hochladen.
 3. Fertig: Die GitHub-Action legt automatisch das Release `4.2.2` an und hängt `Elternabend-4.2.2.zip` und `Elternabend-4.2.2-forever.zip` (für WowUp) an. WowUp meldet das Update danach bei allen.
 
+Vor dem Release laufen die Tests (siehe unten). Schlägt einer fehl, entsteht kein Release – so landet ein kaputtes Addon nicht per WowUp bei der ganzen Gilde.
+
+### Entwickeln und testen
+**Tests ohne WoW (Sekunden):** Der Ordner `tests/` enthält ein kleines WoW zum Nachspielen. Es lädt das Addon wie der Client (Dateien in der Reihenfolge der `.toc`), spult die Zeit vor, spielt Events und Addon-Nachrichten ein und zeichnet auf, was beim Spieler ankommt: Chatzeilen, Töne, geöffnete Fenster, gesendeter Chat, Addon-Nachrichten – und jeden Lua-Fehler.
+
+```
+brew install luajit                    # einmalig (macOS)
+luajit tests/run.lua                   # alle Tests
+luajit tests/run.lua Gildenchat        # nur Tests, deren Name „Gildenchat“ enthält
+tests/beobachten.sh                    # bei jedem Speichern neu
+```
+
+- `laden_test.lua`: Das Addon lädt und läuft eine Stunde ohne Lua-Fehler (allein, in der Gilde, in der Gruppe, als Offizier im Raid).
+- `befehle_test.lua`: Jeder `/ea`-Befehl und jeder Reiter läuft ohne Lua-Fehler.
+- `gilde_test.lua`: Twinks im Chat, Antworten auf HELLO und VER, Aufträge, die Schalter aus „Einstellungen“, die Begrüßung.
+
+Ein neuer Test sieht so aus:
+```lua
+test("neuer Auftrag: Ton und Chatzeile", function()
+    local w = login({ guild = "Elternabend" })     -- einloggen, Optionen: group, raid, officer, roster, …
+    w:receive("ORDER\tauftrag1\t2580\tAnna Sturmwind\t", "WHISPER", "Beta Lux")
+    w:advance(2)                                   -- 2 Sekunden vorspulen
+    seen(w, "sound", ".")                          -- print, sound, window, chat, comm, screen, popup
+    seen(w, "print", "Neuer Auftrag von Beta")
+    noErrors(w)
+end)
+```
+Was die Tests nicht prüfen: Aussehen und Anordnung im Fenster und alles, was nur der echte Client kann (geschützte Funktionen, Kampfsperre). Dafür ist das Spiel da.
+
+**Im Spiel ohne Kopieren und Neustart:** Den Addon-Ordner einmal durch einen Verweis auf dieses Repository ersetzen:
+```
+ln -s ~/Pfad/zu/Elternabend "/Applications/World of Warcraft/_forever_/Interface/AddOns/Elternabend"
+```
+Danach reicht nach jeder Änderung an einer `.lua`-Datei ein `/reload`. Neu starten muss WoW nur bei neuen Dateien in der `.toc` und bei neuen Bildern. WowUp sollte diesen Ordner dann nicht mehr verwalten, sonst ersetzt ein Update den Verweis.
+
 ## Bedienung
 `/ea` oder ein Klick auf das Wappen an der Minimap öffnet das Fenster (Rechtsklick: direkt die Gilde). Auch am Blizzard-Fenster „Gilde & Communitys“ hängt rechts unter den Reitern ein Wappen-Knopf: Linksklick öffnet den Reiter Gilde, Rechtsklick die Startseite.
 
