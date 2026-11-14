@@ -153,7 +153,7 @@ Wer dich mit `ginv` anflüstert (Stichwörter im Reiter **Invite** einstellbar, 
 - Man braucht einen Gildenrang, der einladen darf. Das Addon „InviteOnWhisper“ sollte nicht gleichzeitig auf `ginv` reagieren, sonst kommen doppelte Fenster.
 
 ## Start: Begrüßung und Gildeninfos
-Der Reiter **Start** ist der erste beim Öffnen. Er zeigt:
+Der Reiter **Start** ist der erste beim Öffnen. Beim allerersten Start in der Gilde öffnet sich das Fenster damit von selbst – einmal pro Account, nicht auf jedem Twink. Er zeigt:
 - eine Begrüßung mit dem Vornamen und kurz, wer die Gilde ist,
 - die **Nachricht des Tages** live aus dem Spiel (die Gildenleitung ändert sie wie gewohnt im Gildenfenster),
 - die **Raidzeiten** und – falls geladen – den nächsten Raid aus dem Raidplaner,
