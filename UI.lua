@@ -5586,7 +5586,8 @@ function UI:ShowOptions()
         for _, o in ipairs(ns.OPTIONS) do
             if o.key then rows = rows + 1 else groups = groups + 1 end
         end
-        d = NewDialog("ElternabendOptions", 640, 150 + rows * 24 + groups * 34, "Einstellungen")
+        -- Zeilen eng gesetzt: Das Fenster muss auch bei großer Oberflächen-Skalierung auf den Bildschirm passen
+        d = NewDialog("ElternabendOptions", 640, 162 + rows * 21 + groups * 30, "Einstellungen")
         local hint = T.Text(d, "muted")
         hint:SetPoint("TOPLEFT", d.title, "BOTTOMLEFT", 0, -8)
         hint:SetWidth(600)
@@ -5596,20 +5597,20 @@ function UI:ShowOptions()
             .. "von selbst, Töne nur, wenn jemand auf dich wartet.")
 
         d.boxes = {}
-        local y = -104
+        local y = -116
         for _, o in ipairs(ns.OPTIONS) do
             if o.group then
-                y = y - 10
+                y = y - 8
                 local head = T.Text(d, "kicker")
                 head:SetPoint("TOPLEFT", 20, y)
                 head:SetText(o.group)
-                y = y - 24
+                y = y - 22
             else
                 local box = T.Checkbox(d, o.label .. (o.hint and ("   " .. T.Hex("muted", o.hint)) or ""))
                 box:SetPoint("TOPLEFT", 20, y)
                 box.onChange = function(checked) ns.SetOpt(o.key, checked) end
                 d.boxes[o.key] = box
-                y = y - 24
+                y = y - 21
             end
         end
 
