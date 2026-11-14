@@ -14,6 +14,7 @@ ns.Quiz = Quiz
 
 Quiz.COUNT = 10   -- Fragen je Runde
 Quiz.SECONDS = 20 -- Bedenkzeit je Frage
+Quiz.SINCE = "4.15.0" -- ab dieser Addon-Version kann man mitspielen
 
 local SEP = "\t"
 local GROUP_CHANNELS = { RAID = true, PARTY = true, INSTANCE_CHAT = true }
@@ -68,6 +69,22 @@ end
 -- Runde -----------------------------------------------------------------------
 function Quiz:CanHost()
     return IsInGroup() and ns.IsTrusted(ns.UnitFullName("player"))
+end
+
+-- Wer in der Gruppe kann mitspielen? Zahl der Addons mit Quiz und die Namen der übrigen
+-- (kein Addon, ältere Version oder noch keine Meldung).
+function Quiz:Readiness()
+    local with, without = 0, {}
+    local me = ns.PlayerKey()
+    for _, m in ipairs(ns.Raid.members) do
+        local version = m.key == me and ns.VERSION or ns.Comm.versions[m.key]
+        if version and (version == "dev" or ns.CompareVersions(version, self.SINCE) >= 0) then
+            with = with + 1
+        else
+            table.insert(without, ns.ShortName(m.name) or "?")
+        end
+    end
+    return with, without
 end
 
 -- Leitung: Runde für die Gruppe starten. Ohne Gruppe: Proberunde.
@@ -353,6 +370,9 @@ end
 
 -- /ea quiz und der Knopf im Raid-Reiter
 function Quiz:Open()
+    local r = self.round
+    -- Eine beendete Proberunde nicht stehen lassen: wieder die Startansicht zeigen
+    if r and r.solo and r.done then self.round = nil end
     if not self.round then self.view = "start" end
     self:Show()
 end
@@ -428,6 +448,10 @@ function Quiz:Refresh()
     local d = self.frame
     if not d or not d:IsShown() then return end
     local c = T.colors
+    -- Proberunde beendet und inzwischen in einer Gruppe: Jetzt zählt das Quiz für alle
+    if self.round and self.round.solo and self.round.done and IsInGroup() then
+        self.round, self.view = nil, "start"
+    end
     local r, view = self.round, self.view or "start"
     local asking = (view == "question" or view == "feedback") and r and r.q
 
@@ -505,9 +529,18 @@ function Quiz:Refresh()
                 .. "mit Rangliste am Ende."))
             d.next:SetText("Proberunde starten")
         elseif self:CanHost() then
+            local with, without = self:Readiness()
+            local ready = "Mitspielen können gerade " .. with .. " von " .. (with + #without)
+                .. " in der Gruppe (Addon ab " .. self.SINCE .. ")."
+            if #without > 0 then
+                local names = {}
+                for i = 1, math.min(8, #without) do names[i] = without[i] end
+                ready = ready .. "\n" .. T.Hex("muted", "Noch nicht dabei: " .. table.concat(names, ", ")
+                    .. (#without > 8 and (" und " .. (#without - 8) .. " weitere") or "") .. ".")
+            end
             d.body:SetText("Du leitest die Gruppe und kannst das Quiz für alle starten: " .. about .. "\n\n"
                 .. "Bei allen mit dem Gildenaddon geht dieses Fenster auf, jeder bekommt dieselben Fragen. "
-                .. "Am Ende siehst du die Rangliste und kannst die ersten drei ansagen.")
+                .. "Am Ende siehst du die Rangliste und kannst die ersten drei ansagen.\n\n" .. ready)
             d.next:SetText("Quiz für alle starten")
         else
             d.body:SetText("Das Quiz startet die Leitung der Gruppe. Sobald es losgeht, öffnet sich dieses Fenster von selbst.")
@@ -519,3 +552,8 @@ function Quiz:Refresh()
     d.footer:SetText((r and (r.correct .. " / " .. math.max(0, answered) .. " richtig  |  ") or "")
         .. "Serie " .. self.streak .. "  |  Bestwert " .. (Settings().best or 0))
 end
+
+-- Gruppe geändert (beigetreten, Leitung gewechselt, Addon-Versionen gemeldet): Ansicht anpassen
+ns:Listen("ROSTER_UPDATE", function()
+    if Quiz.frame and Quiz.frame:IsShown() and Quiz.view ~= "question" then Quiz:Refresh() end
+end)
