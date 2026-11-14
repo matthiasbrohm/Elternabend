@@ -42,6 +42,7 @@ local defaults = {
     sync = {},        -- Abgleich über die Mac-App: wann zuletzt ein Raid von der Webseite übernommen wurde
     profiles = {},    -- Spielzeiten und „Erste Schritte“ der Gilde: Schlüssel -> { name, t, times, steps, note }
     me = {},          -- eigene Spielzeiten und abgehakte Schritte (accountweit)
+    quiz = { best = 0 }, -- Quiz: längste Serie; als Leitung zusätzlich, welche Fragen schon dran waren
     away = {         -- „Kind wach, gleich zurück“
         showButton = true, -- Elternknopf auf dem Bildschirm, solange man in einer Gruppe ist
         announce = true,   -- zusätzlich eine Zeile im Gruppenchat (für Spieler ohne Addon)
@@ -339,6 +340,7 @@ local function Help()
     print("  /ea ginv – Flüster-Einladung in die Gilde an/aus")
     print("  /ea gilde – Mitglieder der Gilde mit Mains und Twinks")
     print("  /ea main – Diesen Charakter als Main festlegen")
+    print("  /ea quiz – Quiz: in der Gruppe startet es die Leitung für alle, allein ist es eine Proberunde")
     print("  /ea kind [Minuten] – „Kind wach, gleich zurück“ (Standard 5 Minuten)")
     print("  /ea da – Wieder da")
     print("  /ea knopf – Elternknopf auf dem Bildschirm an/aus")
@@ -407,6 +409,8 @@ SlashCmdList.ELTERNABENDRAID = function(input)
         ns.UI:ShowPlayTimes()
     elseif cmd == "schritte" or cmd == "ersteschritte" then
         ns.UI:ShowSteps()
+    elseif cmd == "quiz" then
+        ns.Quiz:Open()
     elseif cmd == "abgleich" or cmd == "sync" then
         ns.Sync:Status()
         ns.Sync:ApplyRaid(true)

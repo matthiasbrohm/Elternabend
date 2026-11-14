@@ -272,6 +272,13 @@ Im Reiter **Gilde** öffnet „Meine Spielzeiten …“ (oder `/ea spielzeiten`)
 ## Erste Schritte
 Für Neue gibt es auf der Startseite die Zeile **Erste Schritte** (oder `/ea schritte`): Discord beitreten, Main festlegen, Berufe erfassen, Spielzeiten eintragen, Raidtermine ansehen. Main, Berufe und Spielzeiten haken sich von selbst ab; die Zeile verschwindet, sobald alles erledigt ist. Die Gildenleitung sieht im Tooltip der Gildenliste und unter **Leitung » „Erste Schritte“**, wer noch etwas offen hat – und welche Neuen der letzten 30 Tage sich noch gar nicht gemeldet haben (kein Addon oder eine ältere Version).
 
+## Quiz
+Für Zeltlager, Lagerfeuer und Wartezeiten: Im Reiter **Raid » Übersicht** öffnet „Quiz“ (oder `/ea quiz`) das Quizfenster. Die Leitung der Gruppe (Raidleitung und Assistenten, in der Fünfergruppe der Anführer) startet die Runde für alle: Das Addon zieht zehn Fragen zufällig aus hundert, bei allen mit Addon geht das Fenster auf, und jeder beantwortet dieselben Fragen – vier Antworten zur Auswahl, 20 Sekunden je Frage. Die Uhr läuft erst nach dem Klick auf „Los geht's“.
+
+Am Ende meldet jedes Addon sein Ergebnis; alle sehen die Rangliste (mehr Richtige zuerst, bei Gleichstand die schnellere Zeit), und die Leitung sagt mit einem Klick die ersten drei im Gruppenchat an. Fragen, die schon dran waren, kommen erst wieder, wenn alle hundert gestellt wurden. Ohne Gruppe ist das Quiz eine Proberunde für einen allein.
+
+Die Fragen stehen in `QuizFragen.lua` (Frage, richtige Antwort, drei falsche). Neue Fragen hinten anhängen und `rev` erhöhen – alle in der Gruppe brauchen denselben Stand.
+
 ## Abgleich mit der Webseite über die Mac-App
 Ein Addon kann nicht ins Internet – deshalb läuft der Austausch mit gilde-elternabend.de sonst über Kopieren und Einfügen. Die kleine Mac-App **Elternabend Abgleich** (Ordner `Mac-App`, für die Gildenleitung) nimmt das ab:
 
@@ -318,6 +325,7 @@ Unter **Optionen » Tastaturbelegung » Elternabend** (eigener Abschnitt, unten 
 | `/ea klassenliste` | Klassenliste für die Webseite erstellen (nur Gildenleitung) |
 | `/ea spielzeiten` | Eigene Spielzeiten eintragen und sehen, wer zur selben Zeit spielt |
 | `/ea schritte` | Die „Ersten Schritte“ für neue Mitglieder zeigen |
+| `/ea quiz` | Quiz öffnen: in der Gruppe startet es die Leitung für alle, allein ist es eine Proberunde |
 | `/ea anfragen` | Fenster und Ton für Gildenanfragen aus- oder einschalten (Anfragen sammeln sich im Reiter Invite) |
 | `/ea abgleich` | Stand des Abgleichs über die Mac-App zeigen und den Raid von der Webseite übernehmen |
 | `/ea lagerfeuer` | Zeigt, welche Lagerfeuer-Buffs das Addon an dir erkennt (mit Zauber-IDs) |

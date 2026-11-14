@@ -1362,7 +1362,17 @@ function UI:CreateRaidPanel()
     ms:SetScript("OnClick", function() ns.Raid:AnnounceMissingSignups() end)
     local msr = T.Button(p, "Fehlende SR ansagen", 150)
     msr:SetScript("OnClick", function() ns.Raid:AnnounceMissingSR() end)
-    Row(p, 0, -78, { rc, prep, p.pause, ms, msr })
+    local quiz = T.Button(p, "Quiz", 80)
+    quiz:SetScript("OnClick", function() ns.Quiz:Open() end)
+    quiz:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_BOTTOM")
+        GameTooltip:AddLine("Quiz")
+        GameTooltip:AddLine("Zehn Fragen, zufällig aus hundert. Die Leitung startet es für die ganze Gruppe, "
+            .. "am Ende gibt es eine Rangliste.", 1, 1, 1, true)
+        GameTooltip:Show()
+    end)
+    quiz:SetScript("OnLeave", GameTooltip_Hide)
+    Row(p, 0, -78, { rc, prep, p.pause, ms, msr, quiz })
 
     -- Klassenverteilung im Tooltip der Kachel „Anwesend“
     cards[2]:EnableMouse(true)
