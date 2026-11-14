@@ -252,6 +252,9 @@ Der Reiter **Gilde** zeigt allen Gildenmitgliedern:
 - **Rechtsklick** auf einen Namen: anflüstern oder in die Gruppe einladen – ist jemand mit einem Twink online, geht beides an diesen Twink.
 - **Rang ändern** (nur wer im Spiel befördern bzw. zurückstufen darf): Im Rechtsklick-Menü stehen „Befördern: …“ und „Zurückstufen: …“ mit dem jeweils nächsten Rang – pro Klick eine Stufe. Blizzard erlaubt Addons das Befördern nicht direkt – der Menüpunkt löst deshalb `/gpromote` bzw. `/gdemote` aus, als hättest du es selbst eingetippt. Im Kampf ist der Menüpunkt ausgeblendet.
 
+### Stufenbereich
+Neben „Alle Spieler“ steht im Reiter **Gilde** der Knopf **„Alle Stufen“**: Er filtert die Liste nach Stufenbereich (1–10, 11–20 … 51–60) – wie in der Klassenliste auf der Webseite. In Klammern steht, wie viele Charaktere der Gilde gerade in dem Bereich sind. Gezeigt werden die Spieler, die dort einen Charakter haben; von ihren Twinks nur die passenden, die Stufe ist hervorgehoben. Zusammen mit „Nur online“ sieht man, wer gerade da ist und einen Charakter zum gemeinsamen Leveln hätte.
+
 ## Gildenwappen
 Das Wappen erscheint im Addon-Menü, oben links im Fenster und am Minimap-Button. Es liegt als `Media/Wappen.tga` im Addon. Ein neues Wappen: Bild als `Grafik/wappen.webp` ablegen und `python3 Grafik/wappen.py` ausführen.
 

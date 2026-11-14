@@ -807,7 +807,9 @@ function UI:CreateMembersPanel()
     -- Links: Übersicht
     p.summary = T.Text(p, "body")
     p.summary:SetPoint("TOPLEFT", 2, -6)
-    local search = T.EditBox(p, 180, "Name suchen …")
+    p.summary:SetWidth(280)
+    p.summary:SetWordWrap(false)
+    local search = T.EditBox(p, 160, "Name suchen …")
     T.AddClearButton(search)
     search:SetPoint("TOPRIGHT", -(rightWidth + 12), 0)
     search:HookScript("OnTextChanged", function() p:Refresh() end)
@@ -817,13 +819,41 @@ function UI:CreateMembersPanel()
     local FILTER_W = 170
     local filterBtn = T.Button(p, "Alle Spieler", FILTER_W)
     filterBtn:SetPoint("RIGHT", search, "LEFT", -8, 0)
-    local menu = T.Panel(p)
-    menu:SetFrameStrata("DIALOG")
-    menu:SetPoint("TOPLEFT", filterBtn, "BOTTOMLEFT", 0, -2)
-    menu:SetWidth(FILTER_W)
-    menu:EnableMouse(true)
-    menu:Hide()
-    menu.buttons = {}
+    -- Aufklappmenü unter einem Knopf; entries = { { label = …, value = … }, … }
+    local menus = {}
+    local function NewMenu(anchor, width)
+        local m = T.Panel(p)
+        m:SetFrameStrata("DIALOG")
+        m:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", 0, -2)
+        m:SetWidth(width)
+        m:EnableMouse(true)
+        m:Hide()
+        m.buttons = {}
+        function m:Open(entries, current, onPick)
+            for _, other in ipairs(menus) do other:Hide() end
+            for i, e in ipairs(entries) do
+                local b = self.buttons[i]
+                if not b then
+                    b = T.Button(self, "", width - 12)
+                    b:SetHeight(22)
+                    b:SetPoint("TOPLEFT", 6, -6 - (i - 1) * 24)
+                    self.buttons[i] = b
+                end
+                b:SetText(e.value == current and T.Hex("goldBright", e.label) or e.label)
+                b:SetScript("OnClick", function()
+                    self:Hide()
+                    onPick(e.value)
+                end)
+                b:Show()
+            end
+            for i = #entries + 1, #self.buttons do self.buttons[i]:Hide() end
+            self:SetHeight(10 + #entries * 24)
+            self:Show()
+        end
+        table.insert(menus, m)
+        return m
+    end
+    local menu = NewMenu(filterBtn, FILTER_W)
     local function OpenMenu()
         local online, ranks, order = 0, {}, {}
         for _, m in ipairs(M.mains) do
@@ -842,30 +872,47 @@ function UI:CreateMembersPanel()
         end)
         local entries = { { label = "Alle Spieler" }, { label = "Nur online  (" .. online .. ")", value = "online" } }
         for _, r in ipairs(order) do table.insert(entries, { label = r.name .. "  (" .. ranks[r.name] .. ")", value = r.name }) end
-        for i, e in ipairs(entries) do
-            local b = menu.buttons[i]
-            if not b then
-                b = T.Button(menu, "", FILTER_W - 12)
-                b:SetHeight(22)
-                b:SetPoint("TOPLEFT", 6, -6 - (i - 1) * 24)
-                menu.buttons[i] = b
-            end
-            b:SetText(e.value == p.filter and T.Hex("goldBright", e.label) or e.label)
-            b:SetScript("OnClick", function()
-                p.filter = e.value
-                menu:Hide()
-                p:Refresh()
-            end)
-            b:Show()
-        end
-        for i = #entries + 1, #menu.buttons do menu.buttons[i]:Hide() end
-        menu:SetHeight(10 + #entries * 24)
-        menu:Show()
+        menu:Open(entries, p.filter, function(value)
+            p.filter = value
+            p:Refresh()
+        end)
     end
     filterBtn:SetScript("OnClick", function()
         if menu:IsShown() then menu:Hide() else OpenMenu() end
     end)
-    p:HookScript("OnHide", function() menu:Hide() end)
+
+    -- Stufenbereich: wer hat einen Charakter in meiner Nähe (zum gemeinsamen Leveln)?
+    p.levelRange = nil -- nil = alle, sonst 1–6 (siehe Members.LEVEL_RANGES)
+    local LEVEL_W = 130
+    local levelBtn = T.Button(p, "Alle Stufen", LEVEL_W)
+    levelBtn:SetPoint("RIGHT", filterBtn, "LEFT", -8, 0)
+    local levelMenu = NewMenu(levelBtn, LEVEL_W)
+    levelBtn:SetScript("OnClick", function()
+        if levelMenu:IsShown() then
+            levelMenu:Hide()
+            return
+        end
+        local counts = M:LevelCounts()
+        local entries = { { label = "Alle Stufen" } }
+        for i, text in ipairs(M.LEVEL_RANGES) do
+            table.insert(entries, { label = "Stufe " .. text .. "  (" .. counts[i] .. ")", value = i })
+        end
+        levelMenu:Open(entries, p.levelRange, function(value)
+            p.levelRange = value
+            p:Refresh()
+        end)
+    end)
+    levelBtn:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_BOTTOM")
+        GameTooltip:AddLine("Stufenbereich")
+        GameTooltip:AddLine("Zeigt, wer einen Charakter in diesem Bereich hat – zum gemeinsamen Leveln. "
+            .. "In Klammern steht die Zahl der Charaktere.", 1, 1, 1, true)
+        GameTooltip:Show()
+    end)
+    levelBtn:SetScript("OnLeave", GameTooltip_Hide)
+    p:HookScript("OnHide", function()
+        for _, m in ipairs(menus) do m:Hide() end
+    end)
 
     -- Unter der Liste: Aktualisieren und der Stand der Twink-Zuordnung
     local reload = T.Button(p, "Aktualisieren", 120)
@@ -1201,6 +1248,8 @@ function UI:CreateMembersPanel()
         filterBtn:SetShown(IsInGuild())
         filterBtn:SetText(p.filter == "online" and T.Hex("goldBright", "Nur online")
             or p.filter and T.Hex("goldBright", p.filter) or "Alle Spieler")
+        levelBtn:SetShown(IsInGuild())
+        levelBtn:SetText(p.levelRange and T.Hex("goldBright", "Stufe " .. M.LEVEL_RANGES[p.levelRange]) or "Alle Stufen")
         reload:SetShown(IsInGuild())
         p.stand:SetShown(IsInGuild())
         noAccess:SetShown(not IsInGuild())
@@ -1224,7 +1273,7 @@ function UI:CreateMembersPanel()
         for _, m in ipairs(M.mains) do
             if m.onlineAs then online = online + 1 end
         end
-        p.summary:SetText(string.format("%d Spieler  ·  %d Twinks  ·  %d gerade online", #M.mains, twinks, online))
+        p.summary:SetText(string.format("%d Spieler  ·  %d Twinks  ·  %d online", #M.mains, twinks, online))
         local nLinks = 0
         for _ in pairs(ns.db.links) do nLinks = nLinks + 1 end
         if nLinks > 0 then
@@ -1241,7 +1290,8 @@ function UI:CreateMembersPanel()
         -- „Nur online“: Spieler, die mit Main oder Twink online sind (Twinks nur, wenn online).
         -- Rang: Spieler, bei denen Main oder ein Twink diesen Rang hat.
         local filter = ns.Lower(strtrim(search:GetText() or ""))
-        local only = p.filter
+        -- Stufenbereich: Spieler, die dort einen Charakter haben; von den Twinks nur die passenden.
+        local only, range = p.filter, p.levelRange
         local rows, shown = {}, 0
         for _, m in ipairs(M.mains) do
             local match = filter == "" or m.key:find(filter, 1, true)
@@ -1255,17 +1305,29 @@ function UI:CreateMembersPanel()
                 for _, t in ipairs(m.twinks) do if t.rank == only then hit = true end end
                 match = hit
             end
+            if match and range then
+                local hit = M.LevelRange(m.level) == range
+                for _, t in ipairs(m.twinks) do
+                    if M.LevelRange(t.level) == range then hit = true end
+                end
+                match = hit
+            end
             if match then
                 table.insert(rows, m)
                 shown = shown + 1
                 for _, t in ipairs(m.twinks) do
-                    if only ~= "online" or t.online then table.insert(rows, t) end
+                    -- Mit Stufenfilter zählt der Bereich (auch wenn der Twink gerade nicht online ist)
+                    local keep
+                    if range then keep = M.LevelRange(t.level) == range else keep = only ~= "online" or t.online end
+                    if keep then table.insert(rows, t) end
                 end
             end
         end
         if only then
             p.summary:SetText(string.format("%d von %d Spielern  ·  %s", shown, #M.mains,
-                only == "online" and T.Hex("green", "gerade online") or T.Hex("goldBright", only)))
+                only == "online" and T.Hex("green", "online") or T.Hex("goldBright", only)))
+        elseif range then
+            p.summary:SetText(string.format("%d von %d Spielern", shown, #M.mains))
         end
 
         list:SetData(rows, function(row, e)
@@ -1276,7 +1338,13 @@ function UI:CreateMembersPanel()
             c.name:SetText(name)
             c.rank:SetText(e.main and T.Hex("muted", e.rank or "") or (e.rank or ""))
             c.class:SetText(T.Hex("muted", e.class or ""))
-            c.level:SetText((e.level or 0) > 0 and (e.main and T.Hex("muted", e.level) or e.level) or "")
+            -- Mit Stufenfilter: passende Stufe hervorheben, ein Main außerhalb des Bereichs blass
+            local level = (e.level or 0) > 0 and e.level or ""
+            if range and level ~= "" then
+                c.level:SetText(T.Hex(M.LevelRange(e.level) == range and "goldBright" or "dim", level))
+            else
+                c.level:SetText(e.main and level ~= "" and T.Hex("muted", level) or level)
+            end
             if e.online then
                 -- Mit Addon die Version dazu: grün = aktuell, orange = veraltet
                 local version = e.key == ns.PlayerKey() and ns.VERSION or ns.Comm.versions[e.key]

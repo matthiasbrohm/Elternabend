@@ -32,6 +32,26 @@ local TRUSTED_RANKS = 3
 local RANK_EXCEPTIONS = { ["gildenleitung"] = true, ["gildenmeister"] = true }
 
 -- Rechte ------------------------------------------------------------------------
+-- Stufenbereiche wie in der Klassenliste der Webseite: 1 = 1–10 … 6 = 51–60
+Members.LEVEL_RANGES = { "1–10", "11–20", "21–30", "31–40", "41–50", "51–60" }
+
+function Members.LevelRange(level)
+    level = tonumber(level) or 0
+    if level < 1 then return nil end
+    return math.min(#Members.LEVEL_RANGES, math.floor((level - 1) / 10) + 1)
+end
+
+-- Wie viele Charaktere der Gilde in jedem Stufenbereich sind
+function Members:LevelCounts()
+    local counts = {}
+    for i = 1, #self.LEVEL_RANGES do counts[i] = 0 end
+    for _, e in ipairs(self.list) do
+        local r = Members.LevelRange(e.level)
+        if r then counts[r] = counts[r] + 1 end
+    end
+    return counts
+end
+
 function Members:CanView()
     return IsInGuild() and C_GuildInfo.CanViewOfficerNote ~= nil and C_GuildInfo.CanViewOfficerNote()
 end
