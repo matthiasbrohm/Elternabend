@@ -78,12 +78,29 @@ test("Vergabe nur von der Leitung: ein Mitspieler markiert nichts als erhalten",
     check(w.ns.SR:GetReservers(30904)[1].won, "nicht als erhalten markiert")
 end)
 
-
 test("Plündermeister ohne Leitungsrang darf würfeln lassen", function()
     local w = Gruppe()
     w.env.C_PartyInfo = { GetLootMethod = function() return "master", 2 end } -- party2 = Cora
     w.ns.SR:SetEntries({ { itemId = 30904, name = "Anna Sturmwind", plus = 0 } }, "Test")
     w:receive("ROLL\t" .. LINK .. "\t20", "PARTY", "Cora Wind")
     seen(w, "print", "Soft%-Reserve wird ausgewürfelt")
+    noErrors(w)
+end)
+
+-- /ea sync -----------------------------------------------------------------------------------------------------
+test("/ea sync schickt die Soft-Reserves an die Gruppe (wie in Hilfe und README)", function()
+    local w = Gruppe({ leader = true, groupLeader = "Anna Sturmwind" })
+    w.ns.SR:SetEntries({ { itemId = 30904, name = "Beta Lux", plus = 0 } }, "Test")
+    w:slash("/ea sync")
+    w:advance(5)
+    seen(w, "comm", "SRS")
+    noErrors(w)
+end)
+
+test("/ea abgleich zeigt weiter den Stand der Mac-App", function()
+    local w = Gruppe()
+    w:slash("/ea abgleich")
+    check(#w:entries("print") > 0, "keine Ausgabe")
+    notSeen(w, "comm", "SRS")
     noErrors(w)
 end)

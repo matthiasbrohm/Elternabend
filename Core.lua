@@ -492,7 +492,7 @@ SlashCmdList.ELTERNABENDRAID = function(input)
         ns.UI:ShowOptions()
     elseif cmd == "quiz" then
         ns.Quiz:Open()
-    elseif cmd == "abgleich" or cmd == "sync" then
+    elseif cmd == "abgleich" then -- „sync“ heißt: Soft-Reserves an die Gruppe senden (weiter unten)
         ns.Sync:Status()
         ns.Sync:ApplyRaid(true)
     elseif cmd == "lagerfeuer" or cmd == "camp" then
