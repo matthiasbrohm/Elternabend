@@ -55,3 +55,35 @@ test("ohne Einladerecht: Hinweis nur bei einer echten Anfrage", function()
     seen(w, "print", "möchte in die Gilde")
 end)
 
+-- Würfeln ---------------------------------------------------------------------------------------------------
+local LINK = "|cffa335ee|Hitem:30904::::::::70:::::|h[Savior's Grasp]|h|r"
+
+test("Soft-Reserve-Würfeln nur von der Leitung: ein Mitspieler löst keinen Alarm aus", function()
+    local w = Gruppe()
+    w.ns.SR:SetEntries({ { itemId = 30904, name = "Anna Sturmwind", plus = 0 } }, "Test")
+    w:receive("ROLL\t" .. LINK .. "\t20", "PARTY", "Cora Wind")
+    notSeen(w, "print", "Soft%-Reserve wird ausgewürfelt")
+    notSeen(w, "sound")
+    w:receive("ROLL\t" .. LINK .. "\t20", "PARTY", "Beta Lux")
+    seen(w, "print", "Soft%-Reserve wird ausgewürfelt")
+    noErrors(w)
+end)
+
+test("Vergabe nur von der Leitung: ein Mitspieler markiert nichts als erhalten", function()
+    local w = Gruppe()
+    w.ns.SR:SetEntries({ { itemId = 30904, name = "Anna Sturmwind", plus = 0 } }, "Test")
+    w:receive("AWARD\t" .. LINK .. "\tAnna Sturmwind", "PARTY", "Cora Wind")
+    check(not w.ns.SR:GetReservers(30904)[1].won, "als erhalten markiert")
+    w:receive("AWARD\t" .. LINK .. "\tAnna Sturmwind", "PARTY", "Beta Lux")
+    check(w.ns.SR:GetReservers(30904)[1].won, "nicht als erhalten markiert")
+end)
+
+
+test("Plündermeister ohne Leitungsrang darf würfeln lassen", function()
+    local w = Gruppe()
+    w.env.C_PartyInfo = { GetLootMethod = function() return "master", 2 end } -- party2 = Cora
+    w.ns.SR:SetEntries({ { itemId = 30904, name = "Anna Sturmwind", plus = 0 } }, "Test")
+    w:receive("ROLL\t" .. LINK .. "\t20", "PARTY", "Cora Wind")
+    seen(w, "print", "Soft%-Reserve wird ausgewürfelt")
+    noErrors(w)
+end)
