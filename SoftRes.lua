@@ -257,7 +257,10 @@ function SR:ImportSerialized(str, from)
     -- Eine neuere eigene Liste nicht überschreiben
     if (self:Data().importedAt or 0) > (importedAt or 0) then return end
     self:SetEntries(entries, "Sync von " .. from, importedAt)
-    ns.Print(string.format("Soft-Reserve-Liste von %s empfangen (%d Einträge).", from, #entries))
+    -- Ohne Statusmeldungen nur das, was dich betrifft: deine Reservierungen oder die Warnung
+    if ns.Opt("notices") then
+        ns.Print(string.format("Soft-Reserve-Liste von %s empfangen (%d Einträge).", from, #entries))
+    end
     self:PrintOwn()
 end
 

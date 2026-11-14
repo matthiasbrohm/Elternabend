@@ -387,10 +387,12 @@ function Ready:CheckReminder()
     local mins = math.floor(left / 60 + 0.5)
     local text = string.format("Raid in %d Minuten%s – Reparieren, Fläschchen und Essen nicht vergessen!",
         mins, raid.title and (": " .. raid.title) or "")
-    if RaidNotice_AddMessage and RaidWarningFrame then
-        RaidNotice_AddMessage(RaidWarningFrame, text, ChatTypeInfo and ChatTypeInfo.RAID_WARNING or { r = 1, g = 0.86, b = 0.6 })
+    if ns.Opt("raidReminderScreen") then
+        if RaidNotice_AddMessage and RaidWarningFrame then
+            RaidNotice_AddMessage(RaidWarningFrame, text, ChatTypeInfo and ChatTypeInfo.RAID_WARNING or { r = 1, g = 0.86, b = 0.6 })
+        end
+        ns.Sound(SOUNDKIT and SOUNDKIT.RAID_WARNING or 8959, "Master")
     end
-    ns.Sound(SOUNDKIT and SOUNDKIT.RAID_WARNING or 8959, "Master")
     ns.Print(text)
     local problems = self.Problems(self:Collect())
     if #problems > 0 then ns.Print("Dir fehlt noch: " .. table.concat(problems, " · ")) end

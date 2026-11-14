@@ -296,7 +296,7 @@ ns.Comm.handlers.ROLL = function(sender, parts)
     if not itemId then return end
     if ns.SR:HasReserved(itemId, ns.PlayerKey()) then
         ns.Print(string.format("|cff40ff40Deine Soft-Reserve wird ausgewürfelt:|r %s – /roll %d (%ss)", link, ns.db.settings.msMax, seconds or "?"))
-        ns.Sound(SOUNDKIT.RAID_WARNING)
+        ns.Sound(SOUNDKIT.RAID_WARNING, nil, true)
     end
 end
 

@@ -216,7 +216,9 @@ end
 
 function Away:UpdateButton()
     local s = Settings()
-    local visible = s.showButton and (HasGroupmates() or self.me ~= nil)
+    -- Schalter „auch, wenn gerade niemand weg ist“ aus: nur zeigen, solange jemand in der Gruppe weg ist
+    local visible = s.showButton and (self.me ~= nil
+        or (HasGroupmates() and (ns.Opt("awayButtonIdle") or #self:List() > 0)))
     if not visible then
         if self.button then self.button:Hide() end
         return

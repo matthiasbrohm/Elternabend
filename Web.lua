@@ -157,7 +157,7 @@ local function CheckAutoStart()
     local s = ns.db.session
     if s and not s.ended and time() - (s.last or 0) < SESSION_TIMEOUT then return end
     Web:StartSession(true)
-    ns.Print("Raid-Instanz betreten – das Raid-Protokoll läuft.")
+    if ns.Opt("notices") then ns.Print("Raid-Instanz betreten – das Raid-Protokoll läuft.") end
 end
 
 ns:Listen("INIT", function()

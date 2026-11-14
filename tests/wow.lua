@@ -408,13 +408,28 @@ function M.new(opts)
     env.SendChatMessage = env.C_ChatInfo.SendChatMessage
 
     -- Spieler, Gruppe, Gilde
-    env.UnitName = function(u) if u == "player" then return me.name, me.surname end end
+    -- Gruppe: opts.party = { "Beta Lux", … } (party1 …), opts.groupLeader = Name der Leitung
+    env.UnitName = function(u)
+        if u == "player" then return me.name, me.surname end
+        local i = type(u) == "string" and tonumber(u:match("^party(%d)$"))
+        local full = i and opts.party and opts.party[i]
+        if full then return full:match("^(%S+)%s*(.-)$") end
+    end
     env.UnitFullName = env.UnitName
     env.UnitGUID = function(u) if u == "player" then return "Player-1-00000001" end end
     env.UnitClass = function(u) if u == "player" then return "Paladin", "PALADIN", 2 end end
     env.UnitLevel = function() return 60 end
-    env.UnitExists = function(u) return u == "player" or (opts.group and u == "party1") or false end
-    env.UnitIsGroupLeader = function(u) return u == "player" and opts.leader or false end
+    env.UnitExists = function(u)
+        if u == "player" then return true end
+        local i = type(u) == "string" and tonumber(u:match("^party(%d)$"))
+        if i and opts.party then return opts.party[i] ~= nil end
+        return (opts.group and u == "party1") or false
+    end
+    env.UnitIsGroupLeader = function(u)
+        if u == "player" then return opts.leader or false end
+        local name, surname = env.UnitName(u)
+        return name ~= nil and opts.groupLeader == (surname ~= "" and (name .. " " .. surname) or name)
+    end
     env.UnitIsGroupAssistant = function() return false end
     env.UnitInRaid = function() return nil end
     env.UnitAffectingCombat = function() return false end

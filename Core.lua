@@ -328,7 +328,9 @@ ns.OPTIONS = {
         hint = "Gilden- und Offizierschat: „(Beta) Wer kommt mit?“" },
     { key = "chatOnline", label = "Main hinter der Einlog-Meldung",
         hint = "„… ist jetzt online. (Twink von Beta Lux)“" },
-    { key = "chatBoard", label = "Neue Zettel und Antworten der Pinnwand melden" },
+    { key = "chatBoardMine", label = "Zettel an dich und Antworten auf deine Zettel melden" },
+    { key = "chatBoard", label = "Neue Zettel an alle melden",
+        hint = "sonst gesammelt in einer Zeile beim Einloggen" },
     { key = "chatGroups", label = "Neue Gruppengesuche melden",
         get = function() return ns.db.groups.notify end,
         set = function(on) ns.db.groups.notify = on end },
@@ -336,11 +338,19 @@ ns.OPTIONS = {
         hint = "für Mitspieler ohne Addon",
         get = function() return ns.db.away.announce end,
         set = function(on) ns.db.away.announce = on end },
+    { key = "notices", label = "Statusmeldungen",
+        hint = "„Raid-Protokoll läuft“, Pings anderer, ganze Soft-Reserve-Liste" },
     { group = "AUF DEM BILDSCHIRM" },
     { key = "awayButton", label = "Elternknopf, solange du in einer Gruppe bist",
         get = function() return ns.db.away.showButton end,
         set = function(on)
             ns.db.away.showButton = on
+            ns.Away:UpdateButton()
+        end },
+    { key = "awayButtonIdle", label = "Elternknopf auch, wenn niemand weg ist",
+        hint = "sonst nur, solange jemand weg ist",
+        set = function(on)
+            if on then ns.db.options.awayButtonIdle = nil else ns.db.options.awayButtonIdle = false end
             ns.Away:UpdateButton()
         end },
     { key = "minimap", label = "Knopf an der Minimap", hint = "ohne ihn öffnet /ea das Fenster",
@@ -356,13 +366,32 @@ ns.OPTIONS = {
             ns.GuildButton:Refresh()
         end },
     { key = "tooltipSR", label = "Soft-Reserves im Tooltip von Gegenständen" },
-    { key = "raidReminder", label = "Erinnerung kurz vor dem Raid", hint = "Meldung in der Bildschirmmitte" },
+    { key = "raidReminder", label = "Erinnerung kurz vor dem Raid", hint = "eine Zeile im Chat" },
+    { key = "raidReminderScreen", label = "Erinnerung auch groß in der Bildschirmmitte", hint = "mit Ton" },
+    { key = "quizOpen", label = "Quizfenster öffnen, wenn die Leitung startet", hint = "sonst mit /ea quiz" },
+    { key = "recruitPopup", label = "Fenster bei Gildenanfragen",
+        hint = "sonst still im Reiter Invite",
+        get = function() return ns.db.recruit.popup ~= false end,
+        set = function(on)
+            ns.db.recruit.popup = on
+            ns:Fire("RECRUIT_UPDATE")
+        end },
     { key = "lootOpen", label = "Fenster beim Plündern öffnen", hint = "im Raid, wenn es Beute zu verteilen gibt",
         get = function() return ns.db.settings.autoOpenLoot end,
         set = function(on) ns.db.settings.autoOpenLoot = on end },
     { group = "TÖNE" },
-    { key = "sounds", label = "Töne des Addons",
-        hint = "Aufträge, Gruppenanfragen, Zettel an dich, Raid-Erinnerung, Pause" },
+    { key = "soundsWaiting", label = "Töne, wenn jemand auf dich wartet",
+        hint = "Soft-Reserve wird ausgewürfelt, Pause, Gruppenanfrage" },
+    { key = "sounds", label = "Übrige Töne",
+        hint = "Aufträge, Zettel an dich, Taktikbild, Raid-Erinnerung, Gildenanfragen" },
+}
+
+-- Voreinstellungen für die Knöpfe im Einstellungsfenster. „Ruhig“: Information ja, Unterbrechung nein –
+-- nichts öffnet sich von selbst, Töne nur, wenn jemand auf dich wartet, Twinks im Chat bleiben.
+ns.PRESETS = {
+    an = {},
+    ruhig = { minimap = false, sounds = false, chatBoard = false, raidReminderScreen = false, quizOpen = false,
+        notices = false, awayButtonIdle = false, recruitPopup = false },
 }
 
 local optionByKey = {}
@@ -390,9 +419,21 @@ function ns.SetOpt(key, on)
     ns:Fire("OPTIONS_UPDATE", key)
 end
 
--- Töne des Addons laufen hierüber, damit der Schalter „Töne“ sie alle abstellt
-function ns.Sound(kit, channel)
-    if kit and ns.Opt("sounds") then PlaySound(kit, channel) end
+-- Eine Voreinstellung anwenden: "an", "aus" oder "ruhig" (nicht genannte Schalter: an, bei "aus": aus)
+function ns.SetPreset(name)
+    local preset = ns.PRESETS[name]
+    for _, o in ipairs(ns.OPTIONS) do
+        if o.key then
+            local on = name ~= "aus"
+            if preset and preset[o.key] ~= nil then on = preset[o.key] end
+            ns.SetOpt(o.key, on)
+        end
+    end
+end
+
+-- Töne des Addons laufen hierüber. waiting = jemand wartet gerade auf dich (eigener Schalter)
+function ns.Sound(kit, channel, waiting)
+    if kit and ns.Opt(waiting and "soundsWaiting" or "sounds") then PlaySound(kit, channel) end
 end
 
 -- Initialisierung --------------------------------------------------------
@@ -401,6 +442,13 @@ ns:On("ADDON_LOADED", function(name)
     ElternabendDB = ElternabendDB or {}
     CopyDefaults(defaults, ElternabendDB)
     ns.db = ElternabendDB
+    -- Umstellung 2: „Töne“ und „Pinnwand melden“ sind jetzt je zwei Schalter. Wer sie aus hatte, bekommt beide Teile aus.
+    if (ns.db.optionsVersion or 1) < 2 then
+        local o = ns.db.options
+        if o.sounds == false then o.soundsWaiting = false end
+        if o.chatBoard == false then o.chatBoardMine = false end
+        ns.db.optionsVersion = 2
+    end
     C_ChatInfo.RegisterAddonMessagePrefix(ns.PREFIX)
     ns:Fire("INIT")
 end)
