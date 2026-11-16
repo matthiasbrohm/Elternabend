@@ -65,7 +65,7 @@ Danach reicht nach jeder Änderung an einer `.lua`-Datei ein `/reload`. Neu star
 
 | Reiter | Inhalt |
 |---|---|
-| **Raid » Übersicht** | Kacheln für Raid, Anwesenheit (Klassen im Tooltip), Beutemethode und Soft-Reserves. Liste aller Spieler mit Gruppe, Rolle, Klasse, Rang, Anmeldung (dabei, Ersatzbank, fehlt noch, nicht angemeldet), Status, Addon-Version, Vorbereitung und Soft-Reserves. Knöpfe für Bereitschaftscheck, Vorbereitung und Pause. |
+| **Raid » Übersicht** | Kacheln für Raid, Anwesenheit (Klassen im Tooltip), Beutemethode und Soft-Reserves. Liste aller Spieler mit Gruppe, Rolle, Klasse, Rang, Anmeldung (dabei, Ersatzbank, fehlt noch, nicht angemeldet), Status, Addon-Version, Vorbereitung und Soft-Reserves. Knöpfe für Bereitschaftscheck, Rollenabfrage (alle wählen Tank, Heiler oder Schaden; nur Leitung und Assistenten), Vorbereitung und Pause. |
 | **Raid » Soft-Reserve** | Alle Reservierungen nach Boss, mit Suche. „An Gruppe senden“ verteilt die Liste (nur Leitung und Assistenten). |
 | **Raid » Plündermeister** | Beute aus der Leiche mit den SR-Spielern. Würfeln, Würfe auswerten, Item per Klick vergeben. |
 | **Gruppen** | Gruppensuche in der Gilde: Gesuch eintragen, melden, einladen. |
@@ -173,7 +173,7 @@ Jedes Addon prüft den eigenen Charakter: Fläschchen (oder Elixier/Phiole), Ess
 Wer einen Raid aus dem Raidplaner einfügt, verteilt dessen Termin an die Gilde. 15 Minuten vor Beginn erinnert das Addon alle mit einer Bildschirmmeldung und sagt dir, was dir noch fehlt.
 
 ## Gruppensuche
-Im Reiter **Gruppen** einträgst du, wofür du Mitspieler suchst und wie viele Tanks, Heiler und DDs (Klick: mehr, Rechtsklick: weniger). Die Gilde sieht das Gesuch sofort (auch im Chat, abschaltbar mit `/ea gruppenhinweis`). Andere wählen es aus und melden sich als Tank, Heiler oder DD; du siehst die Meldungen und lädst mit einem Klick ein. Gesuche verschwinden nach 90 Minuten, beim Ausloggen oder mit **Beenden** – und von selbst, sobald deine Gruppe voll ist: Das Addon merkt sich beim Start, wie groß die Gruppe werden soll (wer schon drin ist plus die gesuchten Plätze), und schließt das Gesuch, wenn so viele Spieler in der Gruppe sind – auch wenn du per Hand eingeladen hast.
+Im Reiter **Gruppen** einträgst du, wofür du Mitspieler suchst und wie viele Tanks, Heiler und DDs (Klick: mehr, Rechtsklick: weniger). Der Knopf **Dungeons** neben dem Feld klappt eine Liste aller Dungeons mit empfohlenem Stufenbereich auf (passende für deine Stufe sind grün); ein Klick trägt den Namen ein. Das Feld bleibt frei beschreibbar – für PvP, Weltbosse oder Hogger. Die Gilde sieht das Gesuch sofort (auch im Chat, abschaltbar mit `/ea gruppenhinweis`). Andere wählen es aus und melden sich als Tank, Heiler oder DD; du siehst die Meldungen und lädst mit einem Klick ein. Gesuche verschwinden nach 90 Minuten, beim Ausloggen oder mit **Beenden** – und von selbst, sobald deine Gruppe voll ist: Das Addon merkt sich beim Start, wie groß die Gruppe werden soll (wer schon drin ist plus die gesuchten Plätze), und schließt das Gesuch, wenn so viele Spieler in der Gruppe sind – auch wenn du per Hand eingeladen hast.
 
 Mit dem Häkchen **„Auch im Gildenchat posten“** (standardmäßig an) schreibt das Addon beim Start einmal eine Zeile in den Gildenchat, z. B. „Suche Gruppe für DM: 1 Tank, 2 DD – gemütlich. Mit Addon über /ea gruppen melden, sonst anflüstern!“ So sehen auch Mitglieder ohne Addon das Gesuch und melden sich per Flüstern. Addon-Nutzer bekommen dann keine zweite Meldung.
 
