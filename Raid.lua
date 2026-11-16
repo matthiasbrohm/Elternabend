@@ -174,8 +174,30 @@ ns:On("READY_CHECK_FINISHED", function()
     ns:Fire("ROSTER_UPDATE")
 end)
 
+-- Rollenabfrage ------------------------------------------------------------
+-- Blizzards eigene Abfrage: jeder in der Gruppe bekommt das Fenster „Wähle deine Rolle“.
+function Raid:RolePoll()
+    if not IsInGroup() then
+        ns.Print("Rollenabfrage geht erst in einer Gruppe oder einem Schlachtzug.")
+        return false
+    end
+    if not (UnitIsGroupLeader("player") or UnitIsGroupAssistant("player")) then
+        ns.Print("Die Rollenabfrage darf nur starten, wer die Gruppe leitet oder Assistent ist.")
+        return false
+    end
+    if type(InitiateRolePoll) ~= "function" then
+        ns.Print("Dieser Spielclient kennt keine Rollenabfrage.")
+        return false
+    end
+    InitiateRolePoll()
+    return true
+end
+
 ns:On("GROUP_ROSTER_UPDATE", function() Raid:Update() end)
 ns:On("PLAYER_ENTERING_WORLD", function() Raid:Update() end)
+-- Antworten auf die Rollenabfrage: Spalte „Rolle“ gleich nachziehen.
+-- Geschützt, falls der Client das Ereignis nicht kennt (dann reicht GROUP_ROSTER_UPDATE).
+pcall(ns.On, ns, "PLAYER_ROLES_ASSIGNED", function() Raid:Update() end)
 
 -- Raidgruppen aus dem Raidplaner -----------------------------------------------------------
 -- Der Export der Webseite enthält die geplanten Fünfergruppen („gruppe;1;Name;…“). Das Addon
