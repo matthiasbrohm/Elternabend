@@ -346,23 +346,98 @@ function T.Scroll(parent)
     sf:SetScrollChild(content)
     sf.content = content
 
-    local thumb = sf:CreateTexture(nil, "OVERLAY")
-    thumb:SetWidth(3)
-    thumb:SetColorTexture(Color(c.gold, 0.7))
+    -- Regler am rechten Rand: mit dem Mausrad, durch Ziehen oder durch Klick in die Leiste bedienbar.
+    -- Der Inhalt lässt rechts 10 Pixel frei (siehe OnSizeChanged), die Leiste verdeckt also nichts.
+    local bar = CreateFrame("Frame", nil, sf)
+    bar:SetWidth(10)
+    bar:SetPoint("TOPRIGHT", sf, "TOPRIGHT", 0, 0)
+    bar:SetPoint("BOTTOMRIGHT", sf, "BOTTOMRIGHT", 0, 0)
+    bar:SetFrameLevel(sf:GetFrameLevel() + 10)
+    bar:EnableMouse(true)
+    bar:Hide()
+    sf.bar = bar
+
+    local track = bar:CreateTexture(nil, "BACKGROUND")
+    track:SetWidth(1)
+    track:SetPoint("TOPRIGHT", bar, "TOPRIGHT", -2, 0)
+    track:SetPoint("BOTTOMRIGHT", bar, "BOTTOMRIGHT", -2, 0)
+    track:SetColorTexture(Color(c.gold, 0.18))
+
+    local thumb = bar:CreateTexture(nil, "OVERLAY")
+    local size = 0 -- Höhe des Reglers
+    local grab -- Abstand Mauszeiger -> Oberkante des Reglers, solange gezogen wird
+    local hover = false
+
+    local function Paint()
+        if grab or hover then
+            thumb:SetWidth(5)
+            thumb:SetColorTexture(Color(c.goldBright, 1))
+        else
+            thumb:SetWidth(3)
+            thumb:SetColorTexture(Color(c.gold, 0.7))
+        end
+    end
+    Paint()
 
     local function UpdateThumb()
         local range, height = sf:GetVerticalScrollRange(), sf:GetHeight()
         if range <= 0 or height <= 0 then
-            thumb:Hide()
+            bar:Hide()
             return
         end
-        local size = math.max(20, height * height / (height + range))
+        size = math.max(20, height * height / (height + range))
         thumb:SetHeight(size)
         thumb:ClearAllPoints()
-        thumb:SetPoint("TOPRIGHT", sf, "TOPRIGHT", 0, -(sf:GetVerticalScroll() / range) * (height - size))
-        thumb:Show()
+        thumb:SetPoint("TOPRIGHT", bar, "TOPRIGHT", 0, -(sf:GetVerticalScroll() / range) * (height - size))
+        bar:Show()
     end
     sf.UpdateThumb = UpdateThumb
+
+    -- Mauszeiger, gemessen von der Oberkante der Leiste nach unten
+    local function CursorOffset()
+        local _, y = GetCursorPosition()
+        return bar:GetTop() - y / bar:GetEffectiveScale()
+    end
+
+    local function Follow()
+        local range, height = sf:GetVerticalScrollRange(), sf:GetHeight()
+        local travel = height - size
+        if range <= 0 or travel <= 0 then return end
+        local pos = (CursorOffset() - grab) / travel * range
+        sf:SetVerticalScroll(math.max(0, math.min(range, pos)))
+        UpdateThumb()
+    end
+
+    local function StopDrag()
+        if not grab then return end
+        grab = nil
+        bar:SetScript("OnUpdate", nil)
+        Paint()
+    end
+
+    bar:SetScript("OnMouseDown", function(_, button)
+        if button ~= "LeftButton" then return end
+        local range, height = sf:GetVerticalScrollRange(), sf:GetHeight()
+        local travel = height - size
+        if range <= 0 or travel <= 0 then return end
+        local top = sf:GetVerticalScroll() / range * travel
+        local offset = CursorOffset()
+        -- Klick neben den Regler: der Regler springt mittig unter den Mauszeiger
+        grab = (offset >= top and offset <= top + size) and (offset - top) or size / 2
+        Paint()
+        Follow()
+        bar:SetScript("OnUpdate", function()
+            if not IsMouseButtonDown("LeftButton") then
+                StopDrag()
+                return
+            end
+            Follow()
+        end)
+    end)
+    bar:SetScript("OnMouseUp", StopDrag)
+    bar:SetScript("OnHide", StopDrag)
+    bar:SetScript("OnEnter", function() hover = true Paint() end)
+    bar:SetScript("OnLeave", function() hover = false Paint() end)
 
     sf:EnableMouseWheel(true)
     sf:SetScript("OnMouseWheel", function(self, delta)
