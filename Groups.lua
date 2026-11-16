@@ -21,6 +21,62 @@ local function Clean(s)
     return (tostring(s or ""):gsub("[\t\r\n|]", " "))
 end
 
+-- Dungeons zur Auswahl (Reiter „Gruppen“): Name, Ort des Eingangs, empfohlene Stufen.
+-- Dieselbe Liste wie im Dungeonfinder der Webseite (dungeons.php) – bei Änderungen beide anpassen.
+Groups.DUNGEONS = {
+    { name = "Halle der Thanen", zone = "Eisenschmiede", min = 13, max = 18 },
+    { name = "Ruinen von Lordaeron", zone = "Tirisfal", min = 15, max = 20 },
+    { name = "Die Todesminen", zone = "Westfall", min = 17, max = 26 },
+    { name = "Die Höhlen des Wehklagens", zone = "Brachland", min = 17, max = 24 },
+    { name = "Burg Schattenfang", zone = "Silberwald", min = 22, max = 30 },
+    { name = "Das Verlies", zone = "Sturmwind", min = 22, max = 30 },
+    { name = "Tiefschwarze Grotte", zone = "Eschental", min = 24, max = 32 },
+    { name = "Ausgrabungsstätte: Sumpfland", zone = "Sumpfland", min = 24, max = 29 },
+    { name = "Dalaran", zone = "Alteracgebirge", min = 28, max = 33 },
+    { name = "Scharlachrotes Kloster: Friedhof", zone = "Tirisfal", min = 28, max = 34 },
+    { name = "Gnomeregan", zone = "Dun Morogh", min = 29, max = 38 },
+    { name = "Der Kral der Klingenhauer", zone = "Brachland", min = 29, max = 38 },
+    { name = "Scharlachrotes Kloster: Bibliothek", zone = "Tirisfal", min = 30, max = 36 },
+    { name = "Scharlachrotes Kloster: Waffenkammer", zone = "Tirisfal", min = 33, max = 38 },
+    { name = "Scharlachrotes Kloster: Kathedrale", zone = "Tirisfal", min = 35, max = 42 },
+    { name = "Die versunkene Stadt", zone = "Schlingendorntal", min = 35, max = 40 },
+    { name = "Die Hügel der Klingenhauer", zone = "Brachland", min = 37, max = 46 },
+    { name = "Festung Krol'dok", zone = "Flusslande", min = 40, max = 45 },
+    { name = "Uldaman", zone = "Ödland", min = 41, max = 51 },
+    { name = "Zul'Farrak", zone = "Tanaris", min = 44, max = 54 },
+    { name = "Maraudon", zone = "Desolace", min = 46, max = 55 },
+    { name = "Gefängnis der Insel Alcaz", zone = "Insel Alcaz", min = 48, max = 53 },
+    { name = "Der Tempel von Atal'Hakkar", zone = "Sümpfe des Elends", min = 50, max = 56 },
+    { name = "Schwarzfelstiefen", zone = "Schwarzfels", min = 52, max = 60 },
+    { name = "Untere Schwarzfelsspitze", zone = "Schwarzfels", min = 55, max = 60 },
+    { name = "Schwarzschlundfeste", zone = "Azshara", min = 55, max = 60 },
+    { name = "Düsterbruch", zone = "Feralas", min = 56, max = 60 },
+    { name = "Stratholme", zone = "Östliche Pestländer", min = 58, max = 60 },
+    { name = "Scholomance", zone = "Westliche Pestländer", min = 58, max = 60 },
+    { name = "Terrasse des Formers", zone = "Krater von Un'Goro", min = 58, max = 60 },
+}
+
+-- Suchwort je Dungeon: Name ohne Artikel, klein („todesminen“) – so passt auch „Todesminen ab Brücke“
+for _, d in ipairs(Groups.DUNGEONS) do
+    d.key = d.name:gsub("^Der ", ""):gsub("^Die ", ""):gsub("^Das ", ""):lower()
+end
+
+-- Dungeon zu einem Gesuchstext, oder nil (freie Gesuche wie „Hogger“ oder „PvP“). Bei mehreren Treffern
+-- gewinnt der längste Name („Scharlachrotes Kloster: Friedhof“ vor allem Kürzeren).
+function Groups.Dungeon(what)
+    local text = tostring(what or ""):lower()
+    local best
+    for _, d in ipairs(Groups.DUNGEONS) do
+        if text:find(d.key, 1, true) and (not best or #d.key > #best.key) then best = d end
+    end
+    return best
+end
+
+-- Passt die Stufe in den empfohlenen Bereich?
+function Groups.Fits(d, level)
+    return level ~= nil and level >= d.min and level <= d.max
+end
+
 -- Text für den Gildenchat, damit auch Mitglieder ohne Addon das Gesuch sehen
 function Groups.ChatText(m)
     local text = "Suche für " .. Clean(m.what) .. " noch " .. Groups.NeedText(m.need)

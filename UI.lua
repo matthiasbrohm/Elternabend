@@ -3170,6 +3170,12 @@ function UI:CreateGroupsPanel()
         GameTooltip:AddLine(ns.ShortName(g.leader) .. ": " .. g.what)
         GameTooltip:AddLine("Gesucht: " .. G.NeedText(g.need), 1, 1, 1)
         if g.note ~= "" then GameTooltip:AddLine("„" .. g.note .. "“", 1, 1, 1, true) end
+        local d = G.Dungeon(g.what)
+        if d then
+            local fits = G.Fits(d, UnitLevel("player"))
+            GameTooltip:AddLine("Empfohlen: Stufe " .. d.min .. "–" .. d.max .. "  ·  " .. d.zone,
+                fits and 0.4 or 0.6, fits and 0.85 or 0.6, fits and 0.4 or 0.6)
+        end
         GameTooltip:AddLine("Seit " .. math.floor((GetTime() - g.started) / 60) .. " Minuten", 0.6, 0.6, 0.6)
         if g ~= G:Mine() then GameTooltip:AddLine("Klick: auswählen  ·  Rechtsklick: anflüstern", 0.84, 0.69, 0.35) end
         GameTooltip:Show()
@@ -3213,8 +3219,87 @@ function UI:CreateGroupsPanel()
     own:SetPoint("TOPRIGHT")
     own:SetWidth(rightWidth)
     local inner = rightWidth - 32
-    p.what = T.EditBox(own, inner, "Wofür? z. B. „Barrow Deeps“")
+    -- Wofür: frei eintragen („Hogger“, „PvP“, „Weltboss“) oder einen Dungeon aus der Liste wählen
+    local PICK_W = 92
+    p.what = T.EditBox(own, inner - PICK_W - 8, "Wofür? Frei eintragen")
     p.what:SetPoint("TOPLEFT", 16, -30)
+    p.pick = T.Button(own, "Dungeons", PICK_W)
+    p.pick:SetHeight(26)
+    p.pick:SetPoint("LEFT", p.what, "RIGHT", 8, 0)
+    p.pick:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_BOTTOM")
+        GameTooltip:AddLine("Dungeon wählen")
+        GameTooltip:AddLine("Liste aller Dungeons mit empfohlenem Stufenbereich. Für alles andere – PvP, "
+            .. "Weltboss, Hogger – einfach links hineinschreiben.", 1, 1, 1, true)
+        GameTooltip:Show()
+    end)
+    p.pick:SetScript("OnLeave", GameTooltip_Hide)
+
+    -- Aufklappliste unter dem Feld: scrollbar, passende Dungeons für die eigene Stufe grün
+    local PICK_ROWS = 12
+    local pickMenu = T.Panel(p)
+    pickMenu:SetFrameStrata("DIALOG")
+    pickMenu:SetPoint("TOPRIGHT", p.pick, "BOTTOMRIGHT", 0, -2)
+    pickMenu:SetSize(inner + 40, 12 + PICK_ROWS * ROW_H) -- etwas breiter als die Karte: lange Namen passen
+    pickMenu:EnableMouse(true)
+    pickMenu:Hide()
+    p.pickMenu = pickMenu
+    local pickSf = T.Scroll(pickMenu)
+    pickSf:SetPoint("TOPLEFT", 6, -6)
+    pickSf:SetPoint("BOTTOMRIGHT", -4, 6)
+    pickSf.content:SetHeight(#G.DUNGEONS * ROW_H)
+    pickMenu.rows = {}
+    for i, d in ipairs(G.DUNGEONS) do
+        local row = CreateFrame("Button", nil, pickSf.content)
+        row:SetHeight(ROW_H)
+        row:SetPoint("TOPLEFT", 0, -(i - 1) * ROW_H)
+        row:SetPoint("RIGHT", pickSf.content, "RIGHT")
+        local hl = row:CreateTexture(nil, "HIGHLIGHT")
+        hl:SetAllPoints()
+        hl:SetColorTexture(T.colors.gold[1], T.colors.gold[2], T.colors.gold[3], 0.14)
+        row.level = T.Text(row, "small", "RIGHT")
+        row.level:SetPoint("RIGHT", -4, 0)
+        row.level:SetWidth(44)
+        row.name = T.Text(row, "small")
+        row.name:SetPoint("LEFT", 6, 0)
+        row.name:SetPoint("RIGHT", row.level, "LEFT", -6, 0)
+        row.name:SetWordWrap(false)
+        row.name:SetText(d.name)
+        row.dungeon = d
+        row:SetScript("OnClick", function()
+            pickMenu:Hide()
+            p.what:SetText(d.name)
+            p.what:ClearFocus()
+        end)
+        row:SetScript("OnEnter", function(self)
+            GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+            GameTooltip:AddLine(d.name)
+            GameTooltip:AddLine(d.zone .. "  ·  empfohlen für Stufe " .. d.min .. "–" .. d.max, 1, 1, 1)
+            GameTooltip:Show()
+        end)
+        row:SetScript("OnLeave", GameTooltip_Hide)
+        pickMenu.rows[i] = row
+    end
+    function pickMenu:Open()
+        local level = UnitLevel("player")
+        local first
+        for i, row in ipairs(self.rows) do
+            local d = row.dungeon
+            local fits = G.Fits(d, level)
+            if fits and not first then first = i end
+            row.level:SetText(T.Hex(fits and "green" or "muted", d.min .. "–" .. d.max))
+            row.name:SetText(fits and T.Hex("goldBright", d.name) or d.name)
+        end
+        self:Show()
+        -- So weit blättern, dass der erste passende Dungeon oben steht (eine Zeile Vorlauf)
+        local most = math.max(0, (#self.rows - PICK_ROWS) * ROW_H)
+        pickSf:SetVerticalScroll(math.min(most, math.max(0, ((first or 1) - 2) * ROW_H)))
+        pickSf.UpdateThumb()
+    end
+    p.pick:SetScript("OnClick", function()
+        if pickMenu:IsShown() then pickMenu:Hide() else pickMenu:Open() end
+    end)
+    p:HookScript("OnHide", function() pickMenu:Hide() end)
     p.need = { tank = 1, heal = 1, dd = 3 }
     local MAX = { tank = 2, heal = 3, dd = 9 }
     p.needButtons = {}
@@ -3255,6 +3340,7 @@ function UI:CreateGroupsPanel()
     p.post = T.Button(own, "Gruppe suchen", 170, "primary")
     p.post:SetPoint("TOPLEFT", p.toChat, "BOTTOMLEFT", 0, -8)
     p.post:SetScript("OnClick", function()
+        pickMenu:Hide()
         p.what:ClearFocus()
         p.note:ClearFocus()
         G:Post(p.what:GetText(), p.need, p.note:GetText())
