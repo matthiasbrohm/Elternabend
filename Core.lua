@@ -8,6 +8,9 @@ ns.PREFIX = "ElternRaid"
 ns.WEBSITE = "gilde-elternabend.de"
 ns.DOWNLOAD = "gilde-elternabend.de/addon" -- Download-Seite mit Versionshinweisen
 ns.LOGO = "Interface\\AddOns\\" .. ADDON .. "\\Media\\Wappen" -- Gildenwappen (Media/Wappen.tga)
+-- Kleines Zeichen für die Minimap: Mond und Stern wie im Browser-Symbol der Webseite. Das gemalte Wappen ist
+-- in 20 bis 30 Pixeln nicht mehr zu erkennen.
+ns.LOGO_SMALL = "Interface\\AddOns\\" .. ADDON .. "\\Media\\Mond"
 
 local defaults = {
     settings = {

@@ -5930,7 +5930,8 @@ function UI:CreateMinimapButton()
 
     local icon = b:CreateTexture(nil, "ARTWORK")
     icon:SetAllPoints()
-    icon:SetTexture(ns.LOGO)
+    icon:SetTexture(ns.LOGO_SMALL)
+    b.icon = icon -- unter diesem Namen suchen Oberflächen-Addons das Bild, wenn sie Minimap-Knöpfe einsammeln
     local hl = b:CreateTexture(nil, "HIGHLIGHT")
     hl:SetAllPoints()
     hl:SetColorTexture(1, 1, 1, 0.2)
