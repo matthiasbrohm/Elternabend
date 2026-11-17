@@ -1075,11 +1075,6 @@ function UI:CreateMembersPanel()
         if left <= 0 then return StopChain(chain.display .. " ist jetzt " .. RankName(chain.known) .. ".") end
         -- Klicks ohne Wirkung verfallen (z. B. weil das Spiel beim Klick noch den alten Stand hatte)
         while chain.sent[1] and now - chain.sent[1] > CHAIN_LOST do table.remove(chain.sent, 1) end
-        -- Solange Klicks unterwegs sind, die Gildenliste regelmäßig nachfragen
-        if #chain.sent > 0 and now - (chain.asked or 0) >= 2.5 then
-            chain.asked = now
-            C_GuildInfo.GuildRoster()
-        end
         local ready = #chain.sent < left and (not chain.lock or now - chain.lock >= CHAIN_GAP)
         chainBox.title:SetText(T.Hex("goldBright", chain.display) .. "  »  " .. RankName(chain.target))
         chainBox.status:SetText("Jetzt: " .. RankName(chain.known) .. "  ·  noch " .. left .. (left == 1 and " Stufe" or " Stufen"))
@@ -1116,6 +1111,14 @@ function UI:CreateMembersPanel()
         local function Tick()
             if chain ~= mine then return end
             ChainUpdate()
+            if chain ~= mine then return end
+            -- Solange Klicks unterwegs sind, die Gildenliste regelmäßig nachfragen. Erst hier, nach ChainUpdate:
+            -- Die Antwort kann ChainUpdate sofort wieder auslösen und den Vorgang dabei beenden.
+            local now = GetTime()
+            if #chain.sent > 0 and now - (chain.asked or 0) >= 2.5 then
+                chain.asked = now
+                C_GuildInfo.GuildRoster()
+            end
             if chain == mine then C_Timer.After(0.5, Tick) end
         end
         Tick()
@@ -1140,7 +1143,7 @@ function UI:CreateMembersPanel()
         end
         ChainUpdate()
     end)
-    ns:On("MEMBERS_UPDATE", ChainUpdate)
+    ns:Listen("MEMBERS_UPDATE", ChainUpdate) -- interne Nachricht, kein Spiel-Ereignis
 
     local function RankOverlay(i)
         local o = rankOverlays[i]

@@ -95,6 +95,11 @@ local function FrameFactory(w)
     end
 
     function methods:RegisterEvent(e)
+        -- Das Spiel lehnt unbekannte Ereignisse ab. Die internen Nachrichten des Addons (ns:Fire / ns:Listen) sind
+        -- solche: wer sie mit ns:On anmeldet, bekommt im Spiel genau diesen Fehler.
+        if M.internal[e] then
+            error('Frame:RegisterEvent(): Attempt to register unknown event "' .. tostring(e) .. '"', 2)
+        end
         w.registered[e] = w.registered[e] or {}
         w.registered[e][self] = true
     end
@@ -475,8 +480,25 @@ end
 -- Das Addon in eine Welt laden: Dateien in der Reihenfolge der .toc, ein gemeinsamer Namensraum
 -- Übersetzte Dateien werden zwischengespeichert: Jede Welt führt sie mit eigener Umgebung neu aus
 local compiled = {}
+M.internal = {} -- Namen der internen Nachrichten, aus dem Quelltext gelesen (siehe RegisterEvent)
+local scanned = {}
+local function ScanInternal(path)
+    if scanned[path] then return end
+    scanned[path] = true
+    local f = io.open(path, "r")
+    if not f then return end
+    local src = f:read("*a")
+    f:close()
+    for name in src:gmatch('ns:Fire%(%s*"([%w_]+)"') do M.internal[name] = true end
+    for name in src:gmatch('ns:Listen%(%s*"([%w_]+)"') do M.internal[name] = true end
+end
 function M.load(w, dir)
     local ns = {}
+    -- erst alle Dateien nach internen Nachrichten durchsehen, dann laden
+    for line in io.lines(dir .. "/Elternabend.toc") do
+        local file = line:match("^%s*([^#%s][^%s]*%.lua)%s*$")
+        if file then ScanInternal(dir .. "/" .. file) end
+    end
     for line in io.lines(dir .. "/Elternabend.toc") do
         local file = line:match("^%s*([^#%s][^%s]*%.lua)%s*$")
         if file then
