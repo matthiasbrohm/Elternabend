@@ -3,7 +3,7 @@
 -- Die festen Infos stehen hier und kommen mit jeder Addon-Version. Die Nachricht
 -- des Tages kommt live aus dem Spiel (die Gildenleitung ändert sie wie gewohnt
 -- im Gildenfenster).
-local _, ns = ...
+local ADDON, ns = ...
 
 local Info = {}
 ns.Info = Info
@@ -107,6 +107,60 @@ function Info:MOTD()
     if not motd or ns.IsSecret(motd) then return "" end
     return motd
 end
+
+-- Gildeninformation (der Text aus dem Gildenfenster des Spiels). Dafür gibt es kein Ereignis, das den Text
+-- mitbringt – er muss abgefragt werden. Die Abfrage ist eine der Funktionen, die das Spiel Addons zeitweise
+-- oder ganz verwehrt. Deshalb: nur fragen, wenn gerade keine Sperre gilt, höchstens alle 30 Sekunden, und nie
+-- wieder (bis zur nächsten Addon-Version), wenn das Spiel einmal abgelehnt hat. Gemerkt wird der Text pro Gilde.
+local TEXT_EVERY = 30
+local lastTextTry = -TEXT_EVERY
+
+local function Restricted()
+    if InCombatLockdown() then return true end
+    local R = C_RestrictedActions
+    if R and R.IsAddOnRestrictionActive and Enum and Enum.AddOnRestrictionType then
+        for _, kind in pairs(Enum.AddOnRestrictionType) do
+            local ok, active = pcall(R.IsAddOnRestrictionActive, kind)
+            if ok and active then return true end
+        end
+    end
+    return false
+end
+
+function Info:GuildText()
+    local key = GuildKey()
+    local text = key and ns.db.guildText and ns.db.guildText[key]
+    if type(text) ~= "string" or ns.IsSecret(text) then return "" end
+    return text
+end
+
+function Info:RefreshGuildText()
+    local key = GuildKey()
+    if not key or ns.db.settings.guildTextBlocked == ns.VERSION then return end
+    if GetTime() - lastTextTry < TEXT_EVERY or Restricted() then return end
+    lastTextTry = GetTime()
+    local read = (C_GuildInfo and C_GuildInfo.GetInfoText) or GetGuildInfoText
+    if type(read) ~= "function" then return end
+    local ok, text = pcall(read)
+    if not ok or type(text) ~= "string" or ns.IsSecret(text) then return end
+    text = strtrim(text)
+    -- Kurz nach dem Einloggen ist die Gildenliste noch nicht geladen und der Text leer: Gemerktes dann behalten
+    if text == "" and not (ns.Members and #ns.Members.list > 0) then return end
+    ns.db.guildText = ns.db.guildText or {}
+    if ns.db.guildText[key] ~= text then
+        ns.db.guildText[key] = text
+        return true
+    end
+end
+
+-- Lehnt das Spiel die Abfrage ab, meldet es das hier. Dann nicht weiter versuchen.
+local function OnTextBlocked(addon, func)
+    if addon ~= ADDON or GetTime() - lastTextTry > 2 then return end
+    if type(func) == "string" and not func:find("InfoText", 1, true) then return end
+    ns.db.settings.guildTextBlocked = ns.VERSION
+end
+pcall(ns.On, ns, "ADDON_ACTION_BLOCKED", OnTextBlocked)
+pcall(ns.On, ns, "ADDON_ACTION_FORBIDDEN", OnTextBlocked)
 
 -- Begrüßung einmal pro Account: beim ersten Start und nach dem Gildenbeitritt
 function Info:MaybeWelcome()

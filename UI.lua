@@ -490,6 +490,32 @@ local function LinkBox(parent, url, width)
     return eb
 end
 
+-- Textfeld mit Rollbalken (erscheint nur, wenn der Text nicht hineinpasst)
+local function ScrollText(card, style, width, spacing)
+    local sf = T.Scroll(card)
+    local fs = T.Text(sf.content, style)
+    fs:SetPoint("TOPLEFT")
+    fs:SetWidth(width - 10) -- rechts bleibt Platz für den Regler
+    fs:SetJustifyH("LEFT")
+    fs:SetJustifyV("TOP")
+    fs:SetSpacing(spacing or 3)
+    sf.text = fs
+    function sf:SetBody(text)
+        if self.body ~= text then
+            self.body = text
+            fs:SetText(text)
+            self:SetVerticalScroll(0)
+        end
+        self.content:SetHeight(math.max(1, fs:GetStringHeight() or 1))
+        self.UpdateThumb()
+    end
+    -- Die Texthöhe steht erst fest, wenn das Feld einmal gezeichnet wurde
+    sf:HookScript("OnShow", function(self)
+        C_Timer.After(0, function() if self.body then self:SetBody(self.body) end end)
+    end)
+    return sf
+end
+
 local function StartCard(parent, kicker, height)
     local card = T.Panel(parent)
     card:SetHeight(height)
@@ -506,24 +532,29 @@ function UI:CreateStartPanel()
     local leftWidth = 440
 
     -- Willkommen
-    local welcome = StartCard(p, "Willkommen bei " .. G.name, 140)
+    -- Unter der Begrüßung steht die Gildeninformation aus dem Spiel (mit Rollbalken, wenn sie länger ist).
+    -- Solange sie nicht bekannt ist – oder wer nicht in der Gilde ist –, steht dort der feste Vorstellungstext.
+    local welcome = StartCard(p, "Willkommen bei " .. G.name, 170)
     welcome:SetPoint("TOPLEFT")
     welcome:SetWidth(leftWidth)
     p.hello = T.Text(welcome, "heading")
     p.hello:SetPoint("TOPLEFT", welcome.kicker, "BOTTOMLEFT", 0, -4)
-    local about = T.Text(welcome, "small")
-    about:SetPoint("TOPLEFT", p.hello, "BOTTOMLEFT", 0, -8)
-    about:SetWidth(leftWidth - 32)
-    about:SetSpacing(3)
-    about:SetText(G.about)
+    p.about = ScrollText(welcome, "small", leftWidth - 32)
+    p.about:SetPoint("TOPLEFT", p.hello, "BOTTOMLEFT", 0, -8)
+    p.about:SetPoint("BOTTOMRIGHT", -16, 34)
+    p.about:SetBody(G.about)
     local motto = T.Text(welcome, "muted")
     motto:SetPoint("BOTTOMLEFT", 16, 12)
     motto:SetText(G.motto)
 
-    -- Nachricht des Tages (live aus dem Spiel)
-    local motd = StartCard(p, "Nachricht des Tages", 74)
+    -- Nachricht des Tages (live aus dem Spiel), ebenfalls mit Rollbalken, wenn sie länger ist
+    local motd = StartCard(p, "Nachricht des Tages", 96)
     motd:SetPoint("TOPLEFT", welcome, "BOTTOMLEFT", 0, -10)
     motd:SetWidth(leftWidth)
+    p.motdScroll = ScrollText(motd, "body", leftWidth - 32, 2)
+    p.motdScroll:SetPoint("TOPLEFT", motd.kicker, "BOTTOMLEFT", 0, -6)
+    p.motdScroll:SetPoint("BOTTOMRIGHT", -16, 10)
+    -- Wer noch nicht in der Gilde ist, sieht hier stattdessen den Beitritt (Text, Knopf, Kopierfeld)
     p.motd = T.Text(motd, "body")
     p.motd:SetPoint("TOPLEFT", motd.kicker, "BOTTOMLEFT", 0, -6)
     p.motd:SetWidth(leftWidth - 32)
@@ -732,14 +763,25 @@ function UI:CreateStartPanel()
             p.hello:SetText("Schön, dass du da bist, " .. first .. "!  " .. T.Hex("green", "Update " .. ns.Comm.newest .. " auf " .. ns.DOWNLOAD))
         end
         if IsInGuild() then
+            -- Gildeninformation: versuchen, sie aus dem Spiel zu lesen; gezeigt wird der zuletzt bekannte Text
+            -- (nur in der eigenen Gilde – unter „Willkommen bei Elternabend“ steht kein Text einer anderen Gilde)
+            local info = ""
+            if ns.Info:IsOurGuild() then
+                ns.Info:RefreshGuildText()
+                info = ns.Info:GuildText()
+            end
+            p.about:SetBody(info ~= "" and info or G.about)
             local text = ns.Info:MOTD()
             p.motdCard.kicker:SetText("NACHRICHT DES TAGES")
-            p.motd:SetWidth(leftWidth - 32)
-            p.motd:SetText(text ~= "" and text or T.Hex("dim", "Gerade keine Nachricht des Tages."))
+            p.motdScroll:SetBody(text ~= "" and text or T.Hex("dim", "Gerade keine Nachricht des Tages."))
+            p.motdScroll:Show()
+            p.motd:Hide()
             p.joinBtn:Hide()
             p.joinCopy:Hide()
-            p.motd:SetHeight(40)
         else
+            p.about:SetBody(G.about)
+            p.motdScroll:Hide()
+            p.motd:Show()
             local status = ns.Join:StatusText()
             p.motdCard.kicker:SetText("MITMACHEN")
             p.motd:SetWidth(leftWidth - 32 - 186)

@@ -155,8 +155,9 @@ Wer dich mit `ginv` anflüstert (Stichwörter im Reiter **Invite** einstellbar, 
 
 ## Start: Begrüßung und Gildeninfos
 Der Reiter **Start** ist der erste beim Öffnen. Beim allerersten Start in der Gilde öffnet sich das Fenster damit von selbst – einmal pro Account, nicht auf jedem Twink. Er zeigt:
-- eine Begrüßung mit dem Vornamen und kurz, wer die Gilde ist,
+- eine Begrüßung mit dem Vornamen und darunter die **Gildeninformation** aus dem Spiel (der Text, den die Gildenleitung im Gildenfenster unter „Gildeninformation“ pflegt). Ist sie leer oder gibt das Spiel sie nicht heraus, steht dort kurz, wer die Gilde ist,
 - die **Nachricht des Tages** live aus dem Spiel (die Gildenleitung ändert sie wie gewohnt im Gildenfenster),
+- beide Felder bekommen rechts einen Rollbalken, sobald der Text nicht hineinpasst (Mausrad oder Regler ziehen),
 - die **Raidzeiten** und – falls geladen – den nächsten Raid aus dem Raidplaner,
 - **Discord** und **Webseite** zum Kopieren (WoW kann keine Links öffnen: ins Feld klicken, Strg+C),
 - eine Übersicht, **was das Addon kann**, jeweils mit „Öffnen“.
