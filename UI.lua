@@ -5932,8 +5932,10 @@ function UI:CreateMinimapButton()
     icon:SetAllPoints()
     icon:SetTexture(ns.LOGO_SMALL)
     b.icon = icon -- unter diesem Namen suchen Oberflächen-Addons das Bild, wenn sie Minimap-Knöpfe einsammeln
+    -- Hervorhebung am Bild verankert, nicht am Knopf: Oberflächen-Addons rücken das Bild in ihrer Knopfleiste ein,
+    -- die Hervorhebung soll dann mitgehen und nicht als größere Scheibe über den Rand stehen
     local hl = b:CreateTexture(nil, "HIGHLIGHT")
-    hl:SetAllPoints()
+    hl:SetAllPoints(icon)
     hl:SetColorTexture(1, 1, 1, 0.2)
     T.Round(hl, b)
 
