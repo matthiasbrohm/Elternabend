@@ -4,7 +4,8 @@
 # - Änderung der Versionsnummer in Elternabend.toc auf dem Branch main
 #   (gibt es für diese Nummer noch kein Release, wird es automatisch angelegt)
 # - ein neuer Tag oder ein über die Webseite veröffentlichtes Release
-# - von Hand unter "Actions → Release bauen → Run workflow"
+# - von Hand unter "Actions → Release bauen → Run workflow" (dort lässt sich auch wählen, ob die
+#   aktuelle Version nur zu Wago oder nur zu CurseForge noch einmal hochgeladen wird)
 name: Release bauen
 
 on:
@@ -15,6 +16,12 @@ on:
   release:
     types: [published]
   workflow_dispatch:
+    inputs:
+      ziel:
+        description: "Wohin hochladen? (Das GitHub-Release wird immer aktualisiert)"
+        type: choice
+        default: alle
+        options: [alle, wago, curseforge]
 
 permissions:
   contents: write
@@ -91,21 +98,27 @@ jobs:
               --title "Elternabend $VERSION" --generate-notes
           fi
 
-  # Dieselbe Version zusätzlich zu CurseForge hochladen (BigWigs-Packager).
-  # Läuft nur, wenn bei GitHub das Secret CF_API_KEY hinterlegt ist und in der .toc
-  # die Zeile „## X-Curse-Project-ID: …“ steht.
+  # Dieselbe Version zusätzlich zu CurseForge und Wago hochladen (BigWigs-Packager).
+  # CurseForge: Secret CF_API_KEY und in der .toc „## X-Curse-Project-ID: …“.
+  # Wago:       Secret WAGO_API_TOKEN und in der .toc „## X-Wago-ID: …“.
+  # Fehlt ein Secret, wird nur dieses Ziel übersprungen.
   curseforge:
+    name: CurseForge und Wago
     needs: release
     if: needs.release.outputs.skip != 'true'
     runs-on: ubuntu-latest
     env:
       CF_API_KEY: ${{ secrets.CF_API_KEY }}
+      WAGO_API_TOKEN: ${{ secrets.WAGO_API_TOKEN }}
+      WAGO_ID: ZKxO2v6k
+      ZIEL: ${{ github.event.inputs.ziel || 'alle' }}
     steps:
-      - name: Prüfen, ob CurseForge eingerichtet ist
+      - name: Prüfen, welche Ziele eingerichtet sind
         id: check
         run: |
-          if [ -z "$CF_API_KEY" ]; then
-            echo "Kein CF_API_KEY hinterlegt – CurseForge wird übersprungen."
+          [ -n "$CF_API_KEY" ] || echo "Kein CF_API_KEY hinterlegt – CurseForge wird übersprungen."
+          [ -n "$WAGO_API_TOKEN" ] || echo "Kein WAGO_API_TOKEN hinterlegt – Wago wird übersprungen."
+          if [ -z "$CF_API_KEY" ] && [ -z "$WAGO_API_TOKEN" ]; then
             echo "go=false" >> "$GITHUB_OUTPUT"
           else
             echo "go=true" >> "$GITHUB_OUTPUT"
@@ -120,8 +133,16 @@ jobs:
       # Den Packager direkt aufrufen statt als fertige Action: Bei einem Push auf main
       # bricht er sonst ab („Found future tag“), weil er auf einen eigenen Tag-Lauf wartet.
       # Unser Tag entsteht aber erst in diesem Workflow und löst keinen neuen Lauf aus.
-      - name: Zu CurseForge hochladen
+      # Die Wago-ID geht ausdrücklich mit: Ältere Tags haben sie noch nicht in der .toc.
+      # „-p 0“ bzw. „-a 0“ schaltet ein Ziel für diesen Lauf ab (Auswahl beim Start von Hand).
+      - name: Zu CurseForge und Wago hochladen
         if: steps.check.outputs.go == 'true'
         run: |
           curl -sSfL https://raw.githubusercontent.com/BigWigsMods/packager/v2/release.sh -o "$RUNNER_TEMP/release.sh"
-          GITHUB_EVENT_NAME=workflow_dispatch bash "$RUNNER_TEMP/release.sh"
+          ARGS=(-a "$WAGO_ID")
+          case "$ZIEL" in
+            wago) ARGS+=(-p 0) ;;
+            curseforge) ARGS=(-a 0) ;;
+          esac
+          echo "Ziel: $ZIEL – Packager-Optionen: ${ARGS[*]}"
+          GITHUB_EVENT_NAME=workflow_dispatch bash "$RUNNER_TEMP/release.sh" "${ARGS[@]}"
