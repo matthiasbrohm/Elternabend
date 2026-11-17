@@ -76,12 +76,10 @@ function Members:Scan()
     local canView = self:CanView()
     local shared = ns.db.twinkMap and ns.db.twinkMap.pairs or {}
     for i = 1, GetNumGuildMembers() do
-        local name, rankName, rankIndex, level, className, zone, _, officerNote, online, _, classFile,
-            _, _, _, _, _, guid = GetGuildRosterInfo(i)
+        local name, rankName, rankIndex, level, className, zone, _, officerNote, online, _, classFile = GetGuildRosterInfo(i)
         if name and not ns.IsSecret(name) then
             local e = {
                 index = i, name = name, display = ns.ShortName(name), key = ns.NameKey(name),
-                guid = type(guid) == "string" and not ns.IsSecret(guid) and guid or nil, -- für „Rang direkt setzen“
                 rank = rankName, rankOrder = (rankIndex or 0) + 1, level = level,
                 class = className, classFile = classFile, zone = zone, online = online,
                 note = canView and strtrim(officerNote or "") or (shared[ns.NameKey(name)] or ""),

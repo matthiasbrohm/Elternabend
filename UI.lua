@@ -1,5 +1,5 @@
 -- Elternabend Raid: Oberfläche (Hauptfenster mit Reitern, Textdialog, Minimap-Button)
-local ADDON, ns = ...
+local _, ns = ...
 local T = ns.Theme
 
 local UI = { panels = {}, tabs = {}, subTabs = {} }
@@ -979,29 +979,6 @@ function UI:CreateMembersPanel()
         end
         C_Timer.After(1, Step)
     end
-    -- Rang direkt setzen (auch über mehrere Stufen): C_GuildInfo.SetGuildRankOrder nimmt den Zielrang, nicht „eine
-    -- Stufe hoch“. Ob das Spiel einem Addon den Aufruf erlaubt, zeigt sich erst beim Versuch – lehnt es ab, meldet es
-    -- ADDON_ACTION_FORBIDDEN/BLOCKED. Dann merken wir uns das und bieten wieder nur einzelne Stufen an.
-    local function DirectAllowed()
-        return C_GuildInfo and type(C_GuildInfo.SetGuildRankOrder) == "function" and not ns.db.settings.rankDirectBlocked
-    end
-    local function SetRankDirect(e, order, rankName, up)
-        if InCombatLockdown() or not e.guid or not DirectAllowed() then return end
-        ns.rankDirectTry = GetTime()
-        C_GuildInfo.SetGuildRankOrder(e.guid, order)
-        if ns.db.settings.rankDirectBlocked then return end -- vom Spiel abgelehnt (Meldung kam schon)
-        ns.Print(ns.ShortName(e.name) .. " wird " .. (up and "befördert" or "zurückgestuft") .. " – neuer Rang: " .. rankName .. ".")
-        FollowRank(e.name, e.rankOrder)
-    end
-    local function OnRankBlocked(addon, func)
-        if addon ~= ADDON or not ns.rankDirectTry or GetTime() - ns.rankDirectTry > 2 then return end
-        if type(func) == "string" and not func:find("SetGuildRankOrder", 1, true) then return end
-        ns.rankDirectTry = nil
-        ns.db.settings.rankDirectBlocked = true
-        ns.Print("Das Spiel lässt Addons den Rang nicht direkt setzen. Ab jetzt wieder Stufe für Stufe – bitte noch einmal rechtsklicken.")
-    end
-    pcall(ns.On, ns, "ADDON_ACTION_FORBIDDEN", OnRankBlocked)
-    pcall(ns.On, ns, "ADDON_ACTION_BLOCKED", OnRankBlocked)
 
     local rankOverlays = {}
     local function HideOverlays()
@@ -1011,10 +988,9 @@ function UI:CreateMembersPanel()
             o:ClearAllPoints() -- Anker lösen, sonst wäre das Menü im Kampf nicht verschiebbar
         end
     end
-    local function RankOverlay(i)
-        local o = rankOverlays[i]
-        if o then return o end
-        o = CreateFrame("Button", nil, UIParent, "SecureActionButtonTemplate")
+    -- Sicherer Knopf, der beim Klick ein Makro ausführt; o.onFire läuft danach genau einmal je Klick
+    local function NewOverlay()
+        local o = CreateFrame("Button", nil, UIParent, "SecureActionButtonTemplate")
         o:SetFrameStrata("FULLSCREEN_DIALOG")
         o:RegisterForClicks("AnyUp", "AnyDown")
         o:SetAttribute("type", "macro")
@@ -1022,13 +998,159 @@ function UI:CreateMembersPanel()
             -- Registriert für Drücken und Loslassen; das Makro läuft nur bei einem davon – Meldung auch nur einmal
             if (down and true or false) ~= (GetCVarBool and GetCVarBool("ActionButtonUseKeyDown") or false) then return end
             if self.visual then self.visual:UnlockHighlight() end
-            if not InCombatLockdown() then catcher:Hide() end
-            if self.message then ns.Print(self.message) end
-            if self.follow then FollowRank(self.follow.name, self.follow.order) end
+            if self.onFire then self.onFire(self) end
         end)
         o:SetScript("OnEnter", function(self) if self.visual then self.visual:LockHighlight() end end)
         o:SetScript("OnLeave", function(self) if self.visual then self.visual:UnlockHighlight() end end)
         o:Hide()
+        return o
+    end
+
+    -- Mehrere Stufen auf einmal ---------------------------------------------------------------------------
+    -- Das Spiel lässt Addons weder befördern noch einen Zielrang setzen (GuildPromote und
+    -- C_GuildInfo.SetGuildRankOrder sind geschützt). Erlaubt ist nur /gpromote bzw. /gdemote über einen sicheren
+    -- Knopf – eine Stufe je Klick. Für „gleich zum Mitglied“ führt deshalb ein kleines Fenster durch die übrigen
+    -- Stufen: Es erscheint dort, wo eben geklickt wurde, und zeigt „Weiter“, sobald die nächste Stufe dran ist.
+    -- Mehr Klicks, als Stufen fehlen, lässt es nie zu – auch wenn die Gildenliste noch den alten Rang zeigt.
+    local CHAIN_GAP = 3   -- Sekunden Abstand zwischen zwei Klicks, solange keine Bestätigung da ist
+    local CHAIN_LOST = 20 -- so lange gilt ein Klick ohne Bestätigung als unterwegs, danach als verpufft
+    local function MsgPattern(fmt)
+        if type(fmt) ~= "string" then return nil end
+        fmt = fmt:gsub("%%%d%$", "%%")
+        fmt = fmt:gsub("([%(%)%.%-%+%[%]%*%?%^%$])", "%%%1")
+        fmt = fmt:gsub("%%s", "(.+)")
+        return "^" .. fmt .. "$"
+    end
+    local PROMOTED, DEMOTED = MsgPattern(ERR_GUILD_PROMOTE_SSS), MsgPattern(ERR_GUILD_DEMOTE_SSS)
+    local function RankName(r) return GuildControlGetRankName(r + 1) or ("Rang " .. (r + 1)) end
+
+    if ns.db and ns.db.settings then ns.db.settings.rankDirectBlocked = nil end -- Rest aus einer Testversion
+    local chain -- { name, display, key, target, up, known, sent = { Zeitpunkte }, lock, told, asked }
+    local chainBox = T.Panel(UIParent)
+    chainBox:SetFrameStrata("DIALOG")
+    chainBox:SetSize(300, 116)
+    chainBox:EnableMouse(true)
+    chainBox:SetClampedToScreen(true)
+    chainBox:Hide()
+    chainBox.title = T.Text(chainBox, "small")
+    chainBox.title:SetPoint("TOPLEFT", 10, -10)
+    chainBox.title:SetPoint("RIGHT", -10, 0)
+    chainBox.title:SetWordWrap(false)
+    chainBox.status = T.Text(chainBox, "small")
+    chainBox.status:SetPoint("TOPLEFT", 10, -28)
+    chainBox.status:SetPoint("RIGHT", -10, 0)
+    chainBox.status:SetWordWrap(false)
+    chainBox.go = T.Button(chainBox, "", 280)
+    chainBox.go:SetHeight(28)
+    chainBox.go:SetPoint("TOPLEFT", 10, -50)
+    chainBox.stop = T.Button(chainBox, "Abbrechen", 280)
+    chainBox.stop:SetHeight(20)
+    chainBox.stop:SetPoint("TOPLEFT", 10, -86)
+    local chainOverlay = NewOverlay()
+    chainOverlay.visual = chainBox.go
+
+    local function StopChain(text)
+        chain = nil
+        chainBox:Hide()
+        if not InCombatLockdown() then
+            chainOverlay:Hide()
+            chainOverlay:ClearAllPoints()
+        end
+        if text then ns.Print(text) end
+    end
+    local function ChainUpdate()
+        if not chain then return end
+        local now = GetTime()
+        local e = IsInGuild() and M.byKey[chain.key] or nil
+        if not e then return StopChain(chain.display .. " steht nicht mehr in der Gildenliste – Rangwechsel abgebrochen.") end
+        -- Wo steht der Charakter? Die Gildenliste hinkt nach, die Systemmeldung („… zum Rang X befördert“) ist schneller.
+        local known = e.rankOrder - 1
+        if chain.told then known = chain.up and math.min(known, chain.told) or math.max(known, chain.told) end
+        local moved = chain.up and (chain.known - known) or (known - chain.known)
+        if moved > 0 then
+            for _ = 1, moved do table.remove(chain.sent, 1) end -- bestätigte Klicks abhaken
+            chain.known, chain.lock = known, nil
+        end
+        local left = chain.up and (chain.known - chain.target) or (chain.target - chain.known)
+        if left <= 0 then return StopChain(chain.display .. " ist jetzt " .. RankName(chain.known) .. ".") end
+        -- Klicks ohne Wirkung verfallen (z. B. weil das Spiel beim Klick noch den alten Stand hatte)
+        while chain.sent[1] and now - chain.sent[1] > CHAIN_LOST do table.remove(chain.sent, 1) end
+        -- Solange Klicks unterwegs sind, die Gildenliste regelmäßig nachfragen
+        if #chain.sent > 0 and now - (chain.asked or 0) >= 2.5 then
+            chain.asked = now
+            C_GuildInfo.GuildRoster()
+        end
+        local ready = #chain.sent < left and (not chain.lock or now - chain.lock >= CHAIN_GAP)
+        chainBox.title:SetText(T.Hex("goldBright", chain.display) .. "  »  " .. RankName(chain.target))
+        chainBox.status:SetText("Jetzt: " .. RankName(chain.known) .. "  ·  noch " .. left .. (left == 1 and " Stufe" or " Stufen"))
+        if ready then
+            local nextRank = RankName(chain.known + (chain.up and -1 or 1) * (#chain.sent + 1))
+            chainBox.go:SetText(T.Hex("goldBright", (chain.up and "Weiter: Befördern zu " or "Weiter: Zurückstufen zu ") .. nextRank))
+        else
+            chainBox.go:SetText(#chain.sent >= left and "Warte auf die Gildenliste …" or "Einen Moment …")
+        end
+        chainBox.go:SetEnabled(ready)
+        if not InCombatLockdown() then
+            if ready then
+                chainOverlay:SetAttribute("macrotext", (chain.up and "/gpromote " or "/gdemote ") .. chain.name)
+                chainOverlay:ClearAllPoints()
+                chainOverlay:SetAllPoints(chainBox.go)
+                chainOverlay:Show()
+            else
+                chainOverlay:Hide()
+            end
+        end
+    end
+    -- Start nach dem ersten Klick im Menü (der hat die erste Stufe schon ausgelöst)
+    local function StartChain(c)
+        if InCombatLockdown() then return end
+        chain = { name = c.name, display = c.display, key = c.key, target = c.target, up = c.up, known = c.from,
+            sent = { GetTime() }, lock = GetTime() }
+        -- so legen, dass „Weiter“ unter dem Mauszeiger erscheint
+        local x, y = GetCursorPosition()
+        local scale = UIParent:GetEffectiveScale()
+        chainBox:ClearAllPoints()
+        chainBox:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", x / scale - 150, y / scale + 64)
+        chainBox:Show()
+        local mine = chain
+        local function Tick()
+            if chain ~= mine then return end
+            ChainUpdate()
+            if chain == mine then C_Timer.After(0.5, Tick) end
+        end
+        Tick()
+    end
+    chainOverlay.onFire = function()
+        if not chain then return end
+        table.insert(chain.sent, GetTime())
+        chain.lock = GetTime()
+        ChainUpdate()
+    end
+    chainBox.stop:SetScript("OnClick", function()
+        if chain then StopChain(chain.display .. ": Rangwechsel abgebrochen – Rang jetzt " .. RankName(chain.known) .. ".") end
+    end)
+    ns:On("CHAT_MSG_SYSTEM", function(msg)
+        if not chain or type(msg) ~= "string" or ns.IsSecret(msg) then return end
+        local pattern = chain.up and PROMOTED or DEMOTED
+        if not pattern then return end
+        local _, who, rank = msg:match(pattern)
+        if not who or not ns.SameName(who, chain.name) then return end
+        for i = 1, GuildControlGetNumRanks and GuildControlGetNumRanks() or 0 do
+            if GuildControlGetRankName(i) == rank then chain.told = i - 1 end
+        end
+        ChainUpdate()
+    end)
+    ns:On("MEMBERS_UPDATE", ChainUpdate)
+
+    local function RankOverlay(i)
+        local o = rankOverlays[i]
+        if o then return o end
+        o = NewOverlay()
+        o.onFire = function(self)
+            if not InCombatLockdown() then catcher:Hide() end
+            if self.message then ns.Print(self.message) end
+            if self.chain then StartChain(self.chain) elseif self.follow then FollowRank(self.follow.name, self.follow.order) end
+        end
         rankOverlays[i] = o
         return o
     end
@@ -1039,6 +1161,9 @@ function UI:CreateMembersPanel()
             o:Hide()
             o:ClearAllPoints()
         end
+        chainOverlay:Hide()
+        chainOverlay:ClearAllPoints()
+        if chain then StopChain(chain.display .. ": Rangwechsel wegen Kampf abgebrochen – Rang jetzt " .. RankName(chain.known) .. ".") end
         catcher:Hide()
     end)
 
@@ -1052,24 +1177,23 @@ function UI:CreateMembersPanel()
         local current = e.rankOrder - 1
         if not myRank or current <= myRank or ns.SameName(e.name, ns.UnitFullName("player")) then return {} end
         local num = GuildControlGetNumRanks and GuildControlGetNumRanks() or 0
-        -- Eine Stufe: Chatbefehl über den sicheren Knopf (mehrere Befehle auf einmal rechnet das Spiel alle vom alten
-        -- Rang aus). Mehrere Stufen auf einmal: der Zielrang direkt (SetRankDirect), wenn das Spiel es zulässt.
+        -- Pro Klick genau eine Stufe (mehrere Befehle auf einmal rechnet das Spiel alle vom alten Rang aus). Liegt das
+        -- Ziel weiter weg, löst der Klick die erste Stufe aus und das kleine Fenster führt durch die übrigen.
         local list = {}
-        local direct = e.guid and DirectAllowed()
         local function Add(r, up)
-            local rankName = GuildControlGetRankName(r + 1) or ("Rang " .. (r + 1))
+            local rankName = RankName(r)
+            local steps = math.abs(r - current)
             local entry = {
                 label = (up and "Befördern: " or "Zurückstufen: ") .. rankName,
-                message = ns.ShortName(e.name) .. " wird " .. (up and "befördert" or "zurückgestuft") .. " – neuer Rang: " .. rankName .. ".",
+                macro = (up and "/gpromote " or "/gdemote ") .. e.name,
             }
-            if math.abs(r - current) == 1 then
-                entry.macro = (up and "/gpromote " or "/gdemote ") .. e.name
+            if steps == 1 then
+                entry.message = ns.ShortName(e.name) .. " wird " .. (up and "befördert" or "zurückgestuft") .. " – neuer Rang: " .. rankName .. "."
                 entry.follow = { name = e.name, order = e.rankOrder }
-            elseif direct then
-                if C_GuildInfo.IsGuildRankAssignmentAllowed and not C_GuildInfo.IsGuildRankAssignmentAllowed(e.guid, r + 1) then return end
-                entry.direct = function() SetRankDirect(e, r + 1, rankName, up) end
             else
-                return
+                entry.message = ns.ShortName(e.name) .. " wird " .. (up and "befördert" or "zurückgestuft") .. " – Ziel: " .. rankName
+                    .. " (" .. steps .. " Stufen). Das kleine Fenster führt durch die übrigen Stufen."
+                entry.chain = { name = e.name, display = ns.ShortName(e.name), key = e.key, target = r, up = up, from = current }
             end
             table.insert(list, entry)
         end
@@ -1102,12 +1226,9 @@ function UI:CreateMembersPanel()
             end
         end
         local ranks = RankEntries(e)
-        for _, r in ipairs(ranks) do
-            -- Eine Stufe: der sichere Knopf darüber löst aus (rank). Mehrere Stufen: gewöhnlicher Klick (direct).
-            table.insert(entries, r.macro and { r.label, function() end, rank = r } or { r.label, r.direct, gold = true })
-        end
+        local firstRank = #entries + 1
+        for _, r in ipairs(ranks) do table.insert(entries, { r.label, function() end, rank = r }) end
         HideOverlays()
-        local overlay = 0 -- sichere Knöpfe lückenlos zählen (zwischen ihnen können gewöhnliche Zeilen stehen)
         for i, en in ipairs(entries) do
             local b = ctx.buttons[i]
             if not b then
@@ -1116,7 +1237,7 @@ function UI:CreateMembersPanel()
                 b:SetPoint("TOPLEFT", 10, -28 - (i - 1) * 26)
                 ctx.buttons[i] = b
             end
-            b:SetText((en.rank or en.gold) and T.Hex("goldBright", en[1]) or en[1])
+            b:SetText(en.rank and T.Hex("goldBright", en[1]) or en[1])
             b:SetEnabled(en[2] ~= nil)
             b:SetScript("OnClick", function()
                 catcher:Hide()
@@ -1124,9 +1245,8 @@ function UI:CreateMembersPanel()
             end)
             b:Show()
             if en.rank then
-                overlay = overlay + 1
-                local o = RankOverlay(overlay)
-                o.visual, o.message, o.follow = b, en.rank.message, en.rank.follow
+                local o = RankOverlay(i - firstRank + 1)
+                o.visual, o.message, o.follow, o.chain = b, en.rank.message, en.rank.follow, en.rank.chain
                 o:SetAttribute("macrotext", en.rank.macro)
                 o:ClearAllPoints()
                 o:SetAllPoints(b)
@@ -1143,7 +1263,7 @@ function UI:CreateMembersPanel()
         catcher:Show()
     end
 
-    p.guildList, p.ctx = list, ctx -- für Tests
+    p.guildList, p.ctx, p.rankOverlays, p.chainBox, p.chainOverlay = list, ctx, rankOverlays, chainBox, chainOverlay -- für Tests
     list.onClick = function(_, e, button)
         if button == "RightButton" then return OpenContext(e) end
         p.selected = (p.selected ~= e.key) and e.key or nil
