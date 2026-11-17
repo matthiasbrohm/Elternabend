@@ -1,5 +1,5 @@
 -- Elternabend Raid: Oberfläche (Hauptfenster mit Reitern, Textdialog, Minimap-Button)
-local _, ns = ...
+local ADDON, ns = ...
 local T = ns.Theme
 
 local UI = { panels = {}, tabs = {}, subTabs = {} }
@@ -965,6 +965,44 @@ function UI:CreateMembersPanel()
     -- /gpromote bzw. /gdemote, wenn ihn der Spieler selbst auslöst. Dafür liegen über den Rang-Zeilen
     -- unsichtbare sichere Knöpfe (SecureActionButton mit Makro) – der Klick zählt als eigene Aktion.
     -- Sie hängen an UIParent (nicht am Addon-Fenster), damit das Fenster im Kampf frei bleibt.
+    -- Nach einem Rangwechsel die Gildenliste nachziehen, bis der neue Rang angekommen ist. Eine einzelne Anfrage
+    -- reicht oft nicht: Das Spiel beantwortet höchstens eine alle zehn Sekunden und verwirft die übrigen stumm.
+    local function FollowRank(name, oldOrder)
+        local tries = 0
+        local function Step()
+            tries = tries + 1
+            if not IsInGuild() then return end
+            local now = M.byKey[ns.NameKey(name)]
+            if not now or now.rankOrder ~= oldOrder then return end -- angekommen (oder nicht mehr in der Gilde)
+            C_GuildInfo.GuildRoster()
+            if tries < 6 then C_Timer.After(2.5, Step) end
+        end
+        C_Timer.After(1, Step)
+    end
+    -- Rang direkt setzen (auch über mehrere Stufen): C_GuildInfo.SetGuildRankOrder nimmt den Zielrang, nicht „eine
+    -- Stufe hoch“. Ob das Spiel einem Addon den Aufruf erlaubt, zeigt sich erst beim Versuch – lehnt es ab, meldet es
+    -- ADDON_ACTION_FORBIDDEN/BLOCKED. Dann merken wir uns das und bieten wieder nur einzelne Stufen an.
+    local function DirectAllowed()
+        return C_GuildInfo and type(C_GuildInfo.SetGuildRankOrder) == "function" and not ns.db.settings.rankDirectBlocked
+    end
+    local function SetRankDirect(e, order, rankName, up)
+        if InCombatLockdown() or not e.guid or not DirectAllowed() then return end
+        ns.rankDirectTry = GetTime()
+        C_GuildInfo.SetGuildRankOrder(e.guid, order)
+        if ns.db.settings.rankDirectBlocked then return end -- vom Spiel abgelehnt (Meldung kam schon)
+        ns.Print(ns.ShortName(e.name) .. " wird " .. (up and "befördert" or "zurückgestuft") .. " – neuer Rang: " .. rankName .. ".")
+        FollowRank(e.name, e.rankOrder)
+    end
+    local function OnRankBlocked(addon, func)
+        if addon ~= ADDON or not ns.rankDirectTry or GetTime() - ns.rankDirectTry > 2 then return end
+        if type(func) == "string" and not func:find("SetGuildRankOrder", 1, true) then return end
+        ns.rankDirectTry = nil
+        ns.db.settings.rankDirectBlocked = true
+        ns.Print("Das Spiel lässt Addons den Rang nicht direkt setzen. Ab jetzt wieder Stufe für Stufe – bitte noch einmal rechtsklicken.")
+    end
+    pcall(ns.On, ns, "ADDON_ACTION_FORBIDDEN", OnRankBlocked)
+    pcall(ns.On, ns, "ADDON_ACTION_BLOCKED", OnRankBlocked)
+
     local rankOverlays = {}
     local function HideOverlays()
         if InCombatLockdown() then return end
@@ -986,7 +1024,7 @@ function UI:CreateMembersPanel()
             if self.visual then self.visual:UnlockHighlight() end
             if not InCombatLockdown() then catcher:Hide() end
             if self.message then ns.Print(self.message) end
-            C_Timer.After(1.5, function() if IsInGuild() then C_GuildInfo.GuildRoster() end end)
+            if self.follow then FollowRank(self.follow.name, self.follow.order) end
         end)
         o:SetScript("OnEnter", function(self) if self.visual then self.visual:LockHighlight() end end)
         o:SetScript("OnLeave", function(self) if self.visual then self.visual:UnlockHighlight() end end)
@@ -1014,18 +1052,29 @@ function UI:CreateMembersPanel()
         local current = e.rankOrder - 1
         if not myRank or current <= myRank or ns.SameName(e.name, ns.UnitFullName("player")) then return {} end
         local num = GuildControlGetNumRanks and GuildControlGetNumRanks() or 0
-        -- Pro Klick genau eine Stufe (mehrere Befehle auf einmal rechnet der Server alle vom alten Rang aus)
+        -- Eine Stufe: Chatbefehl über den sicheren Knopf (mehrere Befehle auf einmal rechnet das Spiel alle vom alten
+        -- Rang aus). Mehrere Stufen auf einmal: der Zielrang direkt (SetRankDirect), wenn das Spiel es zulässt.
         local list = {}
+        local direct = e.guid and DirectAllowed()
         local function Add(r, up)
             local rankName = GuildControlGetRankName(r + 1) or ("Rang " .. (r + 1))
-            table.insert(list, {
+            local entry = {
                 label = (up and "Befördern: " or "Zurückstufen: ") .. rankName,
-                macro = (up and "/gpromote " or "/gdemote ") .. e.name,
                 message = ns.ShortName(e.name) .. " wird " .. (up and "befördert" or "zurückgestuft") .. " – neuer Rang: " .. rankName .. ".",
-            })
+            }
+            if math.abs(r - current) == 1 then
+                entry.macro = (up and "/gpromote " or "/gdemote ") .. e.name
+                entry.follow = { name = e.name, order = e.rankOrder }
+            elseif direct then
+                if C_GuildInfo.IsGuildRankAssignmentAllowed and not C_GuildInfo.IsGuildRankAssignmentAllowed(e.guid, r + 1) then return end
+                entry.direct = function() SetRankDirect(e, r + 1, rankName, up) end
+            else
+                return
+            end
+            table.insert(list, entry)
         end
-        if canUp and current - 1 > myRank then Add(current - 1, true) end
-        if canDown and current + 1 <= num - 1 then Add(current + 1, false) end
+        if canUp then for r = current - 1, myRank + 1, -1 do Add(r, true) end end
+        if canDown then for r = current + 1, num - 1 do Add(r, false) end end
         return list
     end
 
@@ -1053,9 +1102,12 @@ function UI:CreateMembersPanel()
             end
         end
         local ranks = RankEntries(e)
-        local firstRank = #entries + 1
-        for _, r in ipairs(ranks) do table.insert(entries, { r.label, function() end, rank = r }) end
+        for _, r in ipairs(ranks) do
+            -- Eine Stufe: der sichere Knopf darüber löst aus (rank). Mehrere Stufen: gewöhnlicher Klick (direct).
+            table.insert(entries, r.macro and { r.label, function() end, rank = r } or { r.label, r.direct, gold = true })
+        end
         HideOverlays()
+        local overlay = 0 -- sichere Knöpfe lückenlos zählen (zwischen ihnen können gewöhnliche Zeilen stehen)
         for i, en in ipairs(entries) do
             local b = ctx.buttons[i]
             if not b then
@@ -1064,7 +1116,7 @@ function UI:CreateMembersPanel()
                 b:SetPoint("TOPLEFT", 10, -28 - (i - 1) * 26)
                 ctx.buttons[i] = b
             end
-            b:SetText(en.rank and T.Hex("goldBright", en[1]) or en[1])
+            b:SetText((en.rank or en.gold) and T.Hex("goldBright", en[1]) or en[1])
             b:SetEnabled(en[2] ~= nil)
             b:SetScript("OnClick", function()
                 catcher:Hide()
@@ -1072,8 +1124,9 @@ function UI:CreateMembersPanel()
             end)
             b:Show()
             if en.rank then
-                local o = RankOverlay(i - firstRank + 1)
-                o.visual, o.message = b, en.rank.message
+                overlay = overlay + 1
+                local o = RankOverlay(overlay)
+                o.visual, o.message, o.follow = b, en.rank.message, en.rank.follow
                 o:SetAttribute("macrotext", en.rank.macro)
                 o:ClearAllPoints()
                 o:SetAllPoints(b)
@@ -1090,6 +1143,7 @@ function UI:CreateMembersPanel()
         catcher:Show()
     end
 
+    p.guildList, p.ctx = list, ctx -- für Tests
     list.onClick = function(_, e, button)
         if button == "RightButton" then return OpenContext(e) end
         p.selected = (p.selected ~= e.key) and e.key or nil
