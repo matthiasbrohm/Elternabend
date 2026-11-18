@@ -298,9 +298,9 @@ Das Wappen erscheint im Addon-Menü, oben links im Fenster und am Minimap-Button
 ## Leitung: Gildenchronik
 Den Reiter **Leitung** (`/ea leitung`) sehen nur Offiziere und Gildenleitung. Er hält fest, was sich in der Gilde tut:
 
-- **Chronik** mit Filter: Eintritte (mit wem eingeladen hat), Austritte (ausgetreten oder entfernt – und von wem), Rangänderungen, Charaktere mit Stufe 60 und **„Wieder da“** – Spieler, die nach langer Pause wieder online sind. Dann gibt es auch eine Meldung im Chat.
+- **Chronik** mit Filter: Eintritte (mit wem eingeladen hat), Austritte (ausgetreten oder entfernt – und von wem), Rangänderungen, Charaktere mit Stufe 60 und **„Wieder da“** – Spieler, die nach langer Pause wieder online sind. Dann gibt es auch eine Meldung im Chat. Ein Klick auf einen Eintrag öffnet das Flüsterfenster – z. B. um nach einem Austritt nachzufragen (klappt, solange er oder sie online ist).
 - **Die Gilde in Zahlen:** Spieler, Charaktere, gerade online, Stufe 60, Ein- und Austritte der letzten 30 Tage, Klassenverteilung.
-- **Jubiläen:** Aus den Eintritten in der Chronik meldet das Addon, wer seit einem Monat, 100 Tagen, einem halben Jahr oder einem (weiteren) Jahr dabei ist – einmal im Chat und als Eintrag in der Chronik. Ein Klick auf ein Jubiläum oder auf „Stufe 60“ schlägt einen Glückwunsch für den Gildenchat vor; abschicken muss man ihn selbst.
+- **Jubiläen:** Aus den Eintritten in der Chronik meldet das Addon, wer seit einem Monat, 100 Tagen, einem halben Jahr oder einem (weiteren) Jahr dabei ist – einmal im Chat und als Eintrag in der Chronik. Ein Rechtsklick auf ein Jubiläum oder auf „Stufe 60“ schlägt einen Glückwunsch für den Gildenchat vor; abschicken muss man ihn selbst.
 - **Lange nicht online:** Spieler, die mit keinem ihrer Charaktere in der eingestellten Zeit da waren (Knopf oben rechts: 1, 2, 3, 6 oder 12 Monate; Standard 3 Monate). Dieselbe Schwelle gilt für „Wieder da“.
 - **Klassenliste für die Webseite:** Der Knopf „Für die Webseite“ (oder `/ea klassenliste`) erstellt einen Text mit allen Mitgliedern – Name, Klasse, Stufe, Rang und wer wessen Twink ist. Kopieren und auf gilde-elternabend.de unter **Gilde » Klassenliste** bei „Für die Gildenleitung“ einfügen. Wann jemand zuletzt online war und die Notizen werden nicht übertragen.
 

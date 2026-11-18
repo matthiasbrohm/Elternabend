@@ -2500,6 +2500,7 @@ function UI:CreateLeadPanel()
     list.panel:SetPoint("TOPLEFT", 0, -36)
     list.panel:SetPoint("BOTTOMLEFT")
     list.panel:SetWidth(leftWidth)
+    p.chronik = list -- für Tests
     list.onEnter = function(row, e)
         GameTooltip:SetOwner(row, "ANCHOR_RIGHT")
         GameTooltip:AddLine("|c" .. ClassHex(e.class) .. ns.ShortName(e.name) .. "|r")
@@ -2509,11 +2510,17 @@ function UI:CreateLeadPanel()
         elseif e.since then GameTooltip:AddLine("Bemerkt beim Abgleich – passiert seit " .. date("%d.%m. %H:%M", e.since), 0.6, 0.6, 0.6) end
         local m = M:Find(e.name)
         if m and m.main then GameTooltip:AddLine("Twink von " .. m.main.display, 0.78, 0.75, 0.68) end
-        if m and L.Congrats(e) then GameTooltip:AddLine("Klick: im Gildenchat gratulieren", 0.84, 0.69, 0.35) end
+        GameTooltip:AddLine("Klick: anflüstern" .. (m and "" or " (klappt nur, wenn er oder sie gerade online ist)"), 0.84, 0.69, 0.35, true)
+        if m and L.Congrats(e) then GameTooltip:AddLine("Rechtsklick: im Gildenchat gratulieren", 0.84, 0.69, 0.35) end
         GameTooltip:Show()
     end
-    -- Jubiläum oder Stufe 60: Glückwunsch für den Gildenchat vorschlagen (abschicken muss man selbst)
-    list.onClick = function(_, e)
+    -- Klick: Flüsterfenster öffnen (z. B. um nach einem Austritt nachzufragen).
+    -- Rechtsklick bei Jubiläum oder Stufe 60: Glückwunsch für den Gildenchat vorschlagen (abschicken muss man selbst)
+    list.onClick = function(_, e, button)
+        if button ~= "RightButton" then
+            if e.name and not ns.IsSecret(e.name) then Whisper(e.name) end
+            return
+        end
         local text = L.Congrats(e)
         if not text or not M:Find(e.name) then return end
         UI:TextDialog("Glückwunsch im Gildenchat", "So geht der Text in den Gildenchat – du kannst ihn vorher ändern.", text, function(msg)
