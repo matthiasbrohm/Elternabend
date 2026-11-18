@@ -59,7 +59,7 @@ ln -s ~/Pfad/zu/Elternabend "/Applications/World of Warcraft/_forever_/Interface
 Danach reicht nach jeder Änderung an einer `.lua`-Datei ein `/reload`. Neu starten muss WoW nur bei neuen Dateien in der `.toc` und bei neuen Bildern. WowUp sollte diesen Ordner dann nicht mehr verwalten, sonst ersetzt ein Update den Verweis.
 
 ## Bedienung
-`/ea` oder ein Klick auf das Wappen an der Minimap öffnet das Fenster (Rechtsklick: direkt die Gilde). Auch am Blizzard-Fenster „Gilde & Communitys“ hängt rechts unter den Reitern ein Wappen-Knopf: Linksklick öffnet den Reiter Gilde, Rechtsklick die Startseite.
+`/ea` oder ein Klick auf das Wappen an der Minimap öffnet das Fenster (Rechtsklick: direkt die Gilde). Kleine Plaketten am Minimap-Knopf zeigen, was Neues da ist – jede Sorte in ihrer Farbe und an ihrer Ecke, sodass mehrere gleichzeitig zu sehen sind: **rot** oben rechts neue Gruppensuchen (und still wartende Gildenanfragen), **gelb** oben links neue Zettel an der Pinnwand, **grün** unten rechts neue Herstellungsaufträge an dich, bis du sie annimmst oder ablehnst. Dieselben Farben stehen an den Reitern Gruppen, Pinnwand und Berufe. Auch am Blizzard-Fenster „Gilde & Communitys“ hängt rechts unter den Reitern ein Wappen-Knopf: Linksklick öffnet den Reiter Gilde, Rechtsklick die Startseite.
 
 „Raid“ fasst Übersicht, Soft-Reserve, Plündermeister, Loot, Taktik und Ruhmeshalle zusammen; sie liegen als Unterreiter in einer zweiten Leiste. Den Reiter „Webseite“ sehen nur Offiziere und Gildenleitung.
 

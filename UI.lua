@@ -241,7 +241,7 @@ function UI:Create()
         local b = T.NavButton(header, tab.label)
         -- „Raid“ öffnet den zuletzt benutzten Unterreiter
         b:SetScript("OnClick", function() UI:Show(tab.key == "raid" and UI.lastRaidTab or tab.key) end)
-        b.badge = T.Badge(b)
+        b.badge = T.Badge(b, tab.key == "pinnwand" and "gelb" or tab.key == "berufe" and "gruen" or nil)
         b.badge:SetPoint("TOPRIGHT", 4, 2)
         self.tabs[tab.key] = b
     end
@@ -448,23 +448,37 @@ for _, msg in ipairs({ "ROSTER_UPDATE", "SR_UPDATE", "LOOT_UPDATE", "ROLL_UPDATE
     ns:Listen(msg, function() UI:QueueRefresh() end)
 end
 
--- Plaketten: offene Gruppensuchen (Reiter „Gruppen“ und Minimap) und neue Zettel (Reiter „Pinnwand“)
+-- Plaketten an Minimap und Reitern – jede Sorte in ihrer Farbe, damit man sie auseinanderhält:
+--   rot   = neue Gruppensuchen (Reiter „Gruppen“) und still wartende Gildenanfragen
+--   gelb  = neue Zettel an der Pinnwand (Reiter „Pinnwand“)
+--   grün  = neue Herstellungsaufträge an mich, noch ohne Antwort (Reiter „Berufe“)
+-- An der Minimap sitzen sie an verschiedenen Ecken und können gleichzeitig da sein.
 function UI:UpdateBadges()
+    local open = self.frame and self.frame:IsShown()
     -- Gruppensuchen: nur neue, die man im Reiter „Gruppen“ noch nicht gesehen hat
-    local groups = (self.frame and self.frame:IsShown() and self.currentTab == "gruppen") and 0 or ns.Groups:UnseenCount()
+    local groups = (open and self.currentTab == "gruppen") and 0 or ns.Groups:UnseenCount()
     -- an der Minimap zählen auch Gildenanfragen mit, die still warten (Fenster stumm geschaltet)
     local waiting = ns.Recruit:Quiet() and #ns.Recruit.queue or 0
-    if self.minimapButton and self.minimapButton.badge then self.minimapButton.badge:SetCount(groups + waiting) end
+    local notes = (open and self.currentTab == "pinnwand") and 0 or ns.Board:UnreadCount()
+    -- Aufträge bleiben markiert, bis man sie annimmt oder ablehnt; nur im Reiter selbst ist die Plakette weg
+    local orders = ns.Orders:NewCount()
+    local mm = self.minimapButton
+    if mm and mm.badge then
+        mm.badge:SetCount(groups + waiting)
+        mm.badgeBoard:SetCount(notes)
+        mm.badgeOrders:SetCount(orders)
+    end
     if self.tabs.gruppen and self.tabs.gruppen.badge then self.tabs.gruppen.badge:SetCount(groups) end
-    if self.tabs.pinnwand and self.tabs.pinnwand.badge then
-        self.tabs.pinnwand.badge:SetCount(self.currentTab ~= "pinnwand" and ns.Board:UnreadCount() or 0)
+    if self.tabs.pinnwand and self.tabs.pinnwand.badge then self.tabs.pinnwand.badge:SetCount(notes) end
+    if self.tabs.berufe and self.tabs.berufe.badge then
+        self.tabs.berufe.badge:SetCount((open and self.currentTab == "berufe") and 0 or orders)
     end
     -- Wartende Gildenanfragen (vor allem, wenn das Fenster stumm geschaltet ist)
     if self.tabs.gilde and self.tabs.gilde.badge then
         self.tabs.gilde.badge:SetCount(self.currentTab ~= "gilde" and #ns.Recruit.queue or 0)
     end
 end
-for _, msg in ipairs({ "GROUPS_UPDATE", "BOARD_UPDATE", "MEMBERS_UPDATE", "RECRUIT_UPDATE" }) do
+for _, msg in ipairs({ "GROUPS_UPDATE", "BOARD_UPDATE", "MEMBERS_UPDATE", "RECRUIT_UPDATE", "ORDERS_UPDATE" }) do
     ns:Listen(msg, function() UI:UpdateBadges() end)
 end
 ns:Listen("INIT", function()
@@ -716,6 +730,8 @@ function UI:CreateStartPanel()
 
         local home = ns.Info:AtHome()
         local orders = ns.Orders:OpenCount()
+        local newOrders = ns.Orders:NewCount()
+        p.now.orders.extra:SetText(newOrders > 0 and T.Hex("green", newOrders == 1 and "1 neuer Auftrag" or (newOrders .. " neue Aufträge")) or "")
         p.now.orders.text:SetText(not home and "Nur für Charaktere in der Gilde."
             or orders > 0 and T.Hex("goldBright", orders == 1 and "1 offener Auftrag an dich"
             or (orders .. " offene Aufträge an dich")) or "Keine offenen Aufträge an dich.")
@@ -6011,15 +6027,28 @@ function UI:CreateMinimapButton()
         GameTooltip:AddLine("Rechtsklick: Gilde", 1, 1, 1)
         GameTooltip:AddLine("Ziehen: verschieben", 0.7, 0.7, 0.7)
         local groups = ns.Groups:OpenCount()
+        local notes = ns.Board:UnreadCount()
+        local orders = ns.Orders:NewCount()
+        if groups + notes + orders > 0 then GameTooltip:AddLine(" ") end
         if groups > 0 then
-            GameTooltip:AddLine(" ")
-            GameTooltip:AddLine(groups == 1 and "1 offene Gruppensuche in der Gilde" or (groups .. " offene Gruppensuchen in der Gilde"), 0.4, 0.85, 0.4)
+            GameTooltip:AddLine(groups == 1 and "1 offene Gruppensuche in der Gilde" or (groups .. " offene Gruppensuchen in der Gilde"), 0.95, 0.45, 0.40)
+        end
+        if notes > 0 then
+            GameTooltip:AddLine(notes == 1 and "1 neuer Zettel an der Pinnwand" or (notes .. " neue Zettel an der Pinnwand"), 0.95, 0.80, 0.25)
+        end
+        if orders > 0 then
+            GameTooltip:AddLine(orders == 1 and "1 neuer Herstellungsauftrag an dich" or (orders .. " neue Herstellungsaufträge an dich"), 0.55, 0.85, 0.50)
         end
         GameTooltip:Show()
     end)
     b:SetScript("OnLeave", GameTooltip_Hide)
+    -- Drei Plaketten an drei Ecken: rot oben rechts (Gruppen), gelb oben links (Pinnwand), grün unten rechts (Aufträge)
     b.badge = T.Badge(b)
     b.badge:SetPoint("TOPRIGHT", 3, 3)
+    b.badgeBoard = T.Badge(b, "gelb")
+    b.badgeBoard:SetPoint("TOPLEFT", -3, 3)
+    b.badgeOrders = T.Badge(b, "gruen")
+    b.badgeOrders:SetPoint("BOTTOMRIGHT", 3, -3)
     self.minimapButton = b
     self:UpdateMinimapButton()
     self:UpdateBadges()

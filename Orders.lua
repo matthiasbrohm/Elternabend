@@ -133,6 +133,16 @@ end
 function Orders:Incoming() return Sorted(DB().inc) end
 function Orders:Outgoing() return Sorted(DB().out) end
 
+-- Neue Aufträge an mich, auf die ich noch nicht geantwortet habe (grüne Plakette an Minimap und Reiter „Berufe“)
+function Orders:NewCount()
+    if not ns.Info:AtHome() then return 0 end
+    local n = 0
+    for _, o in pairs(DB().inc) do
+        if o.state == "neu" then n = n + 1 end
+    end
+    return n
+end
+
 function Orders:OpenCount()
     local n = 0
     for _, o in pairs(DB().inc) do

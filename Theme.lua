@@ -473,8 +473,16 @@ end
 
 -- Runde Maske (für das Wappen)
 -- Zähler-Plakette (roter Punkt mit Zahl), z. B. oben rechts an einem Reiter
-function T.Badge(parent)
+-- Plakette mit Zahl. Farbe: "rot" (Standard, Gruppensuche), "gelb" (Pinnwand), "gruen" (Herstellungsaufträge)
+local BADGE_COLORS = {
+    rot = { 0.72, 0.13, 0.10, 1, 1, 1 },
+    gelb = { 0.93, 0.72, 0.12, 0.10, 0.07, 0.02 }, -- dunkle Zahl, weiß wäre auf Gelb kaum lesbar
+    gruen = { 0.16, 0.56, 0.22, 1, 1, 1 },
+}
+function T.Badge(parent, color)
+    local col = BADGE_COLORS[color or "rot"] or BADGE_COLORS.rot
     local f = CreateFrame("Frame", nil, parent)
+    f.color = color or "rot"
     f:SetSize(17, 17)
     f:SetFrameLevel(parent:GetFrameLevel() + 6)
     local ring = f:CreateTexture(nil, "BACKGROUND")
@@ -484,12 +492,13 @@ function T.Badge(parent)
     local dot = f:CreateTexture(nil, "ARTWORK")
     dot:SetPoint("TOPLEFT", 1.5, -1.5)
     dot:SetPoint("BOTTOMRIGHT", -1.5, 1.5)
-    dot:SetColorTexture(0.72, 0.13, 0.10, 1)
+    dot:SetColorTexture(col[1], col[2], col[3], 1)
     T.Round(dot, f)
     f.text = f:CreateFontString(nil, "OVERLAY")
     f.text:SetFont(STANDARD_TEXT_FONT, 10, "OUTLINE")
     f.text:SetPoint("CENTER", 0.5, 0)
-    f.text:SetTextColor(1, 1, 1)
+    f.text:SetTextColor(col[4], col[5], col[6])
+    if color == "gelb" then f.text:SetFont(STANDARD_TEXT_FONT, 10, "") end -- ohne schwarzen Rand auf Gelb
     function f:SetCount(n)
         n = tonumber(n) or 0
         self:SetShown(n > 0)
