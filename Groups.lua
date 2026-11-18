@@ -87,6 +87,44 @@ function Groups.ChatText(m)
     return text
 end
 
+-- Nachmeldung im Gildenchat: „Halle der Thanen: noch 1 Tank und 1 DD gesucht …“ oder „… Gruppe ist voll“
+local function NeedKey(m)
+    return m.full and "voll" or (m.need.tank .. "/" .. m.need.heal .. "/" .. m.need.dd)
+end
+
+function Groups.UpdateText(m)
+    local need = m.need
+    if m.full or need.tank + need.heal + need.dd == 0 then
+        return Clean(m.what) .. ": Gruppe ist voll, danke!"
+    end
+    local parts = {}
+    if need.tank > 0 then table.insert(parts, need.tank .. " Tank") end
+    if need.heal > 0 then table.insert(parts, need.heal .. " Heiler") end
+    if need.dd > 0 then table.insert(parts, need.dd .. " DD") end
+    local list = #parts > 1 and (table.concat(parts, ", ", 1, #parts - 1) .. " und " .. parts[#parts]) or parts[1]
+    local text = Clean(m.what) .. ": noch " .. list .. " gesucht – anflüstern oder /ea gruppen"
+    if #text > 255 then text = (text:sub(1, 252):gsub("[\192-\255][\128-\191]*$", "")) .. "…" end
+    return text
+end
+
+-- Stand das Gesuch im Gildenchat und ändern sich die offenen Plätze, kommt eine neue Zeile hinterher.
+-- Kurz gesammelt: zwei Einladungen hintereinander ergeben nur eine Zeile. Nur mit Häkchen „Auch im Gildenchat posten“.
+Groups.CHAT_DELAY = 5
+function Groups:ChatUpdate(m)
+    if not m or not m.posted or m.chatQueued then return end
+    m.chatQueued = true
+    C_Timer.After(self.CHAT_DELAY, function()
+        m.chatQueued = nil
+        if not ns.db.groups.chat or not IsInGuild() then return end
+        if m ~= self.mine and not m.full then return end -- per Hand beendet: nichts mehr melden
+        local key = NeedKey(m)
+        if key == m.chatKey then return end -- z. B. erst mehr, dann wieder weniger: nichts geändert
+        m.chatKey = key
+        local text = Groups.UpdateText(m)
+        ns.WhenChatFree(function() C_ChatInfo.SendChatMessage(text, "GUILD") end)
+    end)
+end
+
 -- Eigenes Gesuch ---------------------------------------------------------------------
 function Groups:Mine()
     return self.mine
@@ -104,6 +142,7 @@ function Groups:Post(what, need, note)
     end
     local mine = self.mine
     local isNew = mine == nil
+    local before = mine and NeedKey(mine)
     if not mine then
         mine = { id = tostring(math.random(100000, 999999)), leader = ns.UnitFullName("player") }
         wipe(self.applicants)
@@ -120,15 +159,20 @@ function Groups:Post(what, need, note)
         if isNew then self.mine = nil; self.list[mine.id] = nil; ns.Print("Bitte mindestens einen freien Platz angeben.") return false end
         self:Broadcast()
         ns.Print("Keine Plätze mehr frei – dein Gesuch ist beendet.")
+        mine.full = true
+        self:ChatUpdate(mine)
         self:Close()
         return true
     end
     self.list[mine.id] = mine
-    -- Nur beim Start einmal in den Gildenchat, nicht bei jeder Aktualisierung
+    -- Beim Start die ganze Zeile in den Gildenchat; danach nur, wenn sich die offenen Plätze ändern
     if isNew and ns.db.groups.chat then
         mine.posted = true
+        mine.chatKey = NeedKey(mine)
         local text = Groups.ChatText(mine)
         ns.WhenChatFree(function() C_ChatInfo.SendChatMessage(text, "GUILD") end)
+    elseif not isNew and NeedKey(mine) ~= before then
+        self:ChatUpdate(mine)
     end
     self:Broadcast()
     -- Eigene Nachrichten kommen nicht zurück: deshalb hier bestätigen
@@ -171,10 +215,13 @@ function Groups:Invite(applicant)
         m.need[applicant.role] = m.need[applicant.role] - 1
         if m.need.tank + m.need.heal + m.need.dd == 0 then
             ns.Print("Gruppe komplett!")
+            m.full = true
+            self:ChatUpdate(m)
             self:Close()
             return
         end
         self:Broadcast()
+        self:ChatUpdate(m)
     end
     ns:Fire("GROUPS_UPDATE")
 end
@@ -315,6 +362,8 @@ function Groups:CheckFull()
     local members = GetNumGroupMembers()
     if members >= m.target then
         ns.Print(string.format("Deine Gruppe ist voll (%d Spieler) – das Gesuch für %s wird geschlossen.", members, m.what))
+        m.full = true
+        self:ChatUpdate(m)
         self:Close()
     end
 end
@@ -335,7 +384,7 @@ if hooksecurefunc and ReloadUI then
 end
 
 local function Snapshot(g)
-    return { id = g.id, leader = g.leader, what = g.what, note = g.note, posted = g.posted, target = g.target,
+    return { id = g.id, leader = g.leader, what = g.what, note = g.note, posted = g.posted, chatKey = g.chatKey, target = g.target,
         need = { tank = g.need.tank, heal = g.need.heal, dd = g.need.dd }, age = GetTime() - g.started }
 end
 
