@@ -193,6 +193,27 @@ function Raid:RolePoll()
     return true
 end
 
+-- Countdown -----------------------------------------------------------------
+-- Blizzards Countdown (wie /countdown): bei allen in der Gruppe läuft die große Zahl in der Bildschirmmitte
+-- herunter, mit Ton. In der Gruppe darf jeder, im Schlachtzug nur Leitung und Assistenten.
+function Raid:Countdown(seconds)
+    if not IsInGroup() then
+        ns.Print("Der Countdown geht erst in einer Gruppe oder einem Schlachtzug.")
+        return false
+    end
+    if IsInRaid() and not (UnitIsGroupLeader("player") or UnitIsGroupAssistant("player")) then
+        ns.Print("Im Schlachtzug darf den Countdown nur starten, wer leitet oder Assistent ist.")
+        return false
+    end
+    local start = C_PartyInfo and C_PartyInfo.DoCountdown
+    if type(start) ~= "function" then
+        ns.Print("Dieser Spielclient kennt keinen Countdown.")
+        return false
+    end
+    start(seconds)
+    return true
+end
+
 ns:On("GROUP_ROSTER_UPDATE", function() Raid:Update() end)
 ns:On("PLAYER_ENTERING_WORLD", function() Raid:Update() end)
 -- Antworten auf die Rollenabfrage: Spalte „Rolle“ gleich nachziehen.

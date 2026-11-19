@@ -65,7 +65,7 @@ Danach reicht nach jeder Änderung an einer `.lua`-Datei ein `/reload`. Neu star
 
 | Reiter | Inhalt |
 |---|---|
-| **Raid » Übersicht** | Kacheln für Raid, Anwesenheit (Klassen im Tooltip), Beutemethode und Soft-Reserves. Liste aller Spieler mit Gruppe, Rolle, Klasse, Rang, Anmeldung (dabei, Ersatzbank, fehlt noch, nicht angemeldet), Status, Addon-Version, Vorbereitung und Soft-Reserves. Knöpfe für Bereitschaftscheck, Rollenabfrage (alle wählen Tank, Heiler oder Schaden; nur Leitung und Assistenten), Vorbereitung und Pause. |
+| **Raid » Übersicht** | Kacheln für Raid, Anwesenheit (Klassen im Tooltip), Beutemethode und Soft-Reserves. Liste aller Spieler mit Gruppe, Rolle, Klasse, Rang, Anmeldung (dabei, Ersatzbank, fehlt noch, nicht angemeldet), Status, Addon-Version, Vorbereitung und Soft-Reserves. Knöpfe für Bereitschaftscheck, Rollenabfrage (alle wählen Tank, Heiler oder Schaden; nur Leitung und Assistenten), Vorbereitung, Pause und **Countdown** 5 oder 10 Sekunden (Blizzards große Zahl bei allen in der Gruppe, z. B. vor dem Pull; im Schlachtzug nur Leitung und Assistenten). |
 | **Raid » Soft-Reserve** | Alle Reservierungen nach Boss, mit Suche. „An Gruppe senden“ verteilt die Liste (nur Leitung und Assistenten). |
 | **Raid » Plündermeister** | Beute aus der Leiche mit den SR-Spielern. Würfeln, Würfe auswerten, Item per Klick vergeben. |
 | **Gruppen** | Gruppensuche in der Gilde: Gesuch eintragen, melden, einladen. |

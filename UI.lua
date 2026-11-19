@@ -1717,7 +1717,23 @@ function UI:CreateRaidPanel()
     ms:SetScript("OnClick", function() ns.Raid:AnnounceMissingSignups() end)
     local msr = T.Button(p, "Fehlende SR ansagen", 150)
     msr:SetScript("OnClick", function() ns.Raid:AnnounceMissingSR() end)
-    local quiz = T.Button(p, "Quiz", 80)
+    -- Countdown für alle (z. B. vor dem Pull): 5 oder 10 Sekunden
+    local function CountdownTip(self)
+        GameTooltip:SetOwner(self, "ANCHOR_BOTTOM")
+        GameTooltip:AddLine("Countdown " .. self.seconds .. " Sekunden")
+        GameTooltip:AddLine("Bei allen in der Gruppe läuft die große Zahl in der Bildschirmmitte herunter – z. B. vor dem Pull. "
+            .. "Im Schlachtzug nur für Leitung und Assistenten.", 1, 1, 1, true)
+        GameTooltip:Show()
+    end
+    local cd5 = T.Button(p, "Countdown 5", 100)
+    local cd10 = T.Button(p, "10", 40)
+    for b, sec in pairs({ [cd5] = 5, [cd10] = 10 }) do
+        b.seconds = sec
+        b:SetScript("OnClick", function() ns.Raid:Countdown(sec) end)
+        b:SetScript("OnEnter", CountdownTip)
+        b:SetScript("OnLeave", GameTooltip_Hide)
+    end
+    local quiz = T.Button(p, "Quiz", 70)
     quiz:SetScript("OnClick", function() ns.Quiz:Open() end)
     quiz:SetScript("OnEnter", function(self)
         GameTooltip:SetOwner(self, "ANCHOR_BOTTOM")
@@ -1727,7 +1743,7 @@ function UI:CreateRaidPanel()
         GameTooltip:Show()
     end)
     quiz:SetScript("OnLeave", GameTooltip_Hide)
-    Row(p, 0, -78, { rc, roles, prep, p.pause, ms, msr, quiz })
+    Row(p, 0, -78, { rc, roles, prep, p.pause, cd5, cd10, ms, msr, quiz })
 
     -- Klassenverteilung im Tooltip der Kachel „Anwesend“
     cards[2]:EnableMouse(true)
