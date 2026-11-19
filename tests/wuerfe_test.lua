@@ -233,3 +233,18 @@ test("Würfelfenster: Probelauf mit Beuteverlauf-Texten", function()
     equal(#w.ns.Rolls:List(), 3)
     noErrors(w)
 end)
+
+test("Würfelfenster: Symbol des Gegenstands über C_Item, Stern als Bild", function()
+    local w = Welt()
+    w.env.GetItemIcon = nil
+    w.env.C_Item = { GetItemIconByID = function(id) return id == 2000 and 135274 or nil end }
+    equal(w.ns.Rolls.ItemIcon(SCHWERT), 135274)
+    equal(w.ns.Rolls.ItemIcon("kein Link"), nil)
+    Chat(w, "LOOT_ROLL_NEED", "Beta", SCHWERT)
+    Chat(w, "LOOT_ROLL_WON", "Beta", SCHWERT)
+    w.ns.Rolls:Show()
+    local h = w.ns.Rolls.frame.heads[1]
+    check(h.state:GetText():find("UI-RaidTargetingIcon_1", 1, true), h.state:GetText())
+    check(not h.state:GetText():find("→", 1, true), "Pfeil im Text")
+    noErrors(w)
+end)

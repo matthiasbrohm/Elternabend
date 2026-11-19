@@ -211,7 +211,8 @@ function Rolls:List() return DB().rounds end
 function Rolls:Demo()
     local me = ns.UnitFullName("player") or "Du"
     local function Link(id, color, fallback)
-        local ok, _, link = pcall(GetItemInfo, id)
+        local info = (C_Item and C_Item.GetItemInfo) or GetItemInfo
+        local ok, _, link = pcall(info, id)
         if ok and type(link) == "string" then return link end
         return "|c" .. color .. "|Hitem:" .. id .. "::::::::|h[" .. fallback .. "]|h|r"
     end
@@ -304,6 +305,25 @@ end)
 local WIDTH, HEIGHT = 380, 420
 local CHOICE_TEXT = { need = "Bedarf", greed = "Gier", de = "Entzaubern", pass = "Passe" }
 local CHOICE_COLOR = { need = "red", greed = "green", de = "orange", pass = "dim" }
+
+-- Stern als Bild: Zeichen wie ★ oder → hat die Schrift des Spiels nicht (dann erscheint ein Kästchen)
+local STAR = "|TInterface\\TargetingFrame\\UI-RaidTargetingIcon_1:13:13:0:0|t"
+
+-- Symbol eines Gegenstands – je nach Spielversion heißt die Abfrage anders
+function Rolls.ItemIcon(link)
+    local id = tonumber(link and link:match("item:(%d+)"))
+    if not id then return nil end
+    local tries = {
+        function() return C_Item and C_Item.GetItemIconByID and C_Item.GetItemIconByID(id) end,
+        function() return GetItemIcon and GetItemIcon(id) end,
+        function() return C_Item and C_Item.GetItemInfoInstant and select(5, C_Item.GetItemInfoInstant(id)) end,
+        function() return GetItemInfoInstant and select(5, GetItemInfoInstant(id)) end,
+    }
+    for _, try in ipairs(tries) do
+        local ok, icon = pcall(try)
+        if ok and (type(icon) == "number" or type(icon) == "string") and not ns.IsSecret(icon) then return icon end
+    end
+end
 
 local function ClassHexFor(name)
     local units = IsInRaid() and GetNumGroupMembers() or 5
@@ -431,13 +451,11 @@ local function Create()
             h:ClearAllPoints()
             h:SetPoint("TOPLEFT", 0, -y)
             h.link = round.link
-            local id = tonumber(round.link and round.link:match("item:(%d+)"))
-            local ok, icon = pcall(GetItemIcon, id)
-            h.icon:SetTexture(ok and type(icon) ~= "table" and icon or 134400)
+            h.icon:SetTexture(Rolls.ItemIcon(round.link) or 134400)
             h.name:SetText(round.link or "?")
             local open = not round.done and (time() - round.t) < STALE
             if round.winner then
-                h.state:SetText(T.Hex("green", "→ " .. (ns.ShortName(round.winner) or round.winner)))
+                h.state:SetText(STAR .. " " .. T.Hex("green", ns.ShortName(round.winner) or round.winner))
             elseif round.allPassed then
                 h.state:SetText(T.Hex("muted", "alle gepasst"))
             elseif open then
@@ -455,7 +473,7 @@ local function Create()
                 l:SetPoint("TOPLEFT", 0, -y)
                 local winner = round.winner and ns.SameName(round.winner, c.name)
                 l.name:SetWidth(180)
-                l.name:SetText((winner and T.Hex("goldBright", "★ ") or "") .. "|c" .. ClassHexFor(c.name)
+                l.name:SetText((winner and (STAR .. " ") or "") .. "|c" .. ClassHexFor(c.name)
                     .. (ns.ShortName(c.name) or c.name or "?") .. "|r")
                 l.choice:SetText(T.Hex(CHOICE_COLOR[c.choice] or "cream", CHOICE_TEXT[c.choice] or c.choice))
                 l.roll:SetText(c.roll and (winner and T.Hex("goldBright", c.roll) or tostring(c.roll)) or "")
@@ -500,7 +518,7 @@ end
 
 function Rolls:Show()
     if not self:Enabled() then
-        ns.Print("Das Würfelfenster ist aus. Einschalten: Einstellungen → „Würfelfenster“ (oder /ea einstellungen).")
+        ns.Print("Das Würfelfenster ist aus. Einschalten: Einstellungen » „Würfelfenster“ (oder /ea einstellungen).")
         return
     end
     self.frame = self.frame or Create()
