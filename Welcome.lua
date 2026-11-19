@@ -14,9 +14,8 @@ local _, ns = ...
 local Welcome = { pending = {} }
 ns.Welcome = Welcome
 
-local LONG = "Herzlich willkommen bei Elternabend, %s! Stell dich gern kurz im Discord in #vorstellungsrunde vor: "
-    .. "discord.gg/elternabend – Raids ab 21 Uhr. Tipp: Unser Addon „Elternabend“ (CurseForge/Wago) zeigt Raids, "
-    .. "Berufe und Gruppen."
+local LONG = "Willkommen bei Elternabend, %s. Stell dich gern kurz im Discord in #vorstellungsrunde vor: "
+    .. "discord.gg/elternabend - Tipp: Unser Addon \"Elternabend\" (CurseForge/Wago) zeigt Raids, Berufe und Gruppen."
 local SHORT = { "Willkommen, %s!", "Herzlich willkommen, %s :)", "Hallo %s, schön, dass du da bist!", "Willkommen bei uns, %s!" }
 local ROLL_WAIT = 3       -- so lange werden die Zufallszahlen gesammelt
 local SHORT_AFTER = 6     -- frühestens so lange nach dem Beitritt kommt ein kurzes Willkommen

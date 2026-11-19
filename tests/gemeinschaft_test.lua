@@ -100,7 +100,7 @@ test("Begrüßung: allein mit dem Schalter schreibt man die lange Begrüßung", 
     seen(w, "comm", "WELCOME")
     local chats = GuildChats(w)
     equal(#chats, 1)
-    check(chats[1]:find("Herzlich willkommen bei Elternabend, Dealla Südwind!", 1, true), chats[1])
+    check(chats[1] == "Willkommen bei Elternabend, Dealla Südwind. Stell dich gern kurz im Discord in #vorstellungsrunde vor: discord.gg/elternabend - Tipp: Unser Addon \"Elternabend\" (CurseForge/Wago) zeigt Raids, Berufe und Gruppen.", chats[1])
     check(chats[1]:find("#vorstellungsrunde", 1, true) and #chats[1] <= 255, chats[1])
     w:advance(60)
     equal(#GuildChats(w), 1)
