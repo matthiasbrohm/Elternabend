@@ -302,7 +302,8 @@ pcall(ns.On, ns, "START_LOOT_ROLL", function(rollID, rollTime)
 end)
 
 -- Fenster -----------------------------------------------------------------------------------
-local WIDTH, HEIGHT = 380, 420
+local WIDTH, HEIGHT = 380, 420             -- Startgröße
+local MIN_W, MIN_H, MAX_W, MAX_H = 320, 220, 900, 1100 -- am Griff unten rechts in diesen Grenzen veränderbar
 local CHOICE_TEXT = { need = "Bedarf", greed = "Gier", de = "Entzaubern", pass = "Passe" }
 local CHOICE_COLOR = { need = "red", greed = "green", de = "orange", pass = "dim" }
 
@@ -342,7 +343,15 @@ end
 
 local function Create()
     local f = CreateFrame("Frame", "ElternabendRolls", UIParent, "BackdropTemplate")
-    f:SetSize(WIDTH, HEIGHT)
+    local size = ns.db.settings.rollWindowSize
+    if type(size) == "table" and tonumber(size[1]) and tonumber(size[2]) then
+        f:SetSize(math.min(MAX_W, math.max(MIN_W, size[1])), math.min(MAX_H, math.max(MIN_H, size[2])))
+    else
+        f:SetSize(WIDTH, HEIGHT)
+    end
+    f:SetResizable(true)
+    if f.SetResizeBounds then f:SetResizeBounds(MIN_W, MIN_H, MAX_W, MAX_H)
+    elseif f.SetMinResize then f:SetMinResize(MIN_W, MIN_H) f:SetMaxResize(MAX_W, MAX_H) end
     f:SetFrameStrata("MEDIUM")
     f:SetToplevel(true)
     f:SetMovable(true)
@@ -381,15 +390,34 @@ local function Create()
 
     local sf = T.Scroll(f)
     sf:SetPoint("TOPLEFT", 14, -50)
-    sf:SetPoint("BOTTOMRIGHT", -8, 12)
-    sf.content:SetWidth(WIDTH - 32)
+    sf:SetPoint("BOTTOMRIGHT", -8, 18)
+    sf.content:SetWidth(f:GetWidth() - 32)
+
+    -- Griff unten rechts: Fenster größer oder kleiner ziehen; Größe und Platz werden gemerkt
+    local grip = CreateFrame("Button", nil, f)
+    grip:SetSize(16, 16)
+    grip:SetPoint("BOTTOMRIGHT", -3, 3)
+    grip:SetNormalTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up")
+    grip:SetHighlightTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Highlight")
+    grip:SetPushedTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Down")
+    grip:SetScript("OnMouseDown", function() f:StartSizing("BOTTOMRIGHT") end)
+    grip:SetScript("OnMouseUp", function()
+        f:StopMovingOrSizing()
+        ns.db.settings.rollWindowSize = { math.floor(f:GetWidth() + 0.5), math.floor(f:GetHeight() + 0.5) }
+        local point, _, rel, x, y = f:GetPoint(1)
+        ns.db.settings.rollWindowPos = { point, rel, x, y }
+    end)
+    f.grip = grip
+    f:SetScript("OnSizeChanged", function(self)
+        if self:IsShown() and self.Refresh then self:Refresh() end
+    end)
     f.scroll = sf
     f.lines = {}
     f.heads = {}
 
     f.empty = T.Text(sf.content, "muted")
     f.empty:SetPoint("TOPLEFT", 0, -4)
-    f.empty:SetWidth(WIDTH - 40)
+    f.empty:SetWidth(f:GetWidth() - 40)
     f.empty:SetJustifyH("LEFT")
     f.empty:SetText("Noch keine Würfe. Sobald in deiner Gruppe um Beute gewürfelt wird, steht hier, "
         .. "wer Bedarf, Gier oder Passen gewählt hat – und wer gewinnt.")
@@ -399,7 +427,7 @@ local function Create()
         local h = f.heads[i]
         if h then return h end
         h = CreateFrame("Button", nil, sf.content)
-        h:SetSize(WIDTH - 32, 20)
+        h:SetHeight(20)
         h.icon = h:CreateTexture(nil, "ARTWORK")
         h.icon:SetSize(18, 18)
         h.icon:SetPoint("LEFT")
@@ -425,13 +453,11 @@ local function Create()
         local l = f.lines[i]
         if l then return l end
         l = CreateFrame("Frame", nil, sf.content)
-        l:SetSize(WIDTH - 32, 16)
+        l:SetHeight(16)
         l.name = T.Text(l, "small")
         l.name:SetPoint("LEFT", 24, 0)
-        l.name:SetWidth(180)
         l.name:SetWordWrap(false)
         l.choice = T.Text(l, "small")
-        l.choice:SetPoint("LEFT", 210, 0)
         l.roll = T.Text(l, "small", "RIGHT")
         l.roll:SetPoint("RIGHT", -6, 0)
         l.roll:SetWidth(40)
@@ -443,11 +469,16 @@ local function Create()
         for _, h in ipairs(self.heads) do h:Hide() end
         for _, l in ipairs(self.lines) do l:Hide() end
         local rounds = Rolls:List()
+        -- Breiten aus der aktuellen Fenstergröße: Name links, Wahl und Wurf rechtsbündig dahinter
+        local inner = math.max(200, self:GetWidth() - 32)
+        local choiceX = inner - 136
+        self.empty:SetWidth(inner - 8)
         self.empty:SetShown(#rounds == 0)
         local y, hi, li = 0, 0, 0
         for _, round in ipairs(rounds) do
             hi = hi + 1
             local h = Head(hi)
+            h:SetWidth(inner)
             h:ClearAllPoints()
             h:SetPoint("TOPLEFT", 0, -y)
             h.link = round.link
@@ -469,10 +500,13 @@ local function Create()
             for _, c in ipairs(Rolls.Sorted(round)) do
                 li = li + 1
                 local l = Line(li)
+                l:SetWidth(inner)
+                l.choice:ClearAllPoints()
+                l.choice:SetPoint("LEFT", choiceX, 0)
                 l:ClearAllPoints()
                 l:SetPoint("TOPLEFT", 0, -y)
                 local winner = round.winner and ns.SameName(round.winner, c.name)
-                l.name:SetWidth(180)
+                l.name:SetWidth(choiceX - 30)
                 l.name:SetText((winner and (STAR .. " ") or "") .. "|c" .. ClassHexFor(c.name)
                     .. (ns.ShortName(c.name) or c.name or "?") .. "|r")
                 l.choice:SetText(T.Hex(CHOICE_COLOR[c.choice] or "cream", CHOICE_TEXT[c.choice] or c.choice))
@@ -484,11 +518,12 @@ local function Create()
             if #waiting > 0 then
                 li = li + 1
                 local l = Line(li)
+                l:SetWidth(inner)
                 l:ClearAllPoints()
                 l:SetPoint("TOPLEFT", 0, -y)
                 local names = {}
                 for _, n in ipairs(waiting) do names[#names + 1] = ns.ShortName(n) or n end
-                l.name:SetWidth(WIDTH - 60)
+                l.name:SetWidth(inner - 28)
                 l.name:SetText(T.Hex("muted", "Wartet noch: " .. table.concat(names, ", ")))
                 l.choice:SetText("")
                 l.roll:SetText("")

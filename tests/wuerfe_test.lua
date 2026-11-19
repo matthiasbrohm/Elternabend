@@ -248,3 +248,42 @@ test("Würfelfenster: Symbol des Gegenstands über C_Item, Stern als Bild", func
     check(not h.state:GetText():find("→", 1, true), "Pfeil im Text")
     noErrors(w)
 end)
+
+-- Größe merken: die Testwelt kennt keine Fenstergrößen, also für das Würfelfenster nachbauen
+local function MitGroesse(w)
+    local create = w.env.CreateFrame
+    w.env.CreateFrame = function(kind, name, ...)
+        local f = create(kind, name, ...)
+        if name == "ElternabendRolls" then
+            local size = { 100, 100 }
+            rawset(f, "SetSize", function(_, x, y) size = { x, y } end)
+            rawset(f, "GetWidth", function() return size[1] end)
+            rawset(f, "GetHeight", function() return size[2] end)
+        end
+        return f
+    end
+end
+
+test("Würfelfenster: Größe am Griff ändern, wird gemerkt und begrenzt", function()
+    local w = Welt()
+    MitGroesse(w)
+    w.ns.Rolls:Show()
+    local f = w.ns.Rolls.frame
+    check(f.grip, "Griff fehlt")
+    equal(f:GetWidth(), 380) -- Startgröße
+    f:SetSize(600, 700)
+    w:call(f.grip:GetScript("OnMouseUp"))
+    equal(w.ns.db.settings.rollWindowSize[1], 600)
+    equal(w.ns.db.settings.rollWindowSize[2], 700)
+    Chat(w, "LOOT_ROLL_NEED", "Beta", SCHWERT)
+    w:call(f.Refresh, f)
+    -- beim nächsten Start in der gemerkten Größe – zu große und zu kleine Werte werden begrenzt
+    local w2 = Welt()
+    MitGroesse(w2)
+    w2.ns.db.settings.rollWindowSize = { 5000, 100 }
+    w2.ns.Rolls:Show()
+    equal(w2.ns.Rolls.frame:GetWidth(), 900)
+    equal(w2.ns.Rolls.frame:GetHeight(), 220)
+    noErrors(w)
+    noErrors(w2)
+end)
