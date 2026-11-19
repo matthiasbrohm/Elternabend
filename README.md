@@ -171,8 +171,8 @@ Tritt jemand der Gilde bei, schreibt **genau einer** die lange Begrüßung mit V
 ## Gildenkarte
 Wer Einstellungen » **„Gildenkarte“** einschaltet, teilt seinen Standort mit der Gilde und sieht alle anderen, die ihn auch teilen, als Punkt in Klassenfarbe auf der Weltkarte (Name und Stufe beim Darüberfahren) – praktisch für „wer ist in meiner Gegend und kommt mit?“. Standardmäßig **aus**, „Alles an“ schaltet sie nicht ein. In Dungeons, Raids und Schlachtfeldern wird nichts gesendet; Ausschalten nimmt dich sofort von den Karten der anderen. Gesendet wird nur über den Addon-Kanal der Gilde.
 
-## Nachrichten mit der nächsten Eingabe
-WoW Forever lässt Nachrichten in den Gildenchat nur zu, während gerade ein Tastendruck oder Klick verarbeitet wird. Was das Addon nicht direkt aus einem Knopf heraus schreibt – die Nachmeldung der Gruppensuche, die Begrüßung neuer Mitglieder –, wartet deshalb kurz und geht mit deiner nächsten Taste oder deinem nächsten Klick in die Spielwelt raus. Davon merkt man nichts; die Taste wirkt ganz normal.
+## Wenn das Spiel Chatnachrichten blockiert
+Was das Addon nicht direkt aus einem Knopf heraus schreibt – die Nachmeldung der Gruppensuche, die Begrüßung neuer Mitglieder –, geht direkt raus. Sollte das Spiel so eine Nachricht einmal blockieren (manche Spielversionen erlauben Chat nur während eines Tastendrucks oder Klicks), merkt sich das Addon das und schickt sie – und alle weiteren – mit deiner nächsten Taste oder deinem nächsten Klick in die Spielwelt. Davon merkt man nichts; die Taste wirkt ganz normal.
 
 ## Pause für den Raid
 Die Raidleitung (Leiter oder Assistent) startet im Raid-Reiter mit **Pause 5 Min** oder `/ea pause [Minuten]` eine Pause. Alle mit Addon sehen oben einen großen Countdown, die anderen bekommen eine Schlachtzugswarnung mit der Uhrzeit, wann es weitergeht. Die Leitung kann im Countdown verlängern (+2 Min) oder beenden (`/ea weiter`).

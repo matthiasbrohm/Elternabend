@@ -160,11 +160,11 @@ ns:On("PLAYER_REGEN_ENABLED", function() C_Timer.After(1, FlushPending) end)
 ns:On("ENCOUNTER_END", function() C_Timer.After(2, FlushPending) end)
 
 -- Tastendruck oder Klick als Träger --------------------------------------
--- WoW Forever lässt Nachrichten in den Gildenchat nur zu, solange gerade eine echte Eingabe verarbeitet
--- wird; aus einem Zeitgeber oder einem Spielereignis heraus blockiert es sie (ADDON_ACTION_BLOCKED).
--- Solche Nachrichten warten hier und gehen mit dem nächsten Tastendruck oder Klick in die Spielwelt
--- raus – eine je Eingabe, nie während einer Chatsperre. Wer ohnehin aus einem Knopf heraus sendet,
--- braucht das nicht.
+-- Manche Clients lassen Chatnachrichten nur zu, solange gerade eine echte Eingabe verarbeitet wird;
+-- aus einem Zeitgeber heraus blockieren sie sie (ADDON_ACTION_BLOCKED). In WoW Forever klappte das
+-- Senden aus dem Zeitgeber bisher. ns.SendChat sendet deshalb direkt – und erst, wenn das Spiel einmal
+-- blockiert hat, mit dem nächsten Tastendruck oder Klick (eine Nachricht je Eingabe, nie während
+-- einer Chatsperre). Die blockierte Nachricht geht dann so noch einmal raus.
 local onInput = {}
 ns.lastInput = 0
 
@@ -182,6 +182,26 @@ end
 
 -- Läuft noch etwas? (für Tests und /ea diagnose)
 function ns.PendingInput() return #onInput end
+
+local lastChat
+function ns.SendChat(text, channel, target)
+    local function Send()
+        lastChat = { text, channel, target, GetTime() }
+        C_ChatInfo.SendChatMessage(text, channel, nil, target)
+    end
+    if ns.db and ns.db.settings.chatNeedsInput then ns.OnNextInput(Send) else ns.WhenChatFree(Send) end
+end
+
+-- Hat das Spiel eine Chatnachricht von uns blockiert? Ab jetzt mit der nächsten Eingabe senden.
+pcall(ns.On, ns, "ADDON_ACTION_BLOCKED", function(addon, func)
+    if addon ~= ADDON or type(func) ~= "string" or not func:find("SendChatMessage", 1, true) then return end
+    if ns.db then ns.db.settings.chatNeedsInput = true end
+    local last = lastChat
+    lastChat = nil
+    if last and GetTime() - last[4] < 2 then
+        ns.OnNextInput(function() C_ChatInfo.SendChatMessage(last[1], last[2], nil, last[3]) end)
+    end
+end)
 
 local inputReady = false
 local function SetupInput()

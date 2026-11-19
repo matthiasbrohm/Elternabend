@@ -121,8 +121,7 @@ function Groups:ChatUpdate(m)
         if key == m.chatKey then return end -- z. B. erst mehr, dann wieder weniger: nichts geändert
         m.chatKey = key
         local text = Groups.UpdateText(m)
-        -- aus dem Zeitgeber heraus würde WoW Forever die Nachricht blockieren: mit der nächsten Eingabe senden
-        ns.OnNextInput(function() C_ChatInfo.SendChatMessage(text, "GUILD") end)
+        ns.SendChat(text, "GUILD")
     end)
 end
 

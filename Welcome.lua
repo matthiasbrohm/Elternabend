@@ -8,7 +8,7 @@
 -- eingeschaltetem Schalter eine Zufallszahl an die Gilde (Addon-Nachricht, nicht im Chat), die
 -- höchste gewinnt. Wer gerade nicht an der Tastatur war, macht nicht mit. Taucht die lange
 -- Begrüßung nicht auf, schreibt sie nach einer Weile der Nächste in der Reihe.
--- Gesendet wird mit dem nächsten Tastendruck oder Klick (siehe ns.OnNextInput in Core.lua).
+-- Gesendet wird über ns.SendChat (Core.lua): direkt, und falls das Spiel das blockiert, mit der nächsten Eingabe.
 local _, ns = ...
 
 local Welcome = { pending = {} }
@@ -106,13 +106,11 @@ function Welcome:Queue(entry, long)
     entry.queued = true
     local delay = long and 0 or math.max(0, SHORT_AFTER - (GetTime() - entry.joined)) + math.random() * 4
     C_Timer.After(delay, function()
-        ns.OnNextInput(function()
-            if entry.sent or GetTime() - entry.joined > GIVE_UP then return end
-            -- inzwischen hat jemand anderes die lange geschrieben: dann doch nur kurz
-            local useLong = long and not entry.seen
-            entry.sent = true
-            C_ChatInfo.SendChatMessage(useLong and Welcome.LongText(entry.name) or Welcome.ShortText(entry.name), "GUILD")
-        end)
+        if entry.sent or GetTime() - entry.joined > GIVE_UP then return end
+        -- inzwischen hat jemand anderes die lange geschrieben: dann doch nur kurz
+        local useLong = long and not entry.seen
+        entry.sent = true
+        ns.SendChat(useLong and Welcome.LongText(entry.name) or Welcome.ShortText(entry.name), "GUILD")
     end)
 end
 

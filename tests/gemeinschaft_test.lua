@@ -90,7 +90,7 @@ test("Begrüßung: standardmäßig aus – kein Wort im Chat", function()
     noErrors(w)
 end)
 
-test("Begrüßung: allein mit dem Schalter schreibt man die lange Begrüßung – mit der nächsten Eingabe", function()
+test("Begrüßung: allein mit dem Schalter schreibt man die lange Begrüßung", function()
     local w = Gilde()
     w.env.ERR_GUILD_JOIN_S = "%s ist der Gilde beigetreten."
     w.ns.SetOpt("welcome", true)
@@ -98,7 +98,6 @@ test("Begrüßung: allein mit dem Schalter schreibt man die lange Begrüßung �
     Beitritt(w, "Dealla Südwind")
     w:advance(4)
     seen(w, "comm", "WELCOME")
-    equal(w.ns.PendingInput(), 1) -- wartet auf den nächsten Tastendruck
     local chats = GuildChats(w)
     equal(#chats, 1)
     check(chats[1]:find("Herzlich willkommen bei Elternabend, Dealla Südwind!", 1, true), chats[1])
@@ -266,5 +265,38 @@ test("Nachricht des Tages: „Ändern“ nur für wen es darf, Speichern setzt s
     equal(accept(string.rep("ä", 100) .. "\nZweite Zeile"), true)
     check(#set <= 128 and not set:find("\n"), "nicht gekürzt: " .. #set)
     check(not set:find("[\192-\255]$"), "mitten im Umlaut abgeschnitten")
+    noErrors(w)
+end)
+
+-- Senden, wenn das Spiel blockiert ---------------------------------------------------------------
+test("Chat: blockiert das Spiel einmal, geht die Nachricht mit der nächsten Eingabe noch einmal raus", function()
+    local w = Gilde()
+    local blocked = true
+    w.env.C_ChatInfo.SendChatMessage = function(text, channel)
+        if blocked then
+            w:fire("ADDON_ACTION_BLOCKED", "Elternabend", "C_ChatInfo.SendChatMessage()")
+            return
+        end
+        table.insert(w.log, { kind = "chat", text = channel .. " " .. text })
+    end
+    w:call(w.ns.SendChat, "Hallo Gilde", "GUILD")
+    equal(w.ns.db.settings.chatNeedsInput, true)
+    equal(w.ns.PendingInput(), 1)
+    blocked = false
+    local chats = GuildChats(w)
+    equal(#chats, 1)
+    equal(chats[1], "Hallo Gilde")
+    -- ab jetzt gleich mit der nächsten Eingabe
+    w:call(w.ns.SendChat, "Zweite", "GUILD")
+    equal(w.ns.PendingInput(), 1)
+    equal(GuildChats(w)[2], "Zweite")
+    noErrors(w)
+end)
+
+test("Chat: ohne Blockade direkt gesendet", function()
+    local w = Gilde()
+    w:call(w.ns.SendChat, "Direkt", "GUILD")
+    equal(w.ns.PendingInput(), 0)
+    seen(w, "chat", "^GUILD Direkt$")
     noErrors(w)
 end)
