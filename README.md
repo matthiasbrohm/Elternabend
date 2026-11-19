@@ -155,15 +155,24 @@ Wer dich mit `ginv` anflüstert (Stichwörter im Reiter **Invite** einstellbar, 
 
 ## Start: Begrüßung und Gildeninfos
 Der Reiter **Start** ist der erste beim Öffnen. Beim allerersten Start in der Gilde öffnet sich das Fenster damit von selbst – einmal pro Account, nicht auf jedem Twink. Er zeigt:
-- eine Begrüßung mit dem Vornamen und darunter die **Gildeninformation** aus dem Spiel (der Text, den die Gildenleitung im Gildenfenster unter „Gildeninformation“ pflegt). Ist sie leer oder gibt das Spiel sie nicht heraus, steht dort kurz, wer die Gilde ist,
-- die **Nachricht des Tages** live aus dem Spiel (die Gildenleitung ändert sie wie gewohnt im Gildenfenster),
+- eine Begrüßung mit dem Vornamen, darunter deine **Stufe-60-Prognose** („Stufe 60 bei deinem Tempo etwa am 14.12.2026“ – nur für dich, ohne Rangliste: gemessen wird, wie viel Erfahrung du pro Spielstunde sammelst und wie lange du im Schnitt pro Tag spielst; AFK zählt nicht, die erste Prognose kommt nach etwa einer Stunde Spielzeit) und die **Gildeninformation** aus dem Spiel (der Text, den die Gildenleitung im Gildenfenster unter „Gildeninformation“ pflegt). Ist sie leer oder gibt das Spiel sie nicht heraus, steht dort kurz, wer die Gilde ist,
+- die **Nachricht des Tages** live aus dem Spiel. Wer sie ändern darf, hat daneben den Knopf **„Ändern“** (höchstens 128 Zeichen, eine Zeile),
 - beide Felder bekommen rechts einen Rollbalken, sobald der Text nicht hineinpasst (Mausrad oder Regler ziehen),
 - die **Raidzeiten** und – falls geladen – den nächsten Raid aus dem Raidplaner,
 - **Discord** und **Webseite** zum Kopieren (WoW kann keine Links öffnen: ins Feld klicken, Strg+C),
-- eine Übersicht, **was das Addon kann**, jeweils mit „Öffnen“.
+- eine Übersicht, **was das Addon kann**, jeweils mit „Öffnen“ – darunter die **Stufenaufstiege** der Gilde („Keela 19 » 20“, die drei neuesten; „Alle“ zeigt die letzten zwei Wochen). Jeder Client merkt sie sich aus der Gildenliste; wer offline war, sieht danach, was inzwischen passiert ist.
 
 Neue Mitglieder sehen den Start-Reiter automatisch einmal: beim ersten Einloggen mit dem Addon und nach dem Beitritt zur Gilde Elternabend.
 Die festen Texte (Raidzeiten, Links) stehen in `Info.lua` und kommen mit jeder Addon-Version.
+
+## Neue Gildenmitglieder begrüßen
+Tritt jemand der Gilde bei, schreibt **genau einer** die lange Begrüßung mit Vorstellungsrunde, Discord und Addon-Tipp – alle anderen danach nur ein kurzes „Willkommen, Dealla!“. Wer die lange schreibt, losen die Addons unsichtbar aus; wer gerade nicht an der Tastatur ist, macht nicht mit, und bleibt die lange aus, schreibt sie nach einer Weile der Nächste. Standardmäßig **aus**, weil das Addon hier in deinem Namen schreibt: Einstellungen » „Neue Gildenmitglieder begrüßen“. „Alles an“ schaltet es nicht ein.
+
+## Gildenkarte
+Wer Einstellungen » **„Gildenkarte“** einschaltet, teilt seinen Standort mit der Gilde und sieht alle anderen, die ihn auch teilen, als Punkt in Klassenfarbe auf der Weltkarte (Name und Stufe beim Darüberfahren) – praktisch für „wer ist in meiner Gegend und kommt mit?“. Standardmäßig **aus**, „Alles an“ schaltet sie nicht ein. In Dungeons, Raids und Schlachtfeldern wird nichts gesendet; Ausschalten nimmt dich sofort von den Karten der anderen. Gesendet wird nur über den Addon-Kanal der Gilde.
+
+## Nachrichten mit der nächsten Eingabe
+WoW Forever lässt Nachrichten in den Gildenchat nur zu, während gerade ein Tastendruck oder Klick verarbeitet wird. Was das Addon nicht direkt aus einem Knopf heraus schreibt – die Nachmeldung der Gruppensuche, die Begrüßung neuer Mitglieder –, wartet deshalb kurz und geht mit deiner nächsten Taste oder deinem nächsten Klick in die Spielwelt raus. Davon merkt man nichts; die Taste wirkt ganz normal.
 
 ## Pause für den Raid
 Die Raidleitung (Leiter oder Assistent) startet im Raid-Reiter mit **Pause 5 Min** oder `/ea pause [Minuten]` eine Pause. Alle mit Addon sehen oben einen großen Countdown, die anderen bekommen eine Schlachtzugswarnung mit der Uhrzeit, wann es weitergeht. Die Leitung kann im Countdown verlängern (+2 Min) oder beenden (`/ea weiter`).

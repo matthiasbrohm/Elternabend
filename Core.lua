@@ -159,6 +159,48 @@ ns:On("ADDON_RESTRICTION_STATE_CHANGED", function() C_Timer.After(0.5, FlushPend
 ns:On("PLAYER_REGEN_ENABLED", function() C_Timer.After(1, FlushPending) end)
 ns:On("ENCOUNTER_END", function() C_Timer.After(2, FlushPending) end)
 
+-- Tastendruck oder Klick als Träger --------------------------------------
+-- WoW Forever lässt Nachrichten in den Gildenchat nur zu, solange gerade eine echte Eingabe verarbeitet
+-- wird; aus einem Zeitgeber oder einem Spielereignis heraus blockiert es sie (ADDON_ACTION_BLOCKED).
+-- Solche Nachrichten warten hier und gehen mit dem nächsten Tastendruck oder Klick in die Spielwelt
+-- raus – eine je Eingabe, nie während einer Chatsperre. Wer ohnehin aus einem Knopf heraus sendet,
+-- braucht das nicht.
+local onInput = {}
+ns.lastInput = 0
+
+function ns.OnNextInput(fn)
+    table.insert(onInput, fn)
+end
+
+function ns.HardwarePulse()
+    ns.lastInput = GetTime()
+    if #onInput == 0 or ns.ChatLocked() then return end
+    local fn = table.remove(onInput, 1)
+    local ok, err = pcall(fn)
+    if not ok and geterrorhandler then geterrorhandler()(err) end
+end
+
+-- Läuft noch etwas? (für Tests und /ea diagnose)
+function ns.PendingInput() return #onInput end
+
+local inputReady = false
+local function SetupInput()
+    if inputReady then return end
+    if InCombatLockdown() then return end -- die Tastatur-Weitergabe lässt sich im Kampf nicht einrichten
+    inputReady = true
+    local keys = CreateFrame("Frame", "ElternabendInput", UIParent)
+    keys:SetSize(1, 1)
+    keys:SetPoint("TOPLEFT")
+    keys:EnableKeyboard(true)
+    keys:SetPropagateKeyboardInput(true) -- jede Taste geht unverändert weiter ans Spiel
+    keys:SetScript("OnKeyDown", function() ns.HardwarePulse() end)
+    if WorldFrame and WorldFrame.HookScript then
+        WorldFrame:HookScript("OnMouseDown", function() ns.HardwarePulse() end)
+    end
+end
+ns:Listen("INIT", SetupInput)
+ns:On("PLAYER_REGEN_ENABLED", SetupInput)
+
 -- Gegenstände ------------------------------------------------------------
 function ns.GetItemInfo(item)
     return C_Item.GetItemInfo(item)
@@ -337,6 +379,11 @@ ns.OPTIONS = {
     { key = "chatGroups", label = "Neue Gruppengesuche melden",
         get = function() return ns.db.groups.notify end,
         set = function(on) ns.db.groups.notify = on end },
+    { key = "welcome", label = "Neue Gildenmitglieder begrüßen",
+        hint = "einer schreibt die lange Begrüßung mit Discord, alle anderen kurz „Willkommen“",
+        manual = true, -- schreibt in deinem Namen: nur von Hand einschalten, nie über „Alles an“
+        get = function() return ns.db.settings.welcome == true end,
+        set = function(on) ns.db.settings.welcome = on end },
     { key = "awayChat", label = "„Kind wach“ zusätzlich in den Gruppenchat schreiben",
         hint = "für Mitspieler ohne Addon",
         get = function() return ns.db.away.announce end,
@@ -378,6 +425,14 @@ ns.OPTIONS = {
         set = function(on)
             ns.db.recruit.popup = on
             ns:Fire("RECRUIT_UPDATE")
+        end },
+    { key = "guildMap", label = "Gildenkarte: Standort teilen und andere auf der Weltkarte sehen",
+        hint = "nicht in Dungeons und Raids",
+        manual = true, -- teilt deinen Standort: nur von Hand einschalten, nie über „Alles an“
+        get = function() return ns.db.settings.guildMap == true end,
+        set = function(on)
+            ns.db.settings.guildMap = on
+            if on then ns.GuildMap:Send(true) else ns.GuildMap:Stop() end
         end },
     { key = "rollWindow", label = "Würfelfenster für Bedarf und Gier",
         hint = "wer was gewählt und gewürfelt hat – mit /ea loot oder eigener Taste",
@@ -433,7 +488,8 @@ end
 function ns.SetPreset(name)
     local preset = ns.PRESETS[name]
     for _, o in ipairs(ns.OPTIONS) do
-        if o.key then
+        -- „manual“: schaltet nur, wer es selbst anklickt („Alles aus“ schaltet aber auch sie aus)
+        if o.key and not (o.manual and name ~= "aus") then
             local on = name ~= "aus"
             if preset and preset[o.key] ~= nil then on = preset[o.key] end
             ns.SetOpt(o.key, on)

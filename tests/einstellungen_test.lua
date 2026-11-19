@@ -178,7 +178,8 @@ test("„Ruhig“: genau diese Schalter aus, alle anderen an", function()
     w.ns.SetOpt("chatMain", false) -- wird von „Ruhig“ wieder angeschaltet
     Ruhig(w)
     local off = { minimap = true, sounds = true, chatBoard = true, raidReminderScreen = true, quizOpen = true,
-        notices = true, awayButtonIdle = true, recruitPopup = true, rollWindow = true }
+        notices = true, awayButtonIdle = true, recruitPopup = true, rollWindow = true,
+        welcome = true, guildMap = true } -- die beiden letzten: standardmäßig aus, „Ruhig“ lässt sie so
     for _, o in ipairs(w.ns.OPTIONS) do
         if o.key then equal(w.ns.Opt(o.key), not off[o.key], o.key) end
     end
@@ -219,8 +220,24 @@ test("„Alles an“ nach „Ruhig“: wieder wie vorher", function()
     Ruhig(w)
     w:call(w.ns.SetPreset, "an")
     for _, o in ipairs(w.ns.OPTIONS) do
-        if o.key then equal(w.ns.Opt(o.key), true, o.key) end
+        -- Begrüßen und Gildenkarte schaltet nur, wer sie selbst anklickt
+        if o.key then equal(w.ns.Opt(o.key), not o.manual, o.key) end
     end
+end)
+
+test("„Alles an“ lässt eingeschaltetes Begrüßen und die Gildenkarte an, „Alles aus“ schaltet sie aus", function()
+    local w = Gruppe()
+    w.ns.SetOpt("welcome", true)
+    w.ns.SetOpt("guildMap", true)
+    w:call(w.ns.SetPreset, "an")
+    equal(w.ns.Opt("welcome"), true)
+    equal(w.ns.Opt("guildMap"), true)
+    w:call(w.ns.SetPreset, "ruhig")
+    equal(w.ns.Opt("welcome"), true, "Ruhig ändert sie nicht")
+    w:call(w.ns.SetPreset, "aus")
+    equal(w.ns.Opt("welcome"), false)
+    equal(w.ns.Opt("guildMap"), false)
+    noErrors(w)
 end)
 
 test("Einstellungsfenster mit allen Schaltern und den drei Knöpfen", function()

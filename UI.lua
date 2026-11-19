@@ -444,7 +444,7 @@ function UI:QueueRefresh()
 end
 
 for _, msg in ipairs({ "ROSTER_UPDATE", "SR_UPDATE", "LOOT_UPDATE", "ROLL_UPDATE", "HISTORY_UPDATE", "SESSION_UPDATE", "NOTES_UPDATE", "INFO_UPDATE", "MEMBERS_UPDATE", "JOIN_UPDATE", "PROF_UPDATE",
-    "GROUPS_UPDATE", "ORDERS_UPDATE", "FAME_UPDATE", "READY_UPDATE", "BOARD_UPDATE", "CALENDAR_UPDATE", "GUILDLOG_UPDATE", "PROFILE_UPDATE" }) do
+    "GROUPS_UPDATE", "ORDERS_UPDATE", "FAME_UPDATE", "LEVELUP_UPDATE", "READY_UPDATE", "BOARD_UPDATE", "CALENDAR_UPDATE", "GUILDLOG_UPDATE", "PROFILE_UPDATE" }) do
     ns:Listen(msg, function() UI:QueueRefresh() end)
 end
 
@@ -553,8 +553,13 @@ function UI:CreateStartPanel()
     welcome:SetWidth(leftWidth)
     p.hello = T.Text(welcome, "heading")
     p.hello:SetPoint("TOPLEFT", welcome.kicker, "BOTTOMLEFT", 0, -4)
+    -- Eigene Stufe-60-Prognose (nur für dich, verschwindet auf Stufe 60)
+    p.forecast = T.Text(welcome, "muted")
+    p.forecast:SetPoint("TOPLEFT", p.hello, "BOTTOMLEFT", 0, -4)
+    p.forecast:SetWidth(leftWidth - 32)
+    p.forecast:SetWordWrap(false)
     p.about = ScrollText(welcome, "small", leftWidth - 32)
-    p.about:SetPoint("TOPLEFT", p.hello, "BOTTOMLEFT", 0, -8)
+    p.about:SetPoint("TOPLEFT", p.forecast, "BOTTOMLEFT", 0, -6)
     p.about:SetPoint("BOTTOMRIGHT", -16, 34)
     p.about:SetBody(G.about)
     local motto = T.Text(welcome, "muted")
@@ -568,6 +573,12 @@ function UI:CreateStartPanel()
     p.motdScroll = ScrollText(motd, "body", leftWidth - 32, 2)
     p.motdScroll:SetPoint("TOPLEFT", motd.kicker, "BOTTOMLEFT", 0, -6)
     p.motdScroll:SetPoint("BOTTOMRIGHT", -16, 10)
+    -- Wer die Nachricht des Tages ändern darf, kann das gleich hier tun
+    p.motdEdit = T.Button(motd, "Ändern", 70)
+    p.motdEdit:SetHeight(20)
+    p.motdEdit:SetPoint("TOPRIGHT", -12, -8)
+    p.motdEdit:SetScript("OnClick", function() UI:EditMOTD() end)
+    p.motdEdit:Hide()
     -- Wer noch nicht in der Gilde ist, sieht hier stattdessen den Beitritt (Text, Knopf, Kopierfeld)
     p.motd = T.Text(motd, "body")
     p.motd:SetPoint("TOPLEFT", motd.kicker, "BOTTOMLEFT", 0, -6)
@@ -633,6 +644,7 @@ function UI:CreateStartPanel()
     now:SetPoint("BOTTOMRIGHT")
     local NOW_ROWS = {
         { key = "online", title = "Gilde", button = "Öffnen", tab = "mitglieder" },
+        { key = "levelups", title = "Stufenaufstiege", button = "Alle" },
         { key = "calendar", title = "Kalender", button = "Öffnen", tab = "kalender" },
         { key = "board", title = "Pinnwand", button = "Öffnen", tab = "pinnwand" },
         { key = "orders", title = "Aufträge", button = "Öffnen", tab = "berufe" },
@@ -669,6 +681,8 @@ function UI:CreateStartPanel()
                 p:Refresh()
             elseif r.key == "steps" then
                 UI:ShowSteps()
+            elseif r.key == "levelups" then
+                UI:ShowLevelUps()
             else
                 UI:Show(r.tab)
             end
@@ -743,6 +757,28 @@ function UI:CreateStartPanel()
         p.now.online.text:SetText(not IsInGuild() and "Du bist noch in keiner Gilde."
             or online == 1 and "1 Spieler gerade online" or (online .. " Spieler gerade online"))
 
+        -- Stufenaufstiege: die neuesten in einer Zeile, „Alle“ zeigt die Liste
+        local ups = ns.Leveling:Ups()
+        local today = 0
+        for _, u in ipairs(ups) do
+            if time() - u.t < 86400 then today = today + 1 end
+        end
+        p.now.levelups.extra:SetText(today > 0 and T.Hex("goldBright", today == 1 and "1 in den letzten 24 Std." or (today .. " in den letzten 24 Std.")) or "")
+        if not IsInGuild() then
+            p.now.levelups.text:SetText("Nur für Charaktere in der Gilde.")
+        elseif #ups == 0 then
+            p.now.levelups.text:SetText("Noch keine bemerkt – sie erscheinen, sobald jemand aufsteigt.")
+        else
+            local parts = {}
+            for i = 1, math.min(3, #ups) do
+                local u = ups[i]
+                local col = u.class and RAID_CLASS_COLORS and RAID_CLASS_COLORS[u.class]
+                parts[#parts + 1] = "|c" .. (col and col.colorStr or T.hex.cream) .. (ns.ShortName(u.name) or u.name) .. "|r "
+                    .. u.from .. " » " .. T.Hex("goldBright", u.to)
+            end
+            p.now.levelups.text:SetText(table.concat(parts, "  ·  "))
+        end
+
         -- Kalender: was gerade läuft (Jahrmarkt, PvP), nächster Raid
         local running, nextRaid, nextDmf = ns.Calendar:Summary()
         local calRow = p.now.calendar
@@ -774,6 +810,7 @@ function UI:CreateStartPanel()
         local first = ns.ShortName(ns.UnitFullName("player")) or ""
         first = first:match("^(%S+)") or first
         p.hello:SetText("Schön, dass du da bist, " .. first .. "!")
+        p.forecast:SetText(ns.Leveling:ForecastText())
 
         if ns.Comm.newest then
             p.hello:SetText("Schön, dass du da bist, " .. first .. "!  " .. T.Hex("green", "Update " .. ns.Comm.newest .. " auf " .. ns.DOWNLOAD))
@@ -791,12 +828,14 @@ function UI:CreateStartPanel()
             p.motdCard.kicker:SetText("NACHRICHT DES TAGES")
             p.motdScroll:SetBody(text ~= "" and text or T.Hex("dim", "Gerade keine Nachricht des Tages."))
             p.motdScroll:Show()
+            p.motdEdit:SetShown(ns.Info:IsOurGuild() and UI.CanEditMOTD())
             p.motd:Hide()
             p.joinBtn:Hide()
             p.joinCopy:Hide()
         else
             p.about:SetBody(G.about)
             p.motdScroll:Hide()
+            p.motdEdit:Hide()
             p.motd:Show()
             local status = ns.Join:StatusText()
             p.motdCard.kicker:SetText("MITMACHEN")
@@ -5730,6 +5769,47 @@ function UI:ShowStepsReport()
     self:TextDialog("Erste Schritte der Mitglieder",
         "Ihren Stand melden nur Mitglieder mit dem Addon ab Version 4.11. Die Schritte: " .. table.concat(labels, ", ") .. ".",
         table.concat(out, "\n"))
+end
+
+-- Nachricht des Tages ändern (Gildenleitung und wer es darf) -----------------------------------
+function UI.CanEditMOTD()
+    local can = (C_GuildInfo and C_GuildInfo.CanEditMOTD) or CanEditMOTD
+    if type(can) ~= "function" then return false end
+    local ok, result = pcall(can)
+    return ok and result == true
+end
+
+-- Eine Zeile, höchstens 128 Zeichen, nie mitten in einem Umlaut abgeschnitten
+function UI.CutMOTD(text)
+    text = strtrim(((text or ""):gsub("[\r\n]+", " ")))
+    if #text <= 128 then return text end
+    return (text:sub(1, 128):gsub("[\192-\255][\128-\191]*$", ""))
+end
+
+function UI:EditMOTD()
+    self:TextDialog("Nachricht des Tages ändern",
+        "Sie steht bei allen im Gildenchat und auf der Startseite. Höchstens 128 Zeichen, eine Zeile.",
+        ns.Info:MOTD(), function(text)
+            -- Der Klick auf „Speichern“ ist die Eingabe, die das Spiel dafür verlangt
+            local set = (C_GuildInfo and C_GuildInfo.SetMOTD) or GuildSetMOTD
+            if type(set) ~= "function" then
+                ns.Print("Das Spiel bietet hier kein Ändern an – bitte im Gildenfenster ändern.")
+                return false
+            end
+            set(UI.CutMOTD(text))
+            return true
+        end, "Speichern")
+end
+
+-- Liste der Stufenaufstiege ---------------------------------------------------------------------
+function UI:ShowLevelUps()
+    local lines = {}
+    for _, u in ipairs(ns.Leveling:Ups()) do
+        lines[#lines + 1] = string.format("%s  %s  %d » %d", ns.Leveling.Ago(u.t), ns.ShortName(u.name) or u.name, u.from, u.to)
+    end
+    self:TextDialog("Stufenaufstiege in der Gilde",
+        "Was das Addon in den letzten zwei Wochen bemerkt hat. Aufstiege, während du offline warst, stehen mit dem Zeitpunkt, an dem du wieder online kamst.",
+        #lines > 0 and table.concat(lines, "\n") or "Noch keine Stufenaufstiege bemerkt.")
 end
 
 function UI:TextDialog(title, hint, text, onAccept, acceptLabel)

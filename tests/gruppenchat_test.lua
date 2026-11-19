@@ -10,6 +10,8 @@ local function Welt(chat)
 end
 
 local function Chats(w)
+    -- Nachmeldungen gehen mit der nächsten Eingabe raus: ein paar Tastendrücke nachspielen
+    for _ = 1, 4 do w:call(w.ns.HardwarePulse) end
     local list = {}
     for _, e in ipairs(w.log) do
         if e.kind == "chat" and e.text:find("^GUILD ") then table.insert(list, (e.text:gsub("^GUILD ", ""))) end
