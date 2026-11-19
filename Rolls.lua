@@ -44,38 +44,54 @@ local SPECS = {
     { "LOOT_ROLL_ALL_PASSED", "allpass", { "item" } },
 }
 
--- „%s hat … %d …“ -> Lua-Muster mit Fängen und Liste, welcher Fang welcher Platzhalter ist
+-- „%s hat … %d …“ -> Lua-Muster mit Fängen, Liste, welcher Fang welcher Platzhalter ist,
+-- und die Art jedes Platzhalters (s/d) sowie ihre Zahl
 function Rolls.Compile(fmt)
     if type(fmt) ~= "string" or fmt == "" then return nil end
-    local pattern, order, n, pos = "^", {}, 0, 1
+    local pattern, order, kinds, n, pos, most = "^", {}, {}, 0, 1, 0
     while true do
         local s, e, index, kind = fmt:find("%%(%d*)%$?([sd])", pos)
         if not s then break end
         local literal = fmt:sub(pos, s - 1):gsub("%%%%", "%%"):gsub("([%(%)%.%%%+%-%*%?%[%]%^%$])", "%%%1")
         pattern = pattern .. literal .. (kind == "d" and "(%d+)" or "(.-)")
         n = n + 1
-        order[#order + 1] = tonumber(index) or n
+        local arg = tonumber(index) or n
+        order[#order + 1] = arg
+        kinds[arg] = kind
+        most = math.max(most, arg)
         pos = e + 1
     end
     if n == 0 then return nil end
     local tail = fmt:sub(pos):gsub("%%%%", "%%"):gsub("([%(%)%.%%%+%-%*%?%[%]%^%$])", "%%%1")
-    return pattern .. tail .. "$", order
+    return pattern .. tail .. "$", order, kinds, most
 end
 
-local compiled
+-- Neuere Spielversionen setzen vor jede Zeile einen Link auf den Beuteverlauf:
+-- „|HlootHistory:%d|h[Beute]|h: %s hat Bedarf gewählt …“. Dieser erste Platzhalter ist dann die
+-- Nummer der Runde – praktisch, denn sie hält auch zwei gleiche Gegenstände auseinander.
+local compiled, byName
 local function Patterns()
-    if compiled then return compiled end
-    compiled = {}
+    if compiled then return compiled, byName end
+    compiled, byName = {}, {}
     for _, spec in ipairs(SPECS) do
-        local pattern, order = Rolls.Compile(_G[spec[1]])
+        local fmt = _G[spec[1]]
+        local pattern, order, kinds, most = Rolls.Compile(fmt)
         if pattern then
-            table.insert(compiled, { pattern = pattern, order = order, kind = spec[2], args = spec[3], self = spec[4],
+            local args = spec[3]
+            local shift = most == #args + 1 and kinds[1] == "d"
+            local names = {}
+            for arg = 1, most do
+                if shift then names[arg] = arg == 1 and "history" or args[arg - 1] else names[arg] = args[arg] end
+            end
+            local p = { pattern = pattern, order = order, names = names, shift = shift, kind = spec[2], self = spec[4],
                 -- längere (genauere) Texte zuerst: „… automatisch gepasst …“ vor „… gepasst …“
-                weight = #(_G[spec[1]]) })
+                weight = #fmt }
+            table.insert(compiled, p)
+            byName[spec[1]] = p
         end
     end
     table.sort(compiled, function(a, b) return a.weight > b.weight end)
-    return compiled
+    return compiled, byName
 end
 
 -- Eine Chatzeile lesen: { kind = …, who = …, item = …, roll = … } oder nil
@@ -86,12 +102,13 @@ function Rolls.Parse(msg)
         if #found > 0 then
             local r = { kind = p.kind }
             for i, value in ipairs(found) do
-                local name = p.args[p.order[i]]
+                local name = p.names[p.order[i]]
                 if name then r[name] = value end
             end
             if p.self then r.who = ns.UnitFullName("player") end
             if r.item and (not r.who or r.who ~= "") then
                 r.roll = tonumber(r.roll)
+                r.history = tonumber(r.history)
                 return r
             end
         end
@@ -117,20 +134,25 @@ local function Open(round)
     return not round.done and (time() - round.t) < STALE
 end
 
-local function NewRound(link)
+local function NewRound(link, history)
     local list = DB().rounds
-    local round = { t = time(), link = link, key = ItemKey(link), choices = {} }
+    local round = { t = time(), link = link, key = ItemKey(link), history = history, choices = {} }
     table.insert(list, 1, round)
     while #list > KEEP do table.remove(list) end
     return round
 end
 
--- Älteste passende offene Runde (die Liste ist neueste zuerst)
-local function Find(link, accept)
+-- Älteste passende offene Runde (die Liste ist neueste zuerst). Mit Rundennummer zählt nur die
+-- Runde mit derselben Nummer (oder eine ohne – die bekommt sie dann).
+local function Find(link, accept, history)
     local key, list = ItemKey(link), DB().rounds
     for i = #list, 1, -1 do
         local round = list[i]
-        if round.key == key and Open(round) and (not accept or accept(round)) then return round end
+        if round.key == key and Open(round) and (not history or not round.history or round.history == history)
+            and (not accept or accept(round)) then
+            if history then round.history = history end
+            return round
+        end
     end
 end
 
@@ -142,16 +164,17 @@ end
 
 function Rolls:Handle(r)
     if not r then return end
+    local h = r.history
     if r.kind == "need" or r.kind == "greed" or r.kind == "de" or r.kind == "pass" then
         -- zwei gleiche Gegenstände zugleich: wer schon gewählt hat, gehört zur nächsten Runde
-        local round = Find(r.item, function(x) return not Choice(x, r.who) end) or NewRound(r.item)
+        local round = Find(r.item, function(x) return not Choice(x, r.who) end, h) or NewRound(r.item, h)
         table.insert(round.choices, { name = r.who, choice = r.kind })
     elseif r.kind == "rollneed" or r.kind == "rollgreed" or r.kind == "rollde" then
         local want = r.kind:sub(5)
         local round = Find(r.item, function(x)
             local c = Choice(x, r.who)
             return c and c.choice == want and not c.roll
-        end) or Find(r.item) or NewRound(r.item)
+        end, h) or Find(r.item, nil, h) or NewRound(r.item, h)
         local c = Choice(round, r.who)
         if not c then
             c = { name = r.who, choice = want }
@@ -159,11 +182,12 @@ function Rolls:Handle(r)
         end
         c.roll = r.roll
     elseif r.kind == "won" then
-        local round = Find(r.item, function(x) return Choice(x, r.who) ~= nil end) or Find(r.item) or NewRound(r.item)
+        local round = Find(r.item, function(x) return Choice(x, r.who) ~= nil end, h) or Find(r.item, nil, h)
+            or NewRound(r.item, h)
         round.winner = r.who
         round.done = true
     elseif r.kind == "allpass" then
-        local round = Find(r.item) or NewRound(r.item)
+        local round = Find(r.item, nil, h) or NewRound(r.item, h)
         round.allPassed = true
         round.done = true
     end
@@ -200,19 +224,33 @@ function Rolls:Demo()
         { "LOOT_ROLL_PASSED", "Probe Anna", b }, { "LOOT_ROLL_PASSED_SELF", b }, { "LOOT_ROLL_ALL_PASSED", b },
         { "LOOT_ROLL_GREED", "Probe Bert", c }, { "LOOT_ROLL_GREED_SELF", c },
     }
-    local missing = {}
+    local history = { [a] = 101, [b] = 102, [c] = 103 }
+    local _, specs = Patterns()
+    local missing, first = {}, nil
     for _, l in ipairs(lines) do
-        local fmt = _G[l[1]]
-        local ok, msg = pcall(string.format, type(fmt) == "string" and fmt or "", select(2, unpack(l)))
+        local fmt, p = _G[l[1]], specs[l[1]]
+        local args = { select(2, unpack(l)) }
+        if p and p.shift then
+            local item
+            for i = 2, #l do if history[l[i]] then item = l[i] end end
+            table.insert(args, 1, history[item] or 100)
+        end
+        local ok, msg = pcall(string.format, type(fmt) == "string" and fmt or "", unpack(args))
         local r = ok and Rolls.Parse(msg)
-        if r then self:Handle(r) else missing[#missing + 1] = l[1] end
+        if r then
+            self:Handle(r)
+        else
+            missing[#missing + 1] = l[1]
+            first = first or (type(fmt) == "string" and fmt:gsub("|", "||") or tostring(fmt))
+        end
     end
     -- die letzte Runde läuft noch eine halbe Minute
     local round = Find(c)
     if round then round.ends = time() + 30 end
     ns:Fire("ROLLS_UPDATE")
     if #missing > 0 then
-        ns.Print("Würfelfenster: Diese Texte des Spiels wurden nicht erkannt: " .. table.concat(missing, ", "))
+        ns.Print("Würfelfenster: Diese Texte des Spiels wurden nicht erkannt: " .. table.concat(missing, ", ")
+            .. ". Der erste lautet: " .. tostring(first))
     else
         ns.Print("Würfelfenster: Probelauf mit drei Beispiel-Gegenständen. „Leeren“ räumt sie wieder weg.")
     end

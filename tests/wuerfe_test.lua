@@ -182,3 +182,54 @@ test("Würfelfenster: Probelauf bei ausgeschaltetem Fenster nur mit Hinweis", fu
     equal(#w.ns.Rolls:List(), 0)
     noErrors(w)
 end)
+
+-- Neuere Spielversionen (wie WoW Forever): vorne ein Link auf den Beuteverlauf mit der Rundennummer
+local NEU = {}
+for k, v in pairs(EN) do NEU[k] = "|HlootHistory:%d|h[Loot]|h: " .. v end
+
+local function WeltNeu()
+    local w = login({ guild = "Elternabend", roster = { { name = "Anna Sturmwind", online = true } } })
+    for k, v in pairs(NEU) do w.env[k] = v end
+    w:advance(30)
+    w.ns.SetOpt("rollWindow", true)
+    w:clear()
+    return w
+end
+
+test("Würfelfenster: Texte mit Beuteverlauf-Link werden erkannt", function()
+    local w = WeltNeu()
+    local function C(fmt, ...) w:fire("CHAT_MSG_LOOT", string.format(NEU[fmt], ...)) end
+    C("LOOT_ROLL_NEED", 7, "Beta", SCHWERT)
+    C("LOOT_ROLL_GREED_SELF", 7, SCHWERT)
+    C("LOOT_ROLL_ROLLED_NEED", 7, 55, SCHWERT, "Beta")
+    C("LOOT_ROLL_WON", 7, "Beta", SCHWERT)
+    local list = w.ns.Rolls:List()
+    equal(#list, 1)
+    equal(list[1].history, 7)
+    equal(list[1].winner, "Beta")
+    equal(w.ns.Rolls.Sorted(list[1])[1].roll, 55)
+    noErrors(w)
+end)
+
+test("Würfelfenster: Rundennummer trennt zwei gleiche Gegenstände", function()
+    local w = WeltNeu()
+    local function C(fmt, ...) w:fire("CHAT_MSG_LOOT", string.format(NEU[fmt], ...)) end
+    C("LOOT_ROLL_NEED", 1, "Beta", SCHWERT)
+    C("LOOT_ROLL_GREED", 2, "Cora", SCHWERT)
+    C("LOOT_ROLL_GREED", 1, "Cora", SCHWERT)
+    C("LOOT_ROLL_WON", 2, "Cora", SCHWERT)
+    local list = w.ns.Rolls:List()
+    equal(#list, 2)
+    local eins = list[1].history == 1 and list[1] or list[2]
+    equal(#eins.choices, 2)
+    check(not eins.done, "Runde 1 ist noch offen")
+    noErrors(w)
+end)
+
+test("Würfelfenster: Probelauf mit Beuteverlauf-Texten", function()
+    local w = WeltNeu()
+    w:slash("/ea loot test")
+    seen(w, "print", "Probelauf mit drei Beispiel")
+    equal(#w.ns.Rolls:List(), 3)
+    noErrors(w)
+end)
