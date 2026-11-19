@@ -247,11 +247,11 @@ test("Gildenkarte: Standort anderer wird gemerkt und nach einer Weile vergessen"
 end)
 
 -- Nachricht des Tages ---------------------------------------------------------------------------
-test("Nachricht des Tages: „Ändern“ nur für wen es darf, Speichern setzt sie gekürzt", function()
+test("Nachricht des Tages: „Ändern“ nur für wen es darf, Speichern läuft über /gmotd", function()
     local w = Gilde()
     local set
     w.env.C_GuildInfo.CanEditMOTD = function() return false end
-    w.env.C_GuildInfo.SetMOTD = function(text) set = text end
+    w.env.C_GuildInfo.SetMOTD = function(text) set = text end -- gesperrt: darf nie aufgerufen werden
     w.ns.UI:Show("start")
     local p = w.ns.UI.panels.start
     w:call(p.Refresh, p)
@@ -259,12 +259,30 @@ test("Nachricht des Tages: „Ändern“ nur für wen es darf, Speichern setzt s
     w.env.C_GuildInfo.CanEditMOTD = function() return true end
     w:call(p.Refresh, p)
     check(p.motdEdit:IsShown(), "Knopf fehlt für die Leitung")
-    local accept
-    w.ns.UI.TextDialog = function(_, _, _, _, onAccept) accept = onAccept end
+    -- Attribute der Knöpfe merken (die Testwelt kennt sie sonst nicht)
+    local attrs = {}
+    w.env.SecureAttr = attrs
+    local create = w.env.CreateFrame
+    w.env.CreateFrame = function(kind, name, parent, template, ...)
+        local f = create(kind, name, parent, template, ...)
+        if template == "SecureActionButtonTemplate" then
+            rawset(f, "SetAttribute", function(self, k, v) attrs[k] = v end)
+            rawset(f, "GetAttribute", function(self, k) return attrs[k] end)
+        end
+        return f
+    end
     w:call(w.ns.UI.EditMOTD, w.ns.UI)
-    equal(accept(string.rep("ä", 100) .. "\nZweite Zeile"), true)
-    check(#set <= 128 and not set:find("\n"), "nicht gekürzt: " .. #set)
-    check(not set:find("[\192-\255]$"), "mitten im Umlaut abgeschnitten")
+    local d = w.ns.UI.motdDialog
+    check(d:IsShown() and d.secure:IsShown(), "Fenster oder sicherer Knopf fehlt")
+    d.edit:SetText(string.rep("ä", 100) .. "\n/run print(1)")
+    d.Update()
+    local macro = d.secure:GetAttribute("macrotext")
+    check(macro:find("^/gmotd ") and not macro:find("\n"), macro)
+    check(#macro <= 7 + 128 and not macro:find("[\192-\255]$"), "nicht sauber gekürzt")
+    equal(set, nil)
+    -- Kampf: Fenster und sicherer Knopf verschwinden
+    w:fire("PLAYER_REGEN_DISABLED")
+    check(not d:IsShown() and not d.secure:IsShown(), "im Kampf noch offen")
     noErrors(w)
 end)
 

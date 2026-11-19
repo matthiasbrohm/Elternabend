@@ -5786,19 +5786,83 @@ function UI.CutMOTD(text)
     return (text:sub(1, 128):gsub("[\192-\255][\128-\191]*$", ""))
 end
 
+-- Ändern geht nur über /gmotd: C_GuildInfo.SetMOTD ist für Addons gesperrt (ADDON_ACTION_FORBIDDEN).
+-- „Speichern“ ist deshalb ein sicherer Knopf, der den Befehl als Makro ausführt – so wie beim Befördern.
 function UI:EditMOTD()
-    self:TextDialog("Nachricht des Tages ändern",
-        "Sie steht bei allen im Gildenchat und auf der Startseite. Höchstens 128 Zeichen, eine Zeile.",
-        ns.Info:MOTD(), function(text)
-            -- Der Klick auf „Speichern“ ist die Eingabe, die das Spiel dafür verlangt
-            local set = (C_GuildInfo and C_GuildInfo.SetMOTD) or GuildSetMOTD
-            if type(set) ~= "function" then
-                ns.Print("Das Spiel bietet hier kein Ändern an – bitte im Gildenfenster ändern.")
-                return false
-            end
-            set(UI.CutMOTD(text))
-            return true
-        end, "Speichern")
+    local d = self.motdDialog
+    if not d then
+        d = CreateFrame("Frame", "ElternabendMOTD", UIParent, "BackdropTemplate")
+        d:SetSize(620, 170)
+        d:SetPoint("CENTER", 0, 120)
+        d:SetFrameStrata("DIALOG")
+        d:SetToplevel(true)
+        d:SetMovable(true)
+        d:EnableMouse(true)
+        d:RegisterForDrag("LeftButton")
+        d:SetScript("OnDragStart", d.StartMoving)
+        d:SetScript("OnDragStop", d.StopMovingOrSizing)
+        T.Backdrop(d, T.colors.navy, 0.98, 0.7)
+        tinsert(UISpecialFrames, "ElternabendMOTD")
+        local kicker = T.Text(d, "kicker")
+        kicker:SetPoint("TOPLEFT", 20, -18)
+        kicker:SetText("ELTERNABEND")
+        local title = T.Text(d, "heading")
+        title:SetPoint("TOPLEFT", kicker, "BOTTOMLEFT", 0, -6)
+        title:SetText("Nachricht des Tages ändern")
+        d.hint = T.Text(d, "muted")
+        d.hint:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -6)
+        d.hint:SetWidth(580)
+        d.edit = T.EditBox(d, 580)
+        d.edit:SetPoint("TOPLEFT", d.hint, "BOTTOMLEFT", 0, -10)
+        d.edit:SetMaxLetters(128)
+        d.close = T.Button(d, "Abbrechen", 110)
+        d.close:SetPoint("BOTTOMRIGHT", -20, 16)
+        d.close:SetScript("OnClick", function() d:Hide() end)
+        d.save = T.Button(d, "Speichern", 140, "primary")
+        d.save:SetPoint("RIGHT", d.close, "LEFT", -8, 0)
+        -- unsichtbarer sicherer Knopf genau über „Speichern“
+        local o = CreateFrame("Button", nil, UIParent, "SecureActionButtonTemplate")
+        o:SetFrameStrata("FULLSCREEN_DIALOG")
+        o:RegisterForClicks("AnyUp", "AnyDown")
+        o:SetAttribute("type", "macro")
+        o:SetAllPoints(d.save)
+        o:HookScript("OnClick", function(_, _, down)
+            if (down and true or false) ~= (GetCVarBool and GetCVarBool("ActionButtonUseKeyDown") or false) then return end
+            d.save:UnlockHighlight()
+            ns.Print("Nachricht des Tages geändert.")
+            C_Timer.After(0, function() if not InCombatLockdown() then d:Hide() end end)
+        end)
+        o:SetScript("OnEnter", function() d.save:LockHighlight() end)
+        o:SetScript("OnLeave", function() d.save:UnlockHighlight() end)
+        d.secure = o
+        local function Update()
+            if InCombatLockdown() then return end
+            o:SetAttribute("macrotext", "/gmotd " .. UI.CutMOTD(d.edit:GetText()))
+        end
+        d.edit:SetScript("OnTextChanged", Update)
+        d.edit:SetScript("OnEscapePressed", function() d:Hide() end)
+        d.edit:SetScript("OnEnterPressed", function(self) self:ClearFocus() end) -- Enter darf kein Makro auslösen
+        d:SetScript("OnShow", function() if not InCombatLockdown() then o:Show() end end)
+        d:SetScript("OnHide", function() if not InCombatLockdown() then o:Hide() end end)
+        d.Update = Update
+        -- Kampf beginnt: Fenster und sicheren Knopf weg, sonst bliebe der unsichtbare Knopf klickbar stehen
+        ns:On("PLAYER_REGEN_DISABLED", function() o:Hide() d:Hide() end)
+        ns:On("PLAYER_REGEN_ENABLED", function() if not d:IsShown() then o:Hide() end end)
+        o:Hide()
+        d:Hide()
+        self.motdDialog = d
+    end
+    if InCombatLockdown() then
+        ns.Print("Im Kampf lässt sich die Nachricht des Tages nicht ändern – bitte danach noch einmal.")
+        return
+    end
+    d.hint:SetText("Sie steht bei allen im Gildenchat und auf der Startseite. Eine Zeile, höchstens 128 Zeichen. "
+        .. "Mit „Speichern“ setzt das Spiel sie (über den Befehl /gmotd).")
+    d.edit:SetText(ns.Info:MOTD() or "")
+    d.Update()
+    d:Show()
+    d.edit:SetFocus()
+    d.edit:HighlightText()
 end
 
 -- Liste der Stufenaufstiege ---------------------------------------------------------------------
