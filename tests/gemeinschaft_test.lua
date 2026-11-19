@@ -271,14 +271,15 @@ test("Nachricht des Tages: „Ändern“ nur für wen es darf, Speichern läuft 
         end
         return f
     end
+    w.env.SLASH_GUILD_MOTD1 = "/gndt"
     w:call(w.ns.UI.EditMOTD, w.ns.UI)
     local d = w.ns.UI.motdDialog
     check(d:IsShown() and d.secure:IsShown(), "Fenster oder sicherer Knopf fehlt")
     d.edit:SetText(string.rep("ä", 100) .. "\n/run print(1)")
     d.Update()
     local macro = d.secure:GetAttribute("macrotext")
-    check(macro:find("^/gmotd ") and not macro:find("\n"), macro)
-    check(#macro <= 7 + 128 and not macro:find("[\192-\255]$"), "nicht sauber gekürzt")
+    check(macro:find("^/gndt ") and not macro:find("\n"), macro) -- der Befehl des deutschen Spiels
+    check(#macro <= 6 + 128 and not macro:find("[\192-\255]$"), "nicht sauber gekürzt")
     equal(set, nil)
     -- Kampf: Fenster und sicherer Knopf verschwinden
     w:fire("PLAYER_REGEN_DISABLED")
@@ -316,5 +317,14 @@ test("Chat: ohne Blockade direkt gesendet", function()
     w:call(w.ns.SendChat, "Direkt", "GUILD")
     equal(w.ns.PendingInput(), 0)
     seen(w, "chat", "^GUILD Direkt$")
+    noErrors(w)
+end)
+
+test("Nachricht des Tages: ohne Befehl im Spiel /gmotd", function()
+    local w = Gilde()
+    w.env.SLASH_GUILD_MOTD1 = false
+    equal(w.ns.UI.MOTDCommand(), "/gmotd")
+    w.env.SLASH_GUILD_MOTD1 = "/gmotd"
+    equal(w.ns.UI.MOTDCommand(), "/gmotd")
     noErrors(w)
 end)

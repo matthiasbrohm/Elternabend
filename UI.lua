@@ -5786,8 +5786,14 @@ function UI.CutMOTD(text)
     return (text:sub(1, 128):gsub("[\192-\255][\128-\191]*$", ""))
 end
 
--- Ändern geht nur über /gmotd: C_GuildInfo.SetMOTD ist für Addons gesperrt (ADDON_ACTION_FORBIDDEN).
+-- Ändern geht nur über den Chatbefehl: C_GuildInfo.SetMOTD ist für Addons gesperrt (ADDON_ACTION_FORBIDDEN).
 -- „Speichern“ ist deshalb ein sicherer Knopf, der den Befehl als Makro ausführt – so wie beim Befördern.
+-- Der Befehl heißt je nach Sprache anders (englisch /gmotd, deutsch /gndt): den des Spiels nehmen.
+function UI.MOTDCommand()
+    local cmd = SLASH_GUILD_MOTD1
+    if type(cmd) == "string" and cmd:match("^/%S+$") then return cmd end
+    return "/gmotd"
+end
 function UI:EditMOTD()
     local d = self.motdDialog
     if not d then
@@ -5837,7 +5843,7 @@ function UI:EditMOTD()
         d.secure = o
         local function Update()
             if InCombatLockdown() then return end
-            o:SetAttribute("macrotext", "/gmotd " .. UI.CutMOTD(d.edit:GetText()))
+            o:SetAttribute("macrotext", UI.MOTDCommand() .. " " .. UI.CutMOTD(d.edit:GetText()))
         end
         d.edit:SetScript("OnTextChanged", Update)
         d.edit:SetScript("OnEscapePressed", function() d:Hide() end)
@@ -5857,7 +5863,7 @@ function UI:EditMOTD()
         return
     end
     d.hint:SetText("Sie steht bei allen im Gildenchat und auf der Startseite. Eine Zeile, höchstens 128 Zeichen. "
-        .. "Mit „Speichern“ setzt das Spiel sie (über den Befehl /gmotd).")
+        .. "Mit „Speichern“ setzt das Spiel sie (über den Befehl " .. UI.MOTDCommand() .. ").")
     d.edit:SetText(ns.Info:MOTD() or "")
     d.Update()
     d:Show()
