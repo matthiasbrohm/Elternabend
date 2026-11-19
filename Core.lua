@@ -379,6 +379,13 @@ ns.OPTIONS = {
             ns.db.recruit.popup = on
             ns:Fire("RECRUIT_UPDATE")
         end },
+    { key = "rollWindow", label = "Würfelfenster für Bedarf und Gier",
+        hint = "wer was gewählt und gewürfelt hat – mit /ea loot oder eigener Taste",
+        get = function() return ns.db.settings.rollWindow == true end,
+        set = function(on)
+            ns.db.settings.rollWindow = on
+            if not on and ns.Rolls.frame then ns.Rolls.frame:Hide() end
+        end },
     { key = "lootOpen", label = "Fenster beim Plündern öffnen", hint = "im Raid, wenn es Beute zu verteilen gibt",
         get = function() return ns.db.settings.autoOpenLoot end,
         set = function(on) ns.db.settings.autoOpenLoot = on end },
@@ -394,7 +401,7 @@ ns.OPTIONS = {
 ns.PRESETS = {
     an = {},
     ruhig = { minimap = false, sounds = false, chatBoard = false, raidReminderScreen = false, quizOpen = false,
-        notices = false, awayButtonIdle = false, recruitPopup = false },
+        notices = false, awayButtonIdle = false, recruitPopup = false, rollWindow = false },
 }
 
 local optionByKey = {}
@@ -478,6 +485,7 @@ local function Help()
     print("  /ea import – Raid aus dem Raidplaner (oder softres.it-CSV) einfügen")
     print("  /ea bericht – Raid-Bericht für die Webseite erzeugen")
     print("  /ea sync – Soft-Reserves an die Gruppe senden")
+    print("  /ea loot – Würfelfenster (Bedarf/Gier) auf/zu, wenn in den Einstellungen eingeschaltet")
     print("  /ea roll [Itemlink] – Würfelrunde für ein Item starten")
     print("  /ea rolltime <Sekunden> – Dauer einer Würfelrunde")
     print("  /ea quality <0-5> – Mindestqualität im Plündermeister-Reiter")
@@ -500,6 +508,10 @@ SlashCmdList.ELTERNABENDRAID = function(input)
         ns.UI:Toggle()
     elseif cmd == "start" or cmd == "info" then
         ns.UI:Show("start")
+    elseif cmd == "loot" and ns.Rolls:Enabled() then
+        ns.Rolls:Toggle() -- mit eingeschaltetem Würfelfenster; sonst wie bisher der Reiter Plündermeister
+    elseif cmd == "würfe" or cmd == "wuerfe" or cmd == "würfel" or cmd == "wurf" then
+        ns.Rolls:Toggle()
     elseif cmd == "raid" or cmd == "sr" or cmd == "loot" then
         ns.UI:Show(cmd)
     elseif cmd == "kind" or cmd == "afk" then

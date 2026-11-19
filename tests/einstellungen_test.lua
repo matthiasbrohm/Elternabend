@@ -178,7 +178,7 @@ test("„Ruhig“: genau diese Schalter aus, alle anderen an", function()
     w.ns.SetOpt("chatMain", false) -- wird von „Ruhig“ wieder angeschaltet
     Ruhig(w)
     local off = { minimap = true, sounds = true, chatBoard = true, raidReminderScreen = true, quizOpen = true,
-        notices = true, awayButtonIdle = true, recruitPopup = true }
+        notices = true, awayButtonIdle = true, recruitPopup = true, rollWindow = true }
     for _, o in ipairs(w.ns.OPTIONS) do
         if o.key then equal(w.ns.Opt(o.key), not off[o.key], o.key) end
     end

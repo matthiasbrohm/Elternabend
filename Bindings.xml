@@ -28,4 +28,8 @@
     <Binding name="ELTERNABEND_PINNWAND" category="Elternabend">
         Elternabend.UI:ToggleTab("pinnwand")
     </Binding>
+    <!-- Würfelfenster (Bedarf/Gier): nur, wenn es in den Einstellungen eingeschaltet ist -->
+    <Binding name="ELTERNABEND_WUERFE" category="Elternabend">
+        Elternabend.Rolls:Toggle()
+    </Binding>
 </Bindings>
