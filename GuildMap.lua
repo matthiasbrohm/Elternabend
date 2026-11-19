@@ -99,7 +99,7 @@ local function Pin(i, canvas)
     local pin = Map.pins[i]
     if pin and pin:GetParent() == canvas then return pin end
     pin = CreateFrame("Frame", nil, canvas)
-    pin:SetSize(14, 14)
+    pin:SetSize(10, 10)
     pin:SetFrameLevel(canvas:GetFrameLevel() + 2000) -- über den Kartenbildern
     pin:EnableMouse(true)
     pin.ring = pin:CreateTexture(nil, "ARTWORK")
@@ -107,8 +107,8 @@ local function Pin(i, canvas)
     pin.ring:SetColorTexture(0, 0, 0, 1)
     T.Round(pin.ring, pin)
     pin.dot = pin:CreateTexture(nil, "OVERLAY")
-    pin.dot:SetPoint("TOPLEFT", 2, -2)
-    pin.dot:SetPoint("BOTTOMRIGHT", -2, 2)
+    pin.dot:SetPoint("TOPLEFT", 1.5, -1.5)
+    pin.dot:SetPoint("BOTTOMRIGHT", -1.5, 1.5)
     T.Round(pin.dot, pin)
     pin:SetScript("OnEnter", function(self)
         if not self.peer then return end
