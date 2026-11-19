@@ -24,10 +24,11 @@ end
 function Map.Position()
     if IsInInstance and IsInInstance() then return nil end
     if not (C_Map and C_Map.GetBestMapForUnit and C_Map.GetPlayerMapPosition and C_Map.GetWorldPosFromMapPos) then return nil end
+    -- Verbirgt das Spiel den Ort (geheime Werte), wird nichts gesendet – und nichts davon geprüft
     local ok, mapID = pcall(C_Map.GetBestMapForUnit, "player")
-    if not ok or not mapID then return nil end
+    if not ok or ns.IsSecret(mapID) or not mapID then return nil end
     local ok2, pos = pcall(C_Map.GetPlayerMapPosition, mapID, "player")
-    if not ok2 or not pos then return nil end
+    if not ok2 or ns.IsSecret(pos) or not pos then return nil end
     local ok3, continent, world = pcall(C_Map.GetWorldPosFromMapPos, mapID, pos)
     if not ok3 or not continent or not world then return nil end
     local x, y = world.x, world.y
@@ -52,7 +53,10 @@ function Map:Send(force)
     local due = force or not self.sentAt or (moved and now - self.sentAt >= SEND_MOVED) or now - self.sentAt >= SEND_ALWAYS
     if not due then return end
     local _, class = UnitClass("player")
-    ns.Comm:Send("POS", string.format("%d\t%.1f\t%.1f\t%d\t%s", continent, x, y, UnitLevel("player") or 0, class or ""), "GUILD", nil, true)
+    local level = UnitLevel("player")
+    if ns.IsSecret(level) then level = 0 end
+    if ns.IsSecret(class) then class = "" end
+    ns.Comm:Send("POS", string.format("%d\t%.1f\t%.1f\t%d\t%s", continent, x, y, level or 0, class or ""), "GUILD", nil, true)
     self.sentAt, self.last = now, { continent, x, y }
 end
 

@@ -96,9 +96,21 @@ function Leveling.TotalXP(level, xp)
     return total + (xp or 0)
 end
 
+-- Stufe und Erfahrung – oder nil, solange das Spiel sie verbirgt (Sperren im Kampf, „geheime“ Werte:
+-- auf die darf ein Addon nicht einmal mit „or“ oder „if“ zugreifen)
 local function Now()
-    local level = UnitLevel("player") or 1
-    return level, Leveling.TotalXP(level, UnitXP("player") or 0)
+    local level, xp = UnitLevel("player"), UnitXP("player")
+    if ns.IsSecret(level) or ns.IsSecret(xp) then return nil end
+    level = level or 1
+    return level, Leveling.TotalXP(level, xp or 0)
+end
+
+-- AFK? Verbirgt das Spiel die Antwort, zählt die Minute als gespielt.
+local function Away()
+    if not UnitIsAFK then return false end
+    local ok, afk = pcall(UnitIsAFK, "player")
+    if not ok or ns.IsSecret(afk) then return false end
+    return afk == true
 end
 
 -- Jede Minute: Spielzeit mitzählen (nicht AFK) und alle 5 Spielminuten einen Messpunkt setzen
@@ -106,8 +118,8 @@ function Leveling:Tick(seconds)
     local s = CharStore()
     if not s then return end
     local level, xp = Now()
-    if level >= MAX_LEVEL then return end
-    if UnitIsAFK and UnitIsAFK("player") then return end
+    if not level or level >= MAX_LEVEL then return end
+    if Away() then return end
     s.played = (s.played or 0) + seconds
     local day = date("%Y-%m-%d")
     s.days[day] = (s.days[day] or 0) + seconds
@@ -129,6 +141,7 @@ function Leveling:Forecast()
     local s = CharStore()
     if not s then return nil end
     local level, xp = Now()
+    if not level then return nil end
     if level >= MAX_LEVEL then return { done = true } end
     local first = s.samples[1]
     if not first or (s.played or 0) - first.p < MIN_PLAYED then return { wait = true } end

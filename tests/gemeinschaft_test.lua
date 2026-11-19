@@ -344,3 +344,18 @@ test("Gildenkarte: wer mit in der Gruppe ist, bekommt keinen zweiten Punkt", fun
     check(not w.ns.GuildMap.InMyGroup("Beta Lux"), "ohne Gruppe erkannt")
     noErrors(w)
 end)
+
+test("Prognose: geheime Werte (Sperren im Kampf) führen nicht zu Fehlern", function()
+    local w = Gilde()
+    local SECRET = setmetatable({}, { __tostring = function() return "<secret>" end })
+    w.env.issecretvalue = function(v) return v == SECRET end
+    w.env.UnitLevel = function() return 30 end
+    w.env.UnitXP = function() return 1000 end
+    w.env.UnitIsAFK = function() return SECRET end
+    w:call(w.ns.Leveling.Tick, w.ns.Leveling, 60) -- AFK unbekannt: die Minute zählt
+    w.env.UnitLevel = function() return SECRET end
+    w:call(w.ns.Leveling.Tick, w.ns.Leveling, 60) -- Stufe unbekannt: nichts tun
+    equal(w.ns.Leveling:Forecast(), nil)
+    equal(w.ns.Leveling:ForecastText(), "")
+    noErrors(w)
+end)
