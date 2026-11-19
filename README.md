@@ -195,7 +195,7 @@ Der Reiter erscheint nur für Plündermeister, Leitung und Assistenten – oder 
 ## Würfelfenster (Bedarf und Gier)
 Wer in Dungeons um Beute würfelt, sieht im Chat viele Zeilen durcheinander. Das **Würfelfenster** zeigt sie geordnet: je Gegenstand, wer **Bedarf**, **Gier** oder **Passen** gewählt hat, die Würfe (höchster zuerst), wer gewonnen hat (★) und auf wen noch gewartet wird. Fährt man mit der Maus über den Gegenstand, erscheint sein Tooltip. Die letzten 40 Runden bleiben gespeichert, „Leeren“ räumt auf.
 
-Standardmäßig ist es **aus**: einschalten unter **Einstellungen » Auf dem Bildschirm » Würfelfenster für Bedarf und Gier**. Danach öffnet und schließt es sich nur auf Wunsch – mit `/ea loot` (oder `/ea würfe`), einer eigenen Taste (siehe Tasten) oder Esc zum Schließen. Das Fenster lässt sich verschieben und merkt sich seinen Platz. Gelesen werden die Beute-Zeilen des Chats mit den Texten des Spiels, das klappt also in jeder Sprache.
+Standardmäßig ist es **aus**: einschalten unter **Einstellungen » Auf dem Bildschirm » Würfelfenster für Bedarf und Gier**. Danach öffnet und schließt es sich nur auf Wunsch – mit `/ea loot` (oder `/ea würfe`), einer eigenen Taste (siehe Tasten) oder Esc zum Schließen. Das Fenster lässt sich verschieben und merkt sich seinen Platz. Gelesen werden die Beute-Zeilen des Chats mit den Texten des Spiels, das klappt also in jeder Sprache. Ausprobieren ohne Gruppe: `/ea loot test` füllt das Fenster mit drei Beispiel-Gegenständen – gebaut aus den Texten des eigenen Spiels, also zugleich eine Probe, ob sie erkannt werden.
 
 ## Berufe
 Im Reiter **Berufe** siehst du, wer in der Gilde welche Berufe hat – und suchst gezielt: „Heiltrank“ eintippen zeigt alle, die ihn herstellen können, und wer davon online ist. Ein Klick auf einen Charakter zeigt alle seine Rezepte, ein Rechtsklick öffnet ein Flüsterfenster.
@@ -372,6 +372,7 @@ Unter **Optionen » Tastaturbelegung » Elternabend** (eigener Abschnitt, unten 
 | `/ea ginv` | Flüster-Einladung an/aus |
 | `/ea bericht` | Raid-Bericht für die Webseite |
 | `/ea loot` | Würfelfenster für Bedarf und Gier auf/zu (wenn eingeschaltet; sonst Reiter Plündermeister) |
+| `/ea loot test` | Würfelfenster mit Beispielen ausprobieren, auch ohne Gruppe |
 | `/ea roll [Itemlink]` | Item aus den Taschen auswürfeln (Vergabe wird „per Handel“ notiert) |
 | `/ea rolltime 30` | Würfeldauer in Sekunden |
 | `/ea quality 3` | Mindestqualität im Plündermeister-Reiter (3 = Selten, 4 = Episch) |

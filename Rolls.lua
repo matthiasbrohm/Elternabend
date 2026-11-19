@@ -182,6 +182,42 @@ end
 
 function Rolls:List() return DB().rounds end
 
+-- Probelauf ohne Gruppe (/ea würfe test): baut Beispielzeilen mit den Texten des eigenen Spiels und
+-- schickt sie durch dasselbe Lesen wie echte Chatzeilen. Was nicht erkannt wird, meldet der Chat.
+function Rolls:Demo()
+    local me = ns.UnitFullName("player") or "Du"
+    local function Link(id, color, fallback)
+        local ok, _, link = pcall(GetItemInfo, id)
+        if ok and type(link) == "string" then return link end
+        return "|c" .. color .. "|Hitem:" .. id .. "::::::::|h[" .. fallback .. "]|h|r"
+    end
+    local a, b, c = Link(14047, "ffffffff", "Runenstoff"), Link(4306, "ffffffff", "Seidenstoff"), Link(2589, "ffffffff", "Leinenstoff")
+    local lines = {
+        { "LOOT_ROLL_NEED", "Probe Anna", a }, { "LOOT_ROLL_GREED", "Probe Bert", a }, { "LOOT_ROLL_NEED_SELF", a },
+        { "LOOT_ROLL_PASSED", "Probe Cora", a },
+        { "LOOT_ROLL_ROLLED_NEED", 42, a, "Probe Anna" }, { "LOOT_ROLL_ROLLED_NEED", 87, a, me },
+        { "LOOT_ROLL_ROLLED_GREED", 99, a, "Probe Bert" }, { "LOOT_ROLL_YOU_WON", a },
+        { "LOOT_ROLL_PASSED", "Probe Anna", b }, { "LOOT_ROLL_PASSED_SELF", b }, { "LOOT_ROLL_ALL_PASSED", b },
+        { "LOOT_ROLL_GREED", "Probe Bert", c }, { "LOOT_ROLL_GREED_SELF", c },
+    }
+    local missing = {}
+    for _, l in ipairs(lines) do
+        local fmt = _G[l[1]]
+        local ok, msg = pcall(string.format, type(fmt) == "string" and fmt or "", select(2, unpack(l)))
+        local r = ok and Rolls.Parse(msg)
+        if r then self:Handle(r) else missing[#missing + 1] = l[1] end
+    end
+    -- die letzte Runde läuft noch eine halbe Minute
+    local round = Find(c)
+    if round then round.ends = time() + 30 end
+    ns:Fire("ROLLS_UPDATE")
+    if #missing > 0 then
+        ns.Print("Würfelfenster: Diese Texte des Spiels wurden nicht erkannt: " .. table.concat(missing, ", "))
+    else
+        ns.Print("Würfelfenster: Probelauf mit drei Beispiel-Gegenständen. „Leeren“ räumt sie wieder weg.")
+    end
+end
+
 function Rolls:Clear()
     DB().rounds = {}
     ns:Fire("ROLLS_UPDATE")

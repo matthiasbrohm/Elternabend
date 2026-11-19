@@ -486,6 +486,7 @@ local function Help()
     print("  /ea bericht – Raid-Bericht für die Webseite erzeugen")
     print("  /ea sync – Soft-Reserves an die Gruppe senden")
     print("  /ea loot – Würfelfenster (Bedarf/Gier) auf/zu, wenn in den Einstellungen eingeschaltet")
+    print("  /ea loot test – Würfelfenster mit Beispielen ausprobieren, auch ohne Gruppe")
     print("  /ea roll [Itemlink] – Würfelrunde für ein Item starten")
     print("  /ea rolltime <Sekunden> – Dauer einer Würfelrunde")
     print("  /ea quality <0-5> – Mindestqualität im Plündermeister-Reiter")
@@ -508,6 +509,9 @@ SlashCmdList.ELTERNABENDRAID = function(input)
         ns.UI:Toggle()
     elseif cmd == "start" or cmd == "info" then
         ns.UI:Show("start")
+    elseif (cmd == "würfe" or cmd == "wuerfe" or cmd == "würfel" or cmd == "wurf" or cmd == "loot") and rest == "test" then
+        if ns.Rolls:Enabled() then ns.Rolls:Demo() end
+        ns.Rolls:Show()
     elseif cmd == "loot" and ns.Rolls:Enabled() then
         ns.Rolls:Toggle() -- mit eingeschaltetem Würfelfenster; sonst wie bisher der Reiter Plündermeister
     elseif cmd == "würfe" or cmd == "wuerfe" or cmd == "würfel" or cmd == "wurf" then
