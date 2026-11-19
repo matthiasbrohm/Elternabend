@@ -195,7 +195,7 @@ local function Karte(w)
     w.env.C_Map = {
         GetBestMapForUnit = function() return 1429 end,
         GetPlayerMapPosition = function() return { x = 0.5, y = 0.5 } end,
-        GetWorldPosFromMapPos = function() return 0, { x = -9000.5, y = 300.25 } end,
+        GetWorldPosFromMapPos = function() return 0, { x = -9000.5, y = 300.4 } end,
         GetMapPosFromWorldPos = function(_, pos) return 1429, { x = 0.4, y = 0.6 } end,
     }
     w.env.CreateVector2D = function(x, y) return { x = x, y = y } end
@@ -215,7 +215,7 @@ test("Gildenkarte: eingeschaltet wird der Standort geteilt, ausgeschaltet zurüc
     Karte(w)
     w.ns.SetOpt("guildMap", true)
     w:advance(2)
-    seen(w, "comm", "POS 0 %-9000%.5 300%.2")
+    seen(w, "comm", "POS 0 %-9000%.5 300%.4")
     w:clear()
     w.ns.SetOpt("guildMap", false)
     w:advance(2)
