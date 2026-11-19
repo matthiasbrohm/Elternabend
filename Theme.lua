@@ -479,11 +479,13 @@ local BADGE_COLORS = {
     gelb = { 0.93, 0.72, 0.12, 0.10, 0.07, 0.02 }, -- dunkle Zahl, weiß wäre auf Gelb kaum lesbar
     gruen = { 0.16, 0.56, 0.22, 1, 1, 1 },
 }
-function T.Badge(parent, color)
+-- size: Durchmesser (Standard 17; an der Minimap kleiner, damit drei Plaketten das Symbol nicht zudecken)
+function T.Badge(parent, color, size)
     local col = BADGE_COLORS[color or "rot"] or BADGE_COLORS.rot
+    size = size or 17
     local f = CreateFrame("Frame", nil, parent)
     f.color = color or "rot"
-    f:SetSize(17, 17)
+    f:SetSize(size, size)
     f:SetFrameLevel(parent:GetFrameLevel() + 6)
     local ring = f:CreateTexture(nil, "BACKGROUND")
     ring:SetAllPoints()
@@ -495,16 +497,17 @@ function T.Badge(parent, color)
     dot:SetColorTexture(col[1], col[2], col[3], 1)
     T.Round(dot, f)
     f.text = f:CreateFontString(nil, "OVERLAY")
-    f.text:SetFont(STANDARD_TEXT_FONT, 10, "OUTLINE")
+    local fontSize = size >= 17 and 10 or 8
+    f.text:SetFont(STANDARD_TEXT_FONT, fontSize, "OUTLINE")
     f.text:SetPoint("CENTER", 0.5, 0)
     f.text:SetTextColor(col[4], col[5], col[6])
-    if color == "gelb" then f.text:SetFont(STANDARD_TEXT_FONT, 10, "") end -- ohne schwarzen Rand auf Gelb
+    if color == "gelb" then f.text:SetFont(STANDARD_TEXT_FONT, fontSize, "") end -- ohne schwarzen Rand auf Gelb
     function f:SetCount(n)
         n = tonumber(n) or 0
         self:SetShown(n > 0)
         if n <= 0 then return end
         self.text:SetText(n > 9 and "9+" or tostring(n))
-        self:SetWidth(n > 9 and 22 or 17)
+        self:SetWidth(n > 9 and math.floor(size * 1.3 + 0.5) or size)
     end
     f:Hide()
     return f

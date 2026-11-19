@@ -6042,13 +6042,15 @@ function UI:CreateMinimapButton()
         GameTooltip:Show()
     end)
     b:SetScript("OnLeave", GameTooltip_Hide)
-    -- Drei Plaketten an drei Ecken: rot oben rechts (Gruppen), gelb oben links (Pinnwand), grün unten rechts (Aufträge)
-    b.badge = T.Badge(b)
-    b.badge:SetPoint("TOPRIGHT", 3, 3)
-    b.badgeBoard = T.Badge(b, "gelb")
-    b.badgeBoard:SetPoint("TOPLEFT", -3, 3)
-    b.badgeOrders = T.Badge(b, "gruen")
-    b.badgeOrders:SetPoint("BOTTOMRIGHT", 3, -3)
+    -- Drei kleine Plaketten an drei Ecken, etwas nach außen gerückt, damit das Mondsymbol sichtbar bleibt:
+    -- rot oben rechts (Gruppen), gelb oben links (Pinnwand), grün unten links (Aufträge). Unten links statt
+    -- unten rechts, weil Oberflächen-Addons die Knöpfe oft untereinander am rechten Kartenrand aufreihen.
+    b.badge = T.Badge(b, "rot", 13)
+    b.badge:SetPoint("TOPRIGHT", 6, 6)
+    b.badgeBoard = T.Badge(b, "gelb", 13)
+    b.badgeBoard:SetPoint("TOPLEFT", -6, 6)
+    b.badgeOrders = T.Badge(b, "gruen", 13)
+    b.badgeOrders:SetPoint("BOTTOMLEFT", -6, -6)
     self.minimapButton = b
     self:UpdateMinimapButton()
     self:UpdateBadges()
