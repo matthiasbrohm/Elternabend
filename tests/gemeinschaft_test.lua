@@ -328,3 +328,19 @@ test("Nachricht des Tages: ohne Befehl im Spiel /gmotd", function()
     equal(w.ns.UI.MOTDCommand(), "/gmotd")
     noErrors(w)
 end)
+
+test("Gildenkarte: wer mit in der Gruppe ist, bekommt keinen zweiten Punkt", function()
+    local w = Gilde()
+    Karte(w)
+    w.ns.SetOpt("guildMap", true)
+    w:receive("POS\t0\t-8800\t500\t31\tMAGE", "GUILD", "Beta Lux")
+    w.env.IsInGroup = function() return true end
+    w.env.IsInRaid = function() return false end
+    w.env.UnitExists = function(unit) return unit == "party1" end
+    w.env.UnitName = function(unit) if unit == "party1" then return "Beta", "Lux" end return "Anna", "Sturmwind" end
+    check(w.ns.GuildMap.InMyGroup("Beta Lux"), "Gruppenmitglied nicht erkannt")
+    check(not w.ns.GuildMap.InMyGroup("Cora Kiesel"), "Fremde als Gruppe erkannt")
+    w.env.IsInGroup = function() return false end
+    check(not w.ns.GuildMap.InMyGroup("Beta Lux"), "ohne Gruppe erkannt")
+    noErrors(w)
+end)

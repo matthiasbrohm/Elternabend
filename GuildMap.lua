@@ -81,6 +81,20 @@ ns.Comm.handlers.POS = function(sender, parts)
 end
 
 -- Punkte auf der Weltkarte -----------------------------------------------------------------------
+-- Wer mit in der Gruppe oder im Raid ist, hat schon den Punkt des Spiels – dann keinen zweiten
+function Map.InMyGroup(name)
+    if not IsInGroup() then return false end
+    local raid = IsInRaid()
+    for i = 1, raid and GetNumGroupMembers() or 4 do
+        local unit = raid and ("raid" .. i) or ("party" .. i)
+        if UnitExists(unit) then
+            local other = ns.UnitFullName(unit)
+            if other and not ns.IsSecret(other) and ns.SameName(other, name) then return true end
+        end
+    end
+    return false
+end
+
 local function Pin(i, canvas)
     local pin = Map.pins[i]
     if pin and pin:GetParent() == canvas then return pin end
@@ -122,6 +136,7 @@ function Map:Refresh()
     for key, peer in pairs(self.peers) do
         if now - peer.t > FORGET then
             self.peers[key] = nil
+        elseif Map.InMyGroup(peer.name) then -- nichts zeichnen
         else
             local ok, _, pos = pcall(C_Map.GetMapPosFromWorldPos, peer.continent, CreateVector2D(peer.x, peer.y), mapID)
             local x, y
@@ -151,12 +166,22 @@ local function Hook()
     hooked = true
     WorldMapFrame:HookScript("OnShow", function() Map:Refresh() end)
     if WorldMapFrame.OnMapChanged then hooksecurefunc(WorldMapFrame, "OnMapChanged", function() Map:Refresh() end) end
+    -- Beim Öffnen und Zoomen stellt die Karte ihren Maßstab erst nach und nach ein. Damit die Punkte
+    -- gleich die richtige (kleine) Größe haben und beim Zoomen mitgehen: solange die Karte offen ist,
+    -- viermal pro Sekunde nachziehen.
+    local watch = CreateFrame("Frame", nil, WorldMapFrame)
+    watch.elapsed = 0
+    watch:SetScript("OnUpdate", function(self, dt)
+        self.elapsed = self.elapsed + dt
+        if self.elapsed < 0.25 then return end
+        self.elapsed = 0
+        if Map:Enabled() and next(Map.peers) then Map:Refresh() end
+    end)
 end
 
 ns:Listen("INIT", function()
     Hook()
     C_Timer.NewTicker(5, function()
         if Map:Enabled() then Map:Send() end
-        if WorldMapFrame and WorldMapFrame:IsShown() then Map:Refresh() end
     end)
 end)
