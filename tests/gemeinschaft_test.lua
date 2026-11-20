@@ -48,6 +48,40 @@ test("Stufenaufstiege: Aufstieg in der Gildenliste wird bemerkt und steht auf de
     noErrors(w)
 end)
 
+test("Stufenaufstiege: nach langer Pause alle da (über 60) und als Block „während du offline warst“", function()
+    local roster = { { name = "Anna Sturmwind", online = true, level = 19 } }
+    for i = 1, 79 do roster[#roster + 1] = { name = "Spieler" .. i .. " Test", online = false, level = 20 } end
+    roster[#roster + 1] = { name = "Brunhilde Blutaxt", online = false, level = 30 }
+    local w = login({ guild = "Elternabend", roster = roster })
+    w:advance(30)
+    equal(#w.ns.Leveling:Ups(), 0)
+    local db = w.env.ElternabendDB
+    -- zwei Tage später wieder einloggen: alle sind aufgestiegen
+    for i = 2, #roster do roster[i].level = roster[i].level + 1 end
+    local w2 = login({ guild = "Elternabend", roster = roster, db = db })
+    w2:advance(30)
+    local ups = w2.ns.Leveling:Ups()
+    equal(#ups, 80)
+    check(ups[1].since, "nicht als „offline“ markiert")
+    -- ein Aufstieg danach ist wieder ein normaler
+    roster[1].level = 20
+    w2:fire("GUILD_ROSTER_UPDATE")
+    w2:advance(5)
+    ups = w2.ns.Leveling:Ups()
+    equal(#ups, 81)
+    equal(ups[1].since, nil)
+    local shown
+    w2.ns.UI.TextDialog = function(_, _, _, text) shown = text end
+    w2.ns.UI:ShowLevelUps()
+    check(shown:find("Anna Sturmwind  19 » 20", 1, true), shown)
+    check(shown:find("Während du offline warst", 1, true) and shown:find("– 80:", 1, true), shown)
+    check(shown:find("Brunhilde Blutaxt  30 » 31", 1, true), shown)
+    -- nach Namen sortiert: Brunhilde vor Spieler1
+    check(shown:find("Brunhilde", 1, true) < shown:find("Spieler1 ", 1, true), "nicht sortiert")
+    noErrors(w)
+    noErrors(w2)
+end)
+
 test("Stufenaufstiege: neueste zuerst, „Alle“ zeigt die Liste", function()
     local w = Gilde()
     w.roster[1].level = 20

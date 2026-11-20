@@ -2,7 +2,8 @@
 --
 -- Stufenaufstiege: Jeder Client vergleicht die Gildenliste mit dem gemerkten Stand und hält fest,
 -- wer eine Stufe aufgestiegen ist („Keela 19 → 20“). Was passiert ist, während man selbst nicht
--- online war, steht mit dem Zeitpunkt, an dem es bemerkt wurde. Auf der Startseite unter „Aktuell“.
+-- online war, wird beim Einloggen auf einmal bemerkt und als eigener Block „beim Einloggen bemerkt“
+-- gezeigt (mit dem Zeitpunkt, an dem man zuletzt online war). Auf der Startseite unter „Aktuell“.
 --
 -- Prognose: Nur für dich, ohne Rangliste. Das Addon misst, wie viel Erfahrung du pro Spielstunde
 -- sammelst (die letzten Spielstunden) und wie viel du im Schnitt pro Tag spielst (letzte zwei Wochen),
@@ -13,7 +14,7 @@ local Leveling = {}
 ns.Leveling = Leveling
 
 local MAX_LEVEL = 60
-local KEEP_UPS = 60             -- so viele Stufenaufstiege bleiben gemerkt
+local KEEP_UPS = 250            -- so viele Stufenaufstiege bleiben gemerkt (nach ein paar Tagen offline kommen schnell 60 zusammen)
 local KEEP_UPS_DAYS = 14
 local SAMPLE_EVERY = 300        -- alle 5 Spielminuten ein Messpunkt
 local RATE_WINDOW = 10 * 3600   -- Erfahrung pro Stunde: über die letzten 10 Spielstunden
@@ -45,17 +46,23 @@ function Leveling:CheckGuild()
     -- Unvollständige Liste (Server lädt noch)? Dann lieber nichts folgern.
     if known > 10 and #list < known * 0.5 then return end
     local now, changed = time(), false
+    -- Erster Vergleich nach dem Einloggen: Aufstiege stammen aus der Zeit, in der man offline war
+    -- (store.seen = wann man zuletzt die Gildenliste gesehen hat)
+    local atLogin = not self.compared and store.seen
+    self.compared = true
     for _, e in ipairs(list) do
         local level = tonumber(e.level)
         if e.key and level and level > 0 then
             local old = store.levels[e.key]
             if old and level > old and level - old <= 10 then
-                table.insert(store.ups, 1, { t = now, name = e.name, class = e.classFile, from = old, to = level })
+                table.insert(store.ups, 1, { t = now, name = e.name, class = e.classFile, from = old, to = level,
+                    since = atLogin or nil })
                 changed = true
             end
             store.levels[e.key] = level
         end
     end
+    store.seen = now
     local limit = now - KEEP_UPS_DAYS * 86400
     for i = #store.ups, 1, -1 do
         if i > KEEP_UPS or (store.ups[i].t or 0) < limit then table.remove(store.ups, i) end

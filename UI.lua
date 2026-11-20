@@ -5969,12 +5969,32 @@ end
 
 -- Liste der Stufenaufstiege ---------------------------------------------------------------------
 function UI:ShowLevelUps()
-    local lines = {}
-    for _, u in ipairs(ns.Leveling:Ups()) do
-        lines[#lines + 1] = string.format("%s  %s  %d » %d", ns.Leveling.Ago(u.t), ns.ShortName(u.name) or u.name, u.from, u.to)
+    local lines, ups, i = {}, ns.Leveling:Ups(), 1
+    while i <= #ups do
+        local u = ups[i]
+        if u.since then
+            -- beim Einloggen auf einmal bemerkt: als Block, nach Namen sortiert
+            local batch = {}
+            while ups[i] and ups[i].since == u.since and ups[i].t == u.t do
+                batch[#batch + 1] = ups[i]
+                i = i + 1
+            end
+            table.sort(batch, function(a, b) return (ns.ShortName(a.name) or a.name) < (ns.ShortName(b.name) or b.name) end)
+            if #lines > 0 then lines[#lines + 1] = "" end
+            lines[#lines + 1] = T.Hex("goldBright", string.format("Während du offline warst (%s bis %s) – %d:",
+                date("%d.%m. %H:%M", u.since), date("%d.%m. %H:%M", u.t), #batch))
+            for _, b in ipairs(batch) do
+                lines[#lines + 1] = string.format("   %s  %d » %d", ns.ShortName(b.name) or b.name, b.from, b.to)
+            end
+            lines[#lines + 1] = ""
+        else
+            lines[#lines + 1] = string.format("%s  %s  %d » %d", ns.Leveling.Ago(u.t), ns.ShortName(u.name) or u.name, u.from, u.to)
+            i = i + 1
+        end
     end
+    while lines[#lines] == "" do lines[#lines] = nil end
     self:TextDialog("Stufenaufstiege in der Gilde",
-        "Was das Addon in den letzten zwei Wochen bemerkt hat. Aufstiege, während du offline warst, stehen mit dem Zeitpunkt, an dem du wieder online kamst.",
+        "Was das Addon in den letzten zwei Wochen bemerkt hat. Aufstiege, während du offline warst, stehen als eigener Block, nach Namen sortiert.",
         #lines > 0 and table.concat(lines, "\n") or "Noch keine Stufenaufstiege bemerkt.")
 end
 

@@ -160,7 +160,7 @@ Der Reiter **Start** ist der erste beim Öffnen. Beim allerersten Start in der G
 - beide Felder bekommen rechts einen Rollbalken, sobald der Text nicht hineinpasst (Mausrad oder Regler ziehen),
 - die **Raidzeiten** und – falls geladen – den nächsten Raid aus dem Raidplaner,
 - **Discord** und **Webseite** zum Kopieren (WoW kann keine Links öffnen: ins Feld klicken, Strg+C),
-- eine Übersicht, **was das Addon kann**, jeweils mit „Öffnen“ – darunter die **Stufenaufstiege** der Gilde („Keela 19 » 20“, die drei neuesten; „Alle“ zeigt die letzten zwei Wochen). Jeder Client merkt sie sich aus der Gildenliste; wer offline war, sieht danach, was inzwischen passiert ist.
+- eine Übersicht, **was das Addon kann**, jeweils mit „Öffnen“ – darunter die **Stufenaufstiege** der Gilde („Keela 19 » 20“, die drei neuesten; „Alle“ zeigt die letzten zwei Wochen). Jeder Client merkt sie sich aus der Gildenliste (bis zu 250); wer offline war, sieht danach, was inzwischen passiert ist – in „Alle“ als eigener Block „Während du offline warst (von … bis …)“, nach Namen sortiert.
 
 Neue Mitglieder sehen den Start-Reiter automatisch einmal: beim ersten Einloggen mit dem Addon und nach dem Beitritt zur Gilde Elternabend.
 Die festen Texte (Raidzeiten, Links) stehen in `Info.lua` und kommen mit jeder Addon-Version.
