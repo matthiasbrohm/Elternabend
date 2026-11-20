@@ -6,8 +6,8 @@
 --   LFG      id Was Tank Heiler DD Notiz Alter Gepostet   (Gilde; Gepostet = "1": steht schon im Gildenchat)
 --   LFGEND   id                                  (Gilde)
 --   LFGQ                                         (Gilde, beim Einloggen)
---   LFGJOIN  id Rolle Klasse                     (Flüstern an den Suchenden)
---   LFGANS   id Antwort                          (Flüstern zurück: eingeladen / voll)
+--   LFGJOIN  id Rolle Klasse [Twink]             (Flüstern an den Suchenden; Twink: mit diesem Charakter, loggt dafür um)
+--   LFGANS   id Antwort                          (Flüstern zurück: invited / full / relog = „jetzt umloggen“)
 local _, ns = ...
 
 local Groups = { list = {}, applicants = {}, sent = {} }
@@ -201,8 +201,28 @@ function Groups:Close()
 end
 
 -- Gesuch anpassen, sobald jemand eingeladen wurde: eine Stelle weniger
+-- Wer sich mit einem anderen Charakter meldet, wird erst eingeladen, wenn dieser online ist.
+-- Bis dahin heißt es „umloggen“: der Suchende bekommt Bescheid, sobald der Twink da ist.
+local function Online(name)
+    local m = ns.Members and ns.Members:Find(name)
+    return m ~= nil and m.online == true
+end
+
 function Groups:Invite(applicant)
     local name = applicant.name
+    if applicant.alt and not ns.SameName(applicant.alt, applicant.name) then
+        if not Online(applicant.alt) then
+            if applicant.state ~= "relog" then
+                applicant.state = "relog"
+                ns.Comm:Send("LFGANS", (self.mine and self.mine.id or "") .. "\trelog", "WHISPER", applicant.name)
+            end
+            ns.Print(string.format("%s ist noch nicht online – %s loggt jetzt um. Sobald er da ist, kannst du einladen.",
+                ns.ShortName(applicant.alt), ns.ShortName(applicant.name)))
+            ns:Fire("GROUPS_UPDATE")
+            return
+        end
+        name = applicant.alt
+    end
     if C_PartyInfo and C_PartyInfo.InviteUnit then
         C_PartyInfo.InviteUnit(name)
     elseif InviteUnit then
@@ -211,6 +231,7 @@ function Groups:Invite(applicant)
     applicant.state = "invited"
     local m = self.mine
     ns.Comm:Send("LFGANS", (m and m.id or "") .. "\tinvited", "WHISPER", name)
+    if name ~= applicant.name then ns.Comm:Send("LFGANS", (m and m.id or "") .. "\tinvited", "WHISPER", applicant.name) end
     if m and m.need[applicant.role] and m.need[applicant.role] > 0 then
         m.need[applicant.role] = m.need[applicant.role] - 1
         if m.need.tank + m.need.heal + m.need.dd == 0 then
@@ -240,13 +261,38 @@ function Groups:Applicants()
 end
 
 -- Gesuche der anderen -------------------------------------------------------------
-function Groups:Join(id, role)
+-- Eigene Charaktere in dieser Gilde, mit denen man sich melden kann (der aktuelle zuerst, dann nach Stufe)
+function Groups:MyCharacters()
+    local guild = IsInGuild() and GetGuildInfo("player")
+    local me = ns.PlayerKey()
+    local list = {}
+    for key, c in pairs(ns.db.myChars or {}) do
+        if guild and c.guild == guild and c.name then
+            list[#list + 1] = { key = key, name = c.name, classFile = c.classFile, level = c.level or 0, current = key == me }
+        end
+    end
+    table.sort(list, function(a, b)
+        if a.current ~= b.current then return a.current end
+        if a.level ~= b.level then return a.level > b.level end
+        return a.name < b.name
+    end)
+    return list
+end
+
+-- alt: Name eines eigenen anderen Charakters, mit dem man mitkommt (loggt dafür um) – oder nil
+function Groups:Join(id, role, alt)
     local g = self.list[id]
     if not g or g == self.mine then return end
     local _, classFile = UnitClass("player")
-    ns.Comm:Send("LFGJOIN", table.concat({ id, role, classFile or "" }, "\t"), "WHISPER", g.leader)
-    self.sent[id] = { role = role, state = "sent" }
-    ns.Print("Du hast dich bei " .. ns.ShortName(g.leader) .. " als " .. self.ROLES[role] .. " gemeldet.")
+    if alt and ns.SameName(alt, ns.UnitFullName("player")) then alt = nil end
+    if alt then
+        local c = ns.db.myChars[ns.NameKey(alt)]
+        classFile = c and c.classFile or classFile
+    end
+    ns.Comm:Send("LFGJOIN", table.concat({ id, role, classFile or "", alt and Clean(alt) or "" }, "\t"), "WHISPER", g.leader)
+    self.sent[id] = { role = role, state = "sent", alt = alt }
+    ns.Print("Du hast dich bei " .. ns.ShortName(g.leader) .. " als " .. self.ROLES[role] .. " gemeldet"
+        .. (alt and (" – mit " .. ns.ShortName(alt) .. ". Zum Einladen loggst du dann um.") or "."))
     ns:Fire("GROUPS_UPDATE")
 end
 
@@ -341,9 +387,11 @@ ns.Comm.handlers.LFGJOIN = function(sender, parts)
     local m = Groups.mine
     if not m or parts[2] ~= m.id or not Groups.ROLES[parts[3]] then return end
     local key = ns.NameKey(sender)
-    Groups.applicants[key] = { name = sender, role = parts[3], classFile = parts[4], time = GetTime(), state = "new" }
+    local alt = parts[5] ~= nil and parts[5] ~= "" and not ns.IsSecret(parts[5]) and parts[5] or nil
+    Groups.applicants[key] = { name = sender, role = parts[3], classFile = parts[4], alt = alt, time = GetTime(), state = "new" }
     ns.Sound(SOUNDKIT and SOUNDKIT.READY_CHECK or 8960, "Master", true)
-    ns.Print(string.format("%s möchte als %s mit – /ea gruppen", ns.ShortName(sender), Groups.ROLES[parts[3]]))
+    ns.Print(string.format("%s möchte als %s mit%s – /ea gruppen", ns.ShortName(sender), Groups.ROLES[parts[3]],
+        alt and (" (mit " .. ns.ShortName(alt) .. ", loggt dafür um)") or ""))
     ns:Fire("GROUPS_UPDATE")
 end
 
@@ -352,6 +400,11 @@ ns.Comm.handlers.LFGANS = function(sender, parts)
     if not s then return end
     s.state = parts[3]
     if parts[3] == "full" then ns.Print(ns.ShortName(sender) .. ": Die Gruppe ist leider schon voll.") end
+    if parts[3] == "relog" then
+        ns.Sound(SOUNDKIT and SOUNDKIT.READY_CHECK or 8960, "Master", true)
+        ns.Print(string.format("%s nimmt dich mit – logg jetzt auf %s um, dann kommt die Einladung.",
+            ns.ShortName(sender), s.alt and ns.ShortName(s.alt) or "deinen anderen Charakter"))
+    end
     ns:Fire("GROUPS_UPDATE")
 end
 
@@ -438,4 +491,17 @@ ns:On("PLAYER_LOGOUT", function()
         return
     end
     if Groups.mine then C_ChatInfo.SendAddonMessage(ns.PREFIX, "LFGEND\t" .. Groups.mine.id, "GUILD") end
+end)
+
+-- Twink eines Bewerbers ist jetzt online: dem Suchenden Bescheid geben (einladen muss er selbst)
+ns:Listen("MEMBERS_UPDATE", function()
+    if not Groups.mine then return end
+    for _, a in pairs(Groups.applicants) do
+        if a.state == "relog" and a.alt and not a.altOnline and Online(a.alt) then
+            a.altOnline = true
+            ns.Sound(SOUNDKIT and SOUNDKIT.READY_CHECK or 8960, "Master", true)
+            ns.Print(string.format("%s ist jetzt online – du kannst einladen (/ea gruppen).", ns.ShortName(a.alt)))
+            ns:Fire("GROUPS_UPDATE")
+        end
+    end
 end)

@@ -3451,7 +3451,8 @@ function UI:CreateGroupsPanel()
     local G = ns.Groups
     local rightWidth = 330
     local leftWidth = CONTENT_W - rightWidth - 12
-    local SENT = { sent = { "gemeldet", "goldBright" }, invited = { "Einladung kommt", "green" }, full = { "schon voll", "red" } }
+    local SENT = { sent = { "gemeldet", "goldBright" }, invited = { "Einladung kommt", "green" }, full = { "schon voll", "red" },
+        relog = { "jetzt umloggen!", "green" } }
 
     -- Links: offene Gesuche der Gilde
     local list = CreateList(p, {
@@ -3496,10 +3497,40 @@ function UI:CreateGroupsPanel()
     for _, role in ipairs({ "tank", "heal", "dd" }) do
         local b = T.Button(p, "Als " .. G.ROLES[role], 100)
         if prev then b:SetPoint("LEFT", prev, "RIGHT", 8, 0) else b:SetPoint("BOTTOMLEFT", 0, 40) end
-        b:SetScript("OnClick", function() if p.selected then G:Join(p.selected, role) end end)
+        b:SetScript("OnClick", function() if p.selected then G:Join(p.selected, role, p.alt) end end)
         p.joinButtons[role] = b
         prev = b
     end
+    -- Mit welchem Charakter? Wer als Jäger online ist, aber mit seinem Tank mitkommen will, wählt ihn hier –
+    -- der Suchende sieht dann „mit Thorin, loggt dafür um“. Klick: nächster Charakter, Rechtsklick: zurück.
+    p.altButton = T.Button(p, "", 210)
+    p.altButton:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+    p.altButton:SetPoint("LEFT", prev, "RIGHT", 12, 0)
+    p.altButton:SetScript("OnClick", function(_, button)
+        local chars = G:MyCharacters()
+        if #chars < 2 then return end
+        local index = 1
+        for i, c in ipairs(chars) do
+            if (p.alt and ns.SameName(c.name, p.alt)) or (not p.alt and c.current) then index = i end
+        end
+        index = index + (button == "RightButton" and -1 or 1)
+        if index > #chars then index = 1 elseif index < 1 then index = #chars end
+        p.alt = not chars[index].current and chars[index].name or nil
+        p:Refresh()
+    end)
+    p.altButton:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_TOP")
+        GameTooltip:AddLine("Mit welchem Charakter kommst du mit?")
+        GameTooltip:AddLine("Du bist als Jäger online, willst aber mit deinem Tank mit? Hier wählen – der Suchende sieht "
+            .. "dann, mit wem du kommst, und dass du dafür umloggst. Sobald er einladen will, gibt das Addon dir Bescheid.", 1, 1, 1, true)
+        GameTooltip:AddLine("Klick: nächster Charakter  ·  Rechtsklick: zurück", 0.84, 0.69, 0.35)
+        if #G:MyCharacters() < 2 then
+            GameTooltip:AddLine("Weitere Charaktere erscheinen hier, sobald du mit ihnen einmal mit dem Addon eingeloggt warst.", 0.6, 0.6, 0.6, true)
+        end
+        GameTooltip:Show()
+    end)
+    p.altButton:SetScript("OnLeave", GameTooltip_Hide)
+    prev = p.altButton
     p.selText = T.Text(p, "small")
     p.selText:SetPoint("LEFT", prev, "RIGHT", 12, 0)
     p.selText:SetPoint("RIGHT", list.panel, "RIGHT")
@@ -3649,7 +3680,7 @@ function UI:CreateGroupsPanel()
     p.ownState = T.Text(own, "muted")
     p.ownState:SetPoint("TOPLEFT", p.post, "BOTTOMLEFT", 0, -10)
     p.ownState:SetWidth(inner)
-    p.ownState:SetWordWrap(false)
+    p.ownState:SetJustifyH("LEFT")
 
     -- Rechts unten: wer möchte mit?
     local apps = StartCard(p, "Meldungen", 0)
@@ -3702,11 +3733,25 @@ function UI:CreateGroupsPanel()
             if g == mine then
                 row.cols.status:SetText(T.Hex("green", "deine Gruppe"))
             elseif sent and SENT[sent.state] then
-                row.cols.status:SetText(T.Hex(SENT[sent.state][2], SENT[sent.state][1]))
+                row.cols.status:SetText(T.Hex(SENT[sent.state][2], SENT[sent.state][1])
+                    .. (sent.alt and T.Hex("muted", " · " .. ns.ShortName(sent.alt)) or ""))
             else
                 row.cols.status:SetText(T.Hex("muted", math.floor((GetTime() - g.started) / 60) .. " Min"))
             end
         end)
+
+        -- Charakterwahl fürs Melden
+        local chars = G:MyCharacters()
+        if p.alt and not ns.db.myChars[ns.NameKey(p.alt) or ""] then p.alt = nil end
+        local shown
+        for _, c in ipairs(chars) do
+            if (p.alt and ns.SameName(c.name, p.alt)) or (not p.alt and c.current) then shown = c end
+        end
+        if shown and not shown.current then
+            p.altButton:SetText("Mit: |c" .. ClassHex(shown.classFile) .. ns.ShortName(shown.name) .. "|r (" .. shown.level .. ")")
+        else
+            p.altButton:SetText("Mit: diesem Charakter")
+        end
 
         local sel = p.selected and G.list[p.selected]
         -- Beim eigenen Gesuch kann man sich nicht melden: Knöpfe aus, kurzer Hinweis
@@ -3730,7 +3775,8 @@ function UI:CreateGroupsPanel()
                 " Min  ·  noch " .. G.NeedText(mine.need)
                 .. (mine.target and ("\n" .. T.Hex("muted", "Schließt von selbst, sobald die Gruppe " .. mine.target .. " Spieler hat.")) or ""))
         else
-            p.ownState:SetText("Die Gilde sieht dein Gesuch sofort.")
+            p.ownState:SetText(T.Hex("muted", "Tipp: Schau vorher kurz in die Gruppensuche im Discord oder auf der Webseite "
+                .. "(Link links unten) – vielleicht sucht dort schon jemand dasselbe."))
         end
 
         p.appsHint:SetShown(#applicants == 0)
@@ -3744,10 +3790,14 @@ function UI:CreateGroupsPanel()
                 row:SetShown(a ~= nil and i <= maxRows)
                 if a and i <= maxRows then
                     local state = a.state == "invited" and T.Hex("green", "  eingeladen")
-                        or (a.state == "declined" and T.Hex("dim", "  abgesagt") or "")
-                    row.text:SetText("|c" .. ClassHex(a.classFile ~= "" and a.classFile or nil) .. ns.ShortName(a.name) .. "|r  " ..
-                        T.Hex("muted", G.ROLES[a.role]) .. state)
-                    row.yes:SetEnabled(a.state == "new")
+                        or (a.state == "declined" and T.Hex("dim", "  abgesagt"))
+                        or (a.state == "relog" and (a.altOnline and T.Hex("green", "  ist da") or T.Hex("goldBright", "  loggt um")))
+                        or ""
+                    -- Mit Twink: „Beta » Thorin“ – der Name in Klassenfarbe ist der, der mitkommt
+                    local who = a.alt and (T.Hex("muted", ns.ShortName(a.name) .. " » ") .. "|c" .. ClassHex(a.classFile ~= "" and a.classFile or nil)
+                        .. ns.ShortName(a.alt) .. "|r") or ("|c" .. ClassHex(a.classFile ~= "" and a.classFile or nil) .. ns.ShortName(a.name) .. "|r")
+                    row.text:SetText(who .. "  " .. T.Hex("muted", G.ROLES[a.role]) .. state)
+                    row.yes:SetEnabled(a.state == "new" or a.state == "relog")
                     row.no:SetEnabled(a.state == "new")
                     row.yes:SetScript("OnClick", function() G:Invite(a) end)
                     row.no:SetScript("OnClick", function() G:Decline(a) end)
