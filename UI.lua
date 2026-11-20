@@ -3749,9 +3749,11 @@ function UI:CreateGroupsPanel()
         list:SetData(rows, function(row, g)
             if g.web then
                 row.cols.who:SetText(T.Hex("muted", g.by))
-                row.cols.what:SetText(T.Hex("cream", g.what) .. T.Hex("muted", "  ·  " .. ns.WebGroups.When(g)))
+                row.cols.what:SetText(T.Hex("cream", g.what))
                 row.cols.need:SetText(T.Hex("muted", G.NeedText(g.need)))
-                row.cols.status:SetText(T.Hex("ff8f9bff", g.source == "web" and "Webseite" or "Discord"))
+                -- Zeit in der breiten Spalte „Status“, sonst wird sie hinter langen Dungeonnamen abgeschnitten
+                row.cols.status:SetText(T.Hex("goldBright", ns.WebGroups.When(g)) .. T.Hex("muted", "  ·  ")
+                    .. T.Hex("ff8f9bff", g.source == "web" and "Webseite" or "Discord"))
                 return
             end
             local selected = g.id == p.selected

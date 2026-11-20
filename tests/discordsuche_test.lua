@@ -108,3 +108,17 @@ test("Discord-Suchen: Quelle Webseite kommt bei den anderen an", function()
     seen(w, "comm", "LFGWEB %d+ cd34 Halle der Thanen .* web$")
     noErrors(w)
 end)
+
+test("Discord-Suchen: Startzeit steht in der Spalte „Status“ (nicht abgeschnitten)", function()
+    local w = Welt(true)
+    w.ns.UI:Show("gruppen")
+    local p = w.ns.UI.panels.gruppen
+    w:call(p.Refresh, p)
+    local found
+    for _, f in ipairs(w.frames) do
+        local t = f.GetText and f:GetText()
+        if type(t) == "string" and t:find("Discord|r", 1, true) and (t:find("heute ", 1, true) or t:find("morgen ", 1, true)) then found = t end
+    end
+    check(found, "Zeit nicht in der Statusspalte")
+    noErrors(w)
+end)
