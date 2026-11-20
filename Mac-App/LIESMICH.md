@@ -6,6 +6,7 @@ Kleine Menüleisten-App für die Gildenleitung. Sie gleicht das Addon **Elternab
 |---|---|---|
 | Spiel → Webseite | Klassenliste, Pinnwand, Berufe, Raid-Bericht | sobald das Spiel speichert (`/reload`, Ausloggen, Beenden) |
 | Webseite → Spiel | nächster Raid mit Anmeldungen, Raidgruppen, Soft-Reserves, Terminen | alle 10 Minuten und nach jedem Speichern; im Spiel aktiv nach `/reload` oder Einloggen |
+| Webseite → Spiel | offene Gruppensuchen aus Discord und Dungeonfinder (als Hinweis im Reiter „Gruppen“, auch für alle anderen in der Gilde) | ebenso |
 
 ## Einrichten
 1. ZIP entpacken und **Elternabend Abgleich** in den Ordner „Programme“ ziehen.

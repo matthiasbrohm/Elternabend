@@ -201,6 +201,13 @@ final class Abgleich {
         }
 
         // 2. Webseite → Spiel
+        // Offene Gruppensuchen aus Discord und Dungeonfinder (für den Reiter „Gruppen“). Fehlt die Antwort,
+        // bleibt der Reiter einfach ohne diese Hinweise.
+        var gruppen = ""
+        if case .success(let g) = web.post("abgleich.php", [("aktion", "gruppen"), ("offizier", pw)]),
+           g.status == 200, g.body.hasPrefix("#ELTERNABEND-GRUPPEN") {
+            gruppen = g.body
+        }
         switch web.post("abgleich.php", [("aktion", "raid"), ("offizier", pw)]) {
         case .failure(let e):
             d.set("Webseite nicht erreichbar – " + e.localizedDescription, forKey: "status.raid")
@@ -212,9 +219,9 @@ final class Abgleich {
                 return "Das Offizierspasswort stimmt nicht – bitte neu eingeben."
             }
             if a.status == 200 && a.body.hasPrefix("#ELTERNABEND-RAID") {
-                raidSchreiben(a.body, inst)
+                raidSchreiben(a.body, gruppen, inst)
             } else if a.status == 200 && a.body.hasPrefix("KEIN-RAID") {
-                raidSchreiben("", inst)
+                raidSchreiben("", gruppen, inst)
             } else {
                 d.set("Antwort der Webseite nicht verstanden (HTTP " + String(a.status) + ")", forKey: "status.raid")
                 probleme.append("Raid")
@@ -315,8 +322,9 @@ final class Abgleich {
     }
 
     /// Schreibt die Daten der Webseite als Abgleich.lua in den Addon-Ordner. Das Addon liest sie beim nächsten
-    /// Einloggen oder /reload. „raid“ ist leer, wenn kein Raid ansteht.
-    private func raidSchreiben(_ raid: String, _ inst: [Installation]) {
+    /// Einloggen oder /reload. „raid“ ist leer, wenn kein Raid ansteht. „gruppen“: offene Gruppensuchen
+    /// aus Discord und Dungeonfinder (leer, wenn die Webseite keine liefert).
+    private func raidSchreiben(_ raid: String, _ gruppen: String, _ inst: [Installation]) {
         let h = Abgleich.sha(raid)
         if h != d.string(forKey: "raidHash") {
             d.set(h, forKey: "raidHash")
@@ -325,12 +333,14 @@ final class Abgleich {
         let zeit = d.integer(forKey: "raidZeit")
         let inhalt = """
         -- Geschrieben von der Mac-App „Elternabend Abgleich“ – bitte nicht von Hand ändern.
-        -- Daten von gilde-elternabend.de: nächster Raid mit Anmeldungen, Raidgruppen, Soft-Reserves und Terminen.
+        -- Daten von gilde-elternabend.de: nächster Raid mit Anmeldungen, Raidgruppen, Soft-Reserves und Terminen,
+        -- dazu die offenen Gruppensuchen aus Discord und Dungeonfinder.
         ElternabendAbgleich = {
             v = 1,
             app = \(LuaSaved.quote(appVersion)),
             zeit = \(zeit),
             raid = \(LuaSaved.quote(raid)),
+            gruppen = \(LuaSaved.quote(gruppen)),
         }
 
         """

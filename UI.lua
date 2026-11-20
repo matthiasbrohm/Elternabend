@@ -3463,8 +3463,19 @@ function UI:CreateGroupsPanel()
     })
     list.panel:SetPoint("TOPLEFT")
     list.panel:SetPoint("BOTTOMRIGHT", -(rightWidth + 12), 76)
+    p.list = list
     list.onEnter = function(row, g)
         GameTooltip:SetOwner(row, "ANCHOR_RIGHT")
+        if g.web then
+            -- Suche aus Discord oder Dungeonfinder (Schnappschuss der Mac-App)
+            GameTooltip:AddLine(g.what .. "  ·  " .. ns.WebGroups.When(g))
+            GameTooltip:AddLine("Von " .. g.by .. "  ·  gesucht: " .. G.NeedText(g.need), 1, 1, 1)
+            if g.note ~= "" then GameTooltip:AddLine("„" .. g.note .. "“", 1, 1, 1, true) end
+            GameTooltip:AddLine("Diese Suche steht im Discord bzw. im Dungeonfinder der Webseite – melden kannst du dich nur dort.", 0.84, 0.69, 0.35, true)
+            GameTooltip:AddLine("Stand " .. date("%H:%M", g.snap) .. " Uhr – inzwischen kann sie schon voll sein.", 0.6, 0.6, 0.6, true)
+            GameTooltip:Show()
+            return
+        end
         GameTooltip:AddLine(ns.ShortName(g.leader) .. ": " .. g.what)
         GameTooltip:AddLine("Gesucht: " .. G.NeedText(g.need), 1, 1, 1)
         if g.note ~= "" then GameTooltip:AddLine("„" .. g.note .. "“", 1, 1, 1, true) end
@@ -3479,6 +3490,10 @@ function UI:CreateGroupsPanel()
         GameTooltip:Show()
     end
     list.onClick = function(_, g, button)
+        if g.web then
+            ns.Print("„" .. g.what .. "“ (von " .. g.by .. ") – melden kannst du dich im Discord oder im Dungeonfinder: " .. G.WEBSITE)
+            return
+        end
         if button == "RightButton" then
             if ChatFrame_SendTell then ChatFrame_SendTell(g.leader) elseif ChatFrameUtil and ChatFrameUtil.SendTell then ChatFrameUtil.SendTell(g.leader) end
         else
@@ -3722,8 +3737,23 @@ function UI:CreateGroupsPanel()
                 if g ~= mine then p.selected = g.id; break end
             end
         end
-        p.empty:SetShown(#groups == 0)
-        list:SetData(groups, function(row, g)
+        -- Dazu die Suchen aus Discord und Dungeonfinder (Hinweis, melden nur dort)
+        local web = ns.WebGroups:Active()
+        local rows = {}
+        for _, g in ipairs(groups) do rows[#rows + 1] = g end
+        for _, e in ipairs(web) do
+            e.web = true
+            rows[#rows + 1] = e
+        end
+        p.empty:SetShown(#rows == 0)
+        list:SetData(rows, function(row, g)
+            if g.web then
+                row.cols.who:SetText(T.Hex("muted", g.by))
+                row.cols.what:SetText(T.Hex("cream", g.what) .. T.Hex("muted", "  ·  " .. ns.WebGroups.When(g)))
+                row.cols.need:SetText(T.Hex("muted", G.NeedText(g.need)))
+                row.cols.status:SetText(T.Hex("ff8f9bff", g.source == "web" and "Webseite" or "Discord"))
+                return
+            end
             local selected = g.id == p.selected
             row.cols.who:SetText((selected and T.Hex("goldBright", "» ") or "") .. ns.ShortName(g.leader))
             -- Notiz dezent hinter dem Ziel; zu lang wird sie gekürzt, im Tooltip steht sie ganz

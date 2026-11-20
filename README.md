@@ -347,11 +347,14 @@ Am Ende meldet jedes Addon sein Ergebnis; alle sehen die Rangliste (mehr Richtig
 
 Die Fragen stehen in `QuizFragen.lua` (Frage, richtige Antwort, drei falsche). Neue Fragen hinten anhängen und `rev` erhöhen – alle in der Gruppe brauchen denselben Stand.
 
+### Suchen aus Discord und Webseite
+Offene Gruppensuchen aus dem Discord und dem Dungeonfinder der Webseite stehen im Reiter **Gruppen** unter den Gesuchen der Gilde – etwas blasser, mit Startzeit („heute 20:00“) und rechts „Discord“ bzw. „Webseite“. Melden kann man sich dort nur im Discord oder auf der Webseite; ein Klick auf die Zeile nennt den Weg. Weil ein Addon nicht ins Internet kann, holt die Mac-App (ab 1.1) die Suchen beim Abgleich und schreibt sie in `Abgleich.lua`. Das Addon dieses Rechners gibt sie nach dem Einloggen oder `/reload` über den Addon-Kanal an alle anderen weiter (und an jeden, der später einloggt). Es ist ein Schnappschuss: Im Tooltip steht, von wann. Suchen verschwinden 30 Minuten nach dem Start oder wenn der Schnappschuss älter als 6 Stunden ist. Ohne App und ohne jemanden online, der sie hat, bleibt der Reiter wie bisher.
+
 ## Abgleich mit der Webseite über die Mac-App
 Ein Addon kann nicht ins Internet – deshalb läuft der Austausch mit gilde-elternabend.de sonst über Kopieren und Einfügen. Die kleine Mac-App **Elternabend Abgleich** (Ordner `Mac-App`, für die Gildenleitung) nimmt das ab:
 
 - **Spiel → Webseite:** Beim Ausloggen und bei `/reload` legt das Addon Klassenliste, Pinnwand, Berufe und den Raid-Bericht (sobald das Raid-Protokoll beendet ist) in die gespeicherte Variable `ElternabendSync`. Die App lädt hoch, was sich geändert hat.
-- **Webseite → Spiel:** Die App schreibt den nächsten Raid (Anmeldungen, Raidgruppen, Soft-Reserves, Termine) in die Datei `Abgleich.lua` im Addon-Ordner. Das Addon übernimmt ihn beim Einloggen oder nach `/reload` – aber nicht von selbst, solange ein Raid läuft. `/ea abgleich` zeigt den Stand und holt die Daten von Hand.
+- **Webseite → Spiel:** Die App schreibt den nächsten Raid (Anmeldungen, Raidgruppen, Soft-Reserves, Termine) und die offenen Gruppensuchen aus Discord und Dungeonfinder in die Datei `Abgleich.lua` im Addon-Ordner. Das Addon übernimmt ihn beim Einloggen oder nach `/reload` – aber nicht von selbst, solange ein Raid läuft. `/ea abgleich` zeigt den Stand und holt die Daten von Hand.
 
 Ohne die App passiert nichts davon: `Abgleich.lua` bleibt leer, und es wird nichts zusätzlich gespeichert. Hochgeladen wird nur mit einem Charakter der Gildenleitung.
 
