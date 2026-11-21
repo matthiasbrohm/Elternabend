@@ -492,7 +492,7 @@ function UI:QueueRefresh()
 end
 
 for _, msg in ipairs({ "ROSTER_UPDATE", "SR_UPDATE", "LOOT_UPDATE", "ROLL_UPDATE", "HISTORY_UPDATE", "SESSION_UPDATE", "NOTES_UPDATE", "INFO_UPDATE", "MEMBERS_UPDATE", "JOIN_UPDATE", "PROF_UPDATE",
-    "GROUPS_UPDATE", "VOTE_UPDATE", "ORDERS_UPDATE", "FAME_UPDATE", "LEVELUP_UPDATE", "READY_UPDATE", "BOARD_UPDATE", "CALENDAR_UPDATE", "GUILDLOG_UPDATE", "PROFILE_UPDATE" }) do
+    "GROUPS_UPDATE", "VOTE_UPDATE", "WISHLIST_UPDATE", "ORDERS_UPDATE", "FAME_UPDATE", "LEVELUP_UPDATE", "READY_UPDATE", "BOARD_UPDATE", "CALENDAR_UPDATE", "GUILDLOG_UPDATE", "PROFILE_UPDATE" }) do
     ns:Listen(msg, function() UI:QueueRefresh() end)
 end
 
@@ -2117,12 +2117,12 @@ function UI:CreateLootPanel()
     p.mlInfo:SetPoint("TOPLEFT", 2, -2)
     local rules = T.Text(p, "muted", "RIGHT")
     rules:SetPoint("TOPRIGHT", 0, -2)
-    rules:SetText("Reserviert: nur SR würfelt, bei einer Person direkt  ·  sonst Hauptspec vor Off-Spec & Twinks")
+    rules:SetText("Reserviert: nur SR würfelt, bei einer Person direkt  ·  Wunschliste: „An Prio“  ·  sonst Hauptspec vor Off-Spec & Twinks")
 
     local lootColumns = {
         { key = "icon", x = 4, icon = true },
         { key = "item", label = "Beute", x = 26, w = 270 },
-        { key = "sr", label = "Soft-Reserve", x = 300, right = -190 },
+        { key = "sr", label = "Soft-Reserve / Prio", x = 300, right = -190 },
     }
     local lootList = CreateList(p, lootColumns, function(row)
         row.rollBtn = T.Button(row, "Würfeln", 84, "primary")
@@ -2227,8 +2227,21 @@ function UI:CreateLootPanel()
             local present = ns.Loot:GetPresentReservers(d.itemId)
             local names = {}
             for _, n in ipairs(present) do table.insert(names, n.label) end
-            row.cols.sr:SetText(#names > 0 and T.Hex("green", table.concat(names, ", ")) or T.Hex("dim", "–"))
+            -- Ohne Soft-Reserve: wer laut Wunschliste (Prio) dran ist
+            local prioLabel = #names == 0 and ns.WL:Label(d.itemId)
+            if #names > 0 then
+                row.cols.sr:SetText(T.Hex("green", table.concat(names, ", ")))
+            elseif prioLabel then
+                row.cols.sr:SetText(T.Hex("goldBright", "Prio: ") .. T.Hex("green", prioLabel))
+            else
+                row.cols.sr:SetText(T.Hex("dim", "–"))
+            end
             d.srWinner = #present == 1 and present[1] or nil
+            if not d.srWinner and #present == 0 then
+                local nextUp = ns.WL:Next(d.itemId)
+                d.srWinner = nextUp and { name = nextUp.name, label = ns.ShortName(nextUp.name), prio = true } or nil
+            end
+            row.srBtn:SetText(d.srWinner and d.srWinner.prio and "An Prio" or "An SR")
             row.srBtn:SetShown(d.srWinner ~= nil)
             row.rollBtn:SetEnabled(not rolling)
         end)
@@ -2560,6 +2573,7 @@ function UI:CreateWebPanel()
     local drop = T.Button(left, "Raid entfernen", 130)
     drop:SetScript("OnClick", function()
         ns.db.plan = nil
+        ns.WL:Clear()
         ns:Fire("ROSTER_UPDATE")
     end)
     imp:SetPoint("BOTTOMLEFT", 20, 20)

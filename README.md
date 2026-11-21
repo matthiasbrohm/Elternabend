@@ -92,6 +92,8 @@ spieler;Ronbuhjaa;Jäger;dd;ersatz
 sr;Deltana;30904;Savior's Grasp;Rage Winterchill
 sr;Beta;30911;Scepter of Purification;Anetheron
 gruppe;1;Deltana;Beta
+wunsch;Beta;30904;1
+prio;30904;Beta,Deltana
 termin;42;Hyjal Summit;1794517200;180;12;20;offen
 #ENDE
 ```
@@ -102,6 +104,8 @@ termin;42;Hyjal Summit;1794517200;180;12;20;offen
 | `spieler` | Charaktername, Klasse (deutsch oder englisch), Rolle (`tank`, `heal`, `dd`), Status (`dabei`, `ersatz`, `vielleicht`, `abgemeldet`) |
 | `sr` | Charaktername, Item-ID, Itemname, Boss (optional) |
 | `gruppe` | Nummer der Raidgruppe (1–8), danach bis zu fünf Charakternamen |
+| `wunsch` | Loot-Wunschliste: Charaktername, Item-ID, Platz auf seiner Wunschliste (1 = am wichtigsten) – nur offene Wünsche |
+| `prio` | Loot-Wunschliste: Item-ID, Charakternamen mit Komma in der Reihenfolge, in der das Item vergeben wird |
 | `termin` | Raid-ID, Titel, Start (Unix-Zeit), Dauer in Minuten, Zusagen, Plätze, Status – alle kommenden Raids, für den Kalender |
 
 **Ein Text für alles:** Dieser eine Text bringt Aufstellung, Raidgruppen, Soft-Reserves und die Raidtermine für den Kalender mit. Fügt ihn ein Offizier ein, verteilt das Addon die Termine gleich an die Gilde (nur wenn sich etwas geändert hat). Beide Einfüge-Fenster – „Raid einfügen“ und „Raidtermine einfügen“ – nehmen beide Texte an.
@@ -199,6 +203,13 @@ Solange du in einer Gruppe bist, steht der **Elternknopf** auf dem Bildschirm (v
 - Wer später in die Gruppe kommt, sieht deinen Status trotzdem.
 - Eigene Taste: Tastaturbelegung → Elternabend → „Kind wach (5 Min) / Wieder da“.
 - Während Bosskämpfen sperrt das Spiel Chat- und Addon-Nachrichten. Ein Klick wird dann gemerkt und nach dem Kampf verschickt.
+
+## Loot-Wunschlisten (Prio)
+Neben Soft-Reserve kann ein Raid auch nach **Wunschliste** verteilt werden (Vorbild „That's My BiS“): Auf der Webseite (`wunschliste.php`) sortiert jeder pro Raid seine Wunsch-Items, die Gildenleitung legt pro Item die Reihenfolge fest. Steht in `raids.php` bei der Raid-Vorlage `'loot' => 'wunschliste'`, bringt der Raid-Text die Zeilen `wunsch` und `prio` mit. Im Spiel:
+- **Tooltip** jedes Items: „Prio (Wunschliste): 1. Beta Lux #1, 2. Mira Mondschein #3 …“ – grün, wer gerade in der Gruppe ist (Einstellung „Soft-Reserves im Tooltip“).
+- **Reiter Beute:** in der Spalte „Soft-Reserve / Prio“ steht, wer dran ist („Prio: Beta Lux · danach Mira Mondschein“); **„An Prio“** vergibt das Item direkt. Wer etwas bekommen hat, fällt aus der Prio, der Nächste rückt nach.
+- **„An Gruppe senden“** schickt Soft-Reserves und Wunschliste zusammen an alle in der Gruppe; jeder bekommt gesagt, wo er als Nächstes dran ist.
+- Erhaltene Items stehen wie immer im Raid-Bericht – beim Einfügen im Raidplaner hakt die Webseite sie auf den Wunschlisten ab.
 
 ## Plündermeister-Reiter
 Der Reiter erscheint nur für Plündermeister, Leitung und Assistenten – oder für alle, solange gerade Beute ansteht oder gewürfelt wird. Mit `/ea loot` lässt er sich jederzeit öffnen (mit eingeschaltetem Würfelfenster: `/ea raid`).

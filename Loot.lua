@@ -55,7 +55,7 @@ function Loot:Scan()
             local itemId = ns.ItemIDFromLink(link)
             if itemId then
                 local quality = ns.GetItemQuality(link) or 0
-                if quality >= minQuality or #ns.SR:GetReservers(itemId) > 0 then
+                if quality >= minQuality or #ns.SR:GetReservers(itemId) > 0 or #ns.WL:Prio(itemId) > 0 then
                     table.insert(self.items, { slot = slot, link = link, itemId = itemId, quality = quality })
                 end
             end
@@ -238,6 +238,7 @@ function Loot:Award(name, item)
     local roll = cur.rolls[key]
     local sr = ns.SR:HasReserved(cur.itemId, key)
     if sr then ns.SR:MarkWon(cur.itemId, key) end
+    ns.WL:MarkWon(cur.itemId, key)
 
     table.insert(ns.db.history, 1, {
         time = time(), itemId = cur.itemId, link = cur.link, winner = displayName,
@@ -315,5 +316,6 @@ ns.Comm.handlers.AWARD = function(sender, parts)
     local itemId = ns.ItemIDFromLink(link)
     if itemId and winner then
         ns.SR:MarkWon(itemId, ns.NameKey(winner))
+        ns.WL:MarkWon(itemId, winner)
     end
 end

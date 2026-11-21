@@ -287,12 +287,18 @@ function SR:Broadcast(silent)
         if not silent then ns.Print("Nur Leiter und Assistenten können die Liste verteilen.") end
         return
     end
-    if self:Count() == 0 then
+    local hasWL = ns.WL:Count() > 0
+    if self:Count() == 0 and not hasWL then
         if not silent then ns.Print("Keine Soft-Reserve-Liste geladen.") end
         return
     end
-    ns.Comm:SendLarge("SRS", self:Serialize())
-    if not silent then ns.Print("Soft-Reserve-Liste wird an die Gruppe gesendet.") end
+    if self:Count() > 0 then ns.Comm:SendLarge("SRS", self:Serialize()) end
+    -- Loot-Wunschliste (Prio je Item) gleich mit
+    if hasWL then ns.Comm:SendLarge("WLS", ns.WL:Serialize()) end
+    if not silent then
+        ns.Print((self:Count() > 0 and hasWL and "Soft-Reserves und Wunschliste werden"
+            or (hasWL and "Wunschliste wird" or "Soft-Reserve-Liste wird")) .. " an die Gruppe gesendet.")
+    end
 end
 
 -- Tooltip: Wer hat das Item reserviert? -----------------------------

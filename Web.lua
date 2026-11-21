@@ -42,6 +42,7 @@ function Web:ImportPlan(text)
     local plan = { signups = {}, importedAt = time() }
     local entries = {}
     local dates = {} -- kommende Raidtermine für den Kalender („termin;…“)
+    local prio, wishes, prioCount = {}, {}, 0 -- Loot-Wunschlisten („wunsch;…“, „prio;…“)
 
     for line in text:gmatch("[^\r\n]+") do
         local f = Split(line)
@@ -68,22 +69,42 @@ function Web:ImportPlan(text)
             -- termin;ID;Name;Start;Dauer;Zusagen;Plätze;Status → Zeile im Format des Kalenders
             table.insert(dates, table.concat({ "R", f[2], (f[3] or ""):gsub("[%^~]", " "), f[4], tonumber(f[5]) or 120,
                 tonumber(f[6]) or 0, tonumber(f[7]) or 0, f[8] or "offen" }, "^"))
+        elseif kind == "wunsch" and f[2] and f[2] ~= "" and tonumber(f[3]) then
+            -- wunsch;Charakter;ItemID;Platz – wer das Item auf seiner Wunschliste hat
+            local id = tonumber(f[3])
+            wishes[id] = wishes[id] or {}
+            table.insert(wishes[id], { name = f[2], rank = tonumber(f[4]) or 0 })
+        elseif kind == "prio" and tonumber(f[2]) and f[3] and f[3] ~= "" then
+            -- prio;ItemID;Name,Name,… – Reihenfolge, in der es vergeben wird
+            local names = {}
+            for n in f[3]:gmatch("[^,]+") do
+                n = strtrim(n)
+                if n ~= "" then table.insert(names, n) end
+            end
+            if #names > 0 then
+                prio[tonumber(f[2])] = names
+                prioCount = prioCount + 1
+            end
         elseif kind == "sr" and f[2] and tonumber(f[3]) then
             table.insert(entries, { name = f[2], itemId = tonumber(f[3]), itemName = f[4], boss = f[5] ~= "" and f[5] or nil, plus = 0 })
         end
     end
 
-    if not plan.id and next(plan.signups) == nil and #entries == 0 then
+    if not plan.id and next(plan.signups) == nil and #entries == 0 and prioCount == 0 then
         ns.Print("|cffff5555Import fehlgeschlagen:|r Keine Raid-Daten gefunden.")
         return false
     end
 
     ns.db.plan = plan
     ns.SR:SetEntries(entries, "Raidplaner" .. (plan.title and (": " .. plan.title) or ""))
+    -- Ohne Wunschlisten-Zeilen wird die alte Liste entfernt (der Raid wird dann nicht nach Wunschliste verteilt)
+    ns.WL:Set(prio, wishes, plan.title)
     local count = 0
     for _ in pairs(plan.signups) do count = count + 1 end
-    ns.Print(string.format("Raid „%s“ geladen: %d Anmeldungen, %d Soft-Reserves%s.", plan.title or "?", count, #entries,
+    ns.Print(string.format("Raid „%s“ geladen: %d Anmeldungen, %d Soft-Reserves%s%s.", plan.title or "?", count, #entries,
+        prioCount > 0 and (", Wunschliste mit Prio für " .. prioCount .. (prioCount == 1 and " Item" or " Items")) or "",
         plan.groups and " – mit Raidgruppen (Raid » Raidgruppen)" or ""))
+    if prioCount > 0 then ns.WL:PrintOwn() end
     -- Ein Text für alles: die Raidtermine gleich in den Kalender (nur Offiziere dürfen sie verteilen)
     if #dates > 0 and ns.Board:AmOfficer() then
         local ok, n, changed = ns.Calendar:Import("EART1^" .. time() .. "\n" .. table.concat(dates, "\n"), true)
