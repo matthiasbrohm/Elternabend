@@ -5,13 +5,16 @@
 -- Elternknopf wird nur die Restzeit übertragen.
 --   PAUSE     Sekunden   Leitung → Gruppe
 --   PAUSEEND             Leitung → Gruppe: weiter geht's
+-- Beide gehen an der Warteschlange vorbei (SendUrgent). Zusätzlich schließt die Chatzeile
+-- „[Elternabend] Pause vorbei“ der Leitung das Fenster sofort – auch wenn Addon-Nachrichten gerade stauen.
 local _, ns = ...
 local T = ns.Theme
 
 local Pause = {}
 ns.Pause = Pause
 
-local SHOW_DONE = 15 -- so lange „Weiter geht's!“ nach Ablauf zeigen
+local SHOW_DONE = 5 -- so lange „Weiter geht's!“ nach Ablauf zeigen (oder wegklicken)
+local END_TEXT = "[Elternabend] Pause vorbei"
 
 function Pause:CanControl()
     return IsInGroup() and ns.IsTrusted(ns.UnitFullName("player"))
@@ -33,7 +36,7 @@ function Pause:Start(minutes)
     end
     minutes = math.max(1, math.min(30, math.floor(tonumber(minutes) or 5)))
     self:Set(minutes * 60, ns.ShortName(ns.UnitFullName("player")))
-    ns.Comm:Send("PAUSE", tostring(minutes * 60))
+    ns.Comm:SendUrgent("PAUSE", tostring(minutes * 60))
     ns.Announce(string.format("[Elternabend] %d Minuten Pause – weiter um %s Uhr.", minutes, date("%H:%M", time() + minutes * 60)), true)
 end
 
@@ -42,15 +45,15 @@ function Pause:Extend(minutes)
     if not self:CanControl() then return end
     local left = math.floor(self:Left() + minutes * 60)
     self:Set(left, self.by)
-    ns.Comm:Send("PAUSE", tostring(left))
+    ns.Comm:SendUrgent("PAUSE", tostring(left))
     ns.Announce(string.format("[Elternabend] Pause verlängert – weiter um %s Uhr.", date("%H:%M", time() + left)))
 end
 
 function Pause:End()
     if not self.ends then return end
     if self:CanControl() then
-        ns.Comm:Send("PAUSEEND")
-        ns.Announce("[Elternabend] Pause vorbei – weiter geht's!", true)
+        ns.Comm:SendUrgent("PAUSEEND")
+        ns.Announce(END_TEXT .. " – weiter geht's!", true)
     end
     self:Finish()
 end
@@ -80,6 +83,16 @@ end
 
 ns.Comm.handlers.PAUSEEND = function(sender)
     if ns.IsTrusted(sender) then Pause:Finish() end
+end
+
+-- Die Chatzeile der Leitung kommt sofort an: dann gleich schließen
+local function FromChat(msg, sender)
+    if type(msg) ~= "string" or ns.IsSecret(msg) or not Pause.ends then return end
+    if msg:sub(1, #END_TEXT) == END_TEXT and sender and ns.IsTrusted(sender) then Pause:Finish() end
+end
+for _, event in ipairs({ "CHAT_MSG_RAID", "CHAT_MSG_RAID_LEADER", "CHAT_MSG_RAID_WARNING", "CHAT_MSG_PARTY",
+    "CHAT_MSG_PARTY_LEADER", "CHAT_MSG_INSTANCE_CHAT", "CHAT_MSG_INSTANCE_CHAT_LEADER" }) do
+    ns:On(event, FromChat)
 end
 
 -- Wer während der Pause dazukommt, bekommt die Restzeit nachgereicht
@@ -119,6 +132,14 @@ function Pause:CreateFrame()
     f.stop:SetHeight(20)
     f.stop:SetPoint("BOTTOMRIGHT", -10, 8)
     f.stop:SetScript("OnClick", function() Pause:End() end)
+    -- Nach dem Ende: wegklicken
+    f.close = T.Button(f, "OK", 60)
+    f.close:SetHeight(20)
+    f.close:SetPoint("BOTTOM", 0, 8)
+    f.close:SetScript("OnClick", function()
+        Pause.finished = nil
+        f:Hide()
+    end)
 
     local elapsed = 0
     f:SetScript("OnUpdate", function(_, e)
@@ -146,7 +167,8 @@ function Pause:UpdateFrame()
     local leader = left ~= nil and self:CanControl()
     f.more:SetShown(leader)
     f.stop:SetShown(leader)
-    f:SetHeight(leader and 96 or 74)
+    f.close:SetShown(not left)
+    f:SetHeight((leader or not left) and 96 or 74)
     if left then
         local s = math.floor(left + 0.5)
         f.kicker:SetText("PAUSE" .. (self.by and ("  ·  " .. self.by:upper()) or ""))

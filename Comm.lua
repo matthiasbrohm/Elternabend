@@ -140,6 +140,15 @@ function Comm:Send(msgType, payload, channel, target, bulk)
     self.ticker = C_Timer.NewTicker(0.1, function() Comm:Pump() end)
 end
 
+-- Eilige Nachrichten (z. B. „Pause vorbei“) kommen an den Anfang der Warteschlange, vor alles, was schon wartet
+function Comm:SendUrgent(msgType, payload, channel, target)
+    channel = channel or ns.GroupChannel()
+    if not channel then return end
+    table.insert(self.queue, 1, { payload and (msgType .. SEP .. payload) or msgType, channel, target })
+    if not self.ticker then self.ticker = C_Timer.NewTicker(0.1, function() Comm:Pump() end) end
+    self:Pump()
+end
+
 -- Längere Daten in Stücke zerlegen: TYP \t id \t gesamt \t nr \t daten
 -- Geschnitten wird nie mitten in einem Umlaut (UTF-8), sonst lehnt der Server das Stück ab.
 function Comm.Split(data)
