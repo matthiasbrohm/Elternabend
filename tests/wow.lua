@@ -468,6 +468,8 @@ function M.new(opts)
     }
     -- Texte des deutschen Clients, an denen das Addon Meldungen erkennt
     env.ERR_FRIEND_ONLINE_SS = "|Hplayer:%s|h[%s]|h ist jetzt online."
+    env.ERR_FRIEND_OFFLINE_S = "%s ist jetzt offline."
+    env.ERR_CHAT_PLAYER_NOT_FOUND_S = "Momentan ist kein Spieler mit dem Namen '%s' online."
     env.RAID_CLASS_COLORS = setmetatable({}, { __index = function() return { colorStr = "ffffffff", r = 1, g = 1, b = 1 } end })
     env.GetGuildRosterMOTD = function() return opts.motd or "" end
     env.GetItemInfo = function() return nil end

@@ -15,6 +15,72 @@ local allowance, lastRefill = BURST, nil
 local R = Enum and Enum.SendAddonMessageResult
 local THROTTLED = { [R and R.AddonMessageThrottle or 3] = true, [R and R.ChannelThrottle or 8] = true }
 
+-- Wer gerade ausgeloggt hat ----------------------------------------------------------------------
+-- Loggt jemand kurz ein und gleich wieder aus (Twink wechseln), antworten viele Addons ihm noch per
+-- Flüstern – der Server meldet dann für jede Nachricht „Momentan ist kein Spieler mit dem Namen … online.“
+-- Deshalb: Flüstern an Ausgeloggte gar nicht erst schicken und die Meldung für eigene Addon-Nachrichten
+-- verschlucken. Das gilt nur für Addon-Nachrichten; wer selbst anflüstert, sieht die Meldung weiter.
+Comm.offline = {}  -- Schlüssel -> GetTime(), seit „ist jetzt offline“
+Comm.whispered = {} -- Schlüssel -> GetTime() der letzten Addon-Nachricht per Flüstern
+local WHISPER_ECHO = 15 -- Sekunden, in denen eine „nicht online“-Meldung zu unserer Nachricht gehört
+
+-- „%s ist jetzt offline.“ → Suchmuster mit einem Fang für den Namen
+local function GlobalPattern(fmt)
+    if type(fmt) ~= "string" then return nil end
+    fmt = fmt:gsub("%%%d%$", "%%"):gsub("([%(%)%.%-%+%[%]%*%?%^%$])", "%%%1"):gsub("%%s", "(.+)")
+    return "^" .. fmt .. "$"
+end
+local OFFLINE = GlobalPattern(ERR_FRIEND_OFFLINE_S)
+local NOT_FOUND = GlobalPattern(ERR_CHAT_PLAYER_NOT_FOUND_S)
+
+local function Clean(msg)
+    return (msg:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""):gsub("|H.-|h(.-)|h", "%1"):gsub("[%[%]]", ""))
+end
+
+-- Nur die Meldung „ist jetzt offline“ zählt: Die Gildenliste hinkt nach dem Einloggen hinterher und würde
+-- sonst gerade die Antworten an Frischeingeloggte verschlucken.
+function Comm:IsOffline(name)
+    local key = ns.NameKey(name)
+    return key ~= nil and self.offline[key] ~= nil
+end
+
+ns:On("CHAT_MSG_SYSTEM", function(msg)
+    if type(msg) ~= "string" or ns.IsSecret(msg) then return end
+    local text = Clean(msg)
+    local gone = OFFLINE and text:match(OFFLINE)
+    if gone then
+        local key = ns.NameKey(strtrim(gone))
+        if key then Comm.offline[key] = GetTime() end
+        return
+    end
+    -- Wieder da: „[Name] ist jetzt online.“
+    local back = msg:match("|Hplayer:([^|:]+)")
+    if back and text:lower():find("online", 1, true) then
+        local key = ns.NameKey(back)
+        if key then Comm.offline[key] = nil end
+    end
+end)
+
+-- „Momentan ist kein Spieler …“ zu unseren eigenen Addon-Nachrichten nicht im Chat zeigen
+function Comm:IsOwnNotFound(msg)
+    if not NOT_FOUND or type(msg) ~= "string" or ns.IsSecret(msg) then return false end
+    local name = Clean(msg):match(NOT_FOUND)
+    local key = name and ns.NameKey(strtrim(name))
+    local at = key and self.whispered[key]
+    if at and GetTime() - at < WHISPER_ECHO then
+        self.offline[key] = self.offline[key] or GetTime()
+        return true
+    end
+    return false
+end
+local addFilter = ChatFrame_AddMessageEventFilter or (ChatFrameUtil and ChatFrameUtil.AddMessageEventFilter)
+if addFilter then
+    addFilter("CHAT_MSG_SYSTEM", function(_, _, msg)
+        local ok, own = pcall(Comm.IsOwnNotFound, Comm, msg)
+        return ok and own or false
+    end)
+end
+
 -- Nächste Nachricht: kurze zuerst, große Datenpakete (SendLarge) danach
 local function NextIndex(queue)
     for i, item in ipairs(queue) do
@@ -32,6 +98,20 @@ function Comm:Pump()
     if allowance >= 1 and #self.queue > 0 then
         local i = NextIndex(self.queue)
         local item = self.queue[i]
+        -- Flüstern an jemanden, der inzwischen ausgeloggt hat: verwerfen
+        if item[2] == "WHISPER" and item[3] and self:IsOffline(item[3]) then
+            table.remove(self.queue, i)
+            self.stats.dropped = (self.stats.dropped or 0) + 1
+            if #self.queue == 0 and self.ticker then
+                self.ticker:Cancel()
+                self.ticker = nil
+            end
+            return
+        end
+        if item[2] == "WHISPER" and item[3] then
+            local key = ns.NameKey(item[3])
+            if key then self.whispered[key] = GetTime() end
+        end
         local result = C_ChatInfo.SendAddonMessage(ns.PREFIX, item[1], item[2], item[3])
         local st = self.stats
         st.results[tostring(result)] = (st.results[tostring(result)] or 0) + 1
@@ -94,6 +174,7 @@ ns:On("CHAT_MSG_ADDON", function(prefix, msg, channel, sender)
         return
     end
     local senderKey = ns.NameKey(sender)
+    if senderKey then Comm.offline[senderKey] = nil end -- wer sendet, ist online
     if senderKey and not Comm.seen[senderKey] then
         Comm.seen[senderKey] = sender
         ns:Fire("ADDON_USER_SEEN", sender, senderKey)
