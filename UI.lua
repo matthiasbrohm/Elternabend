@@ -5970,8 +5970,15 @@ function UI:EditMOTD()
 end
 
 -- Liste der Stufenaufstiege ---------------------------------------------------------------------
-function UI:ShowLevelUps()
-    local lines, ups, i = {}, ns.Leveling:Ups(), 1
+-- Stufenaufstiege: eigenes Fenster mit Klassenfarben und etwas größerer Schrift
+-- Zeilen: { kind = "live" | "head" | "off" | "empty", left = Text links (Zeit), text = farbiger Text, plain = ohne Farben }
+function UI.LevelUpLines()
+    local out, ups, i = {}, ns.Leveling:Ups(), 1
+    local function Entry(u)
+        local name = ns.ShortName(u.name) or u.name
+        return "|c" .. ClassHex(u.class) .. name .. "|r  " .. T.Hex("muted", u.from .. " »") .. " " .. T.Hex("goldBright", tostring(u.to)),
+            string.format("%s  %d » %d", name, u.from, u.to)
+    end
     while i <= #ups do
         local u = ups[i]
         if u.since then
@@ -5982,22 +5989,99 @@ function UI:ShowLevelUps()
                 i = i + 1
             end
             table.sort(batch, function(a, b) return (ns.ShortName(a.name) or a.name) < (ns.ShortName(b.name) or b.name) end)
-            if #lines > 0 then lines[#lines + 1] = "" end
-            lines[#lines + 1] = T.Hex("goldBright", string.format("Während du offline warst (%s bis %s) – %d:",
-                date("%d.%m. %H:%M", u.since), date("%d.%m. %H:%M", u.t), #batch))
-            for _, b in ipairs(batch) do
-                lines[#lines + 1] = string.format("   %s  %d » %d", ns.ShortName(b.name) or b.name, b.from, b.to)
+            local head = string.format("Während du offline warst (%s bis %s) – %d:", date("%d.%m. %H:%M", u.since), date("%d.%m. %H:%M", u.t), #batch)
+            out[#out + 1] = { kind = "head", text = head, plain = head }
+            for _, e in ipairs(batch) do
+                local text, plain = Entry(e)
+                out[#out + 1] = { kind = "off", text = text, plain = plain }
             end
-            lines[#lines + 1] = ""
         else
-            lines[#lines + 1] = string.format("%s  %s  %d » %d", ns.Leveling.Ago(u.t), ns.ShortName(u.name) or u.name, u.from, u.to)
+            local text, plain = Entry(u)
+            out[#out + 1] = { kind = "live", left = ns.Leveling.Ago(u.t), text = text, plain = ns.Leveling.Ago(u.t) .. "  " .. plain }
             i = i + 1
         end
     end
-    while lines[#lines] == "" do lines[#lines] = nil end
-    self:TextDialog("Stufenaufstiege in der Gilde",
-        "Was das Addon in den letzten zwei Wochen bemerkt hat. Aufstiege, während du offline warst, stehen als eigener Block, nach Namen sortiert.",
-        #lines > 0 and table.concat(lines, "\n") or "Noch keine Stufenaufstiege bemerkt.")
+    if #out == 0 then out[1] = { kind = "empty", text = "Noch keine Stufenaufstiege bemerkt.", plain = "Noch keine Stufenaufstiege bemerkt." } end
+    return out
+end
+
+local LEVEL_SIZE = 14 -- Schriftgröße der Liste (die anderen Textfenster haben 11)
+
+function UI:ShowLevelUps()
+    local d = self.levelDialog
+    if not d then
+        local c = T.colors
+        d = CreateFrame("Frame", "ElternabendLevelUps", UIParent, "BackdropTemplate")
+        d:SetSize(640, 540)
+        d:SetPoint("CENTER")
+        d:SetFrameStrata("DIALOG")
+        d:SetToplevel(true)
+        d:SetMovable(true)
+        d:EnableMouse(true)
+        d:RegisterForDrag("LeftButton")
+        d:SetScript("OnDragStart", d.StartMoving)
+        d:SetScript("OnDragStop", d.StopMovingOrSizing)
+        T.Backdrop(d, c.navy, 0.98, 0.7)
+        tinsert(UISpecialFrames, "ElternabendLevelUps")
+        local kicker = T.Text(d, "kicker")
+        kicker:SetPoint("TOPLEFT", 20, -18)
+        kicker:SetText("ELTERNABEND · " .. ns.WEBSITE:upper())
+        local title = T.Text(d, "heading")
+        title:SetPoint("TOPLEFT", kicker, "BOTTOMLEFT", 0, -6)
+        title:SetText("Stufenaufstiege in der Gilde")
+        local hint = T.Text(d, "muted")
+        hint:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -8)
+        hint:SetPoint("RIGHT", -20, 0)
+        hint:SetSpacing(3)
+        hint:SetText("Was das Addon in den letzten zwei Wochen bemerkt hat. Aufstiege, während du offline warst, stehen als eigener Block, nach Namen sortiert.")
+        local box = T.Panel(d)
+        box:SetBackdropColor(c.ink[1], c.ink[2], c.ink[3], 0.9)
+        box:SetPoint("TOPLEFT", 20, -100)
+        box:SetPoint("BOTTOMRIGHT", -20, 56)
+        d.sf = T.Scroll(box)
+        d.sf:SetPoint("TOPLEFT", 12, -10)
+        d.sf:SetPoint("BOTTOMRIGHT", -6, 10)
+        d.rows = {}
+        local close = T.Button(d, "Schließen", 110)
+        close:SetPoint("BOTTOMRIGHT", -20, 18)
+        close:SetScript("OnClick", function() d:Hide() end)
+        self.levelDialog = d
+    end
+    local file = T.fonts.body:GetFont()
+    local lines, plain, y = UI.LevelUpLines(), {}, 0
+    for k, line in ipairs(lines) do
+        local r = d.rows[k]
+        if not r then
+            r = { left = T.Text(d.sf.content, "muted"), text = T.Text(d.sf.content, "body") }
+            if file then
+                r.left:SetFont(file, LEVEL_SIZE - 1, "")
+                r.text:SetFont(file, LEVEL_SIZE, "")
+            end
+            d.rows[k] = r
+        end
+        if line.kind == "head" and k > 1 then y = y + 10 end -- Abstand vor dem Block
+        local x = line.kind == "live" and 112 or line.kind == "off" and 18 or 2
+        r.left:ClearAllPoints()
+        r.left:SetPoint("TOPLEFT", d.sf.content, "TOPLEFT", 2, -y)
+        r.left:SetText(line.left or "")
+        r.left:SetShown(line.left ~= nil)
+        r.text:ClearAllPoints()
+        r.text:SetPoint("TOPLEFT", d.sf.content, "TOPLEFT", x, -y)
+        r.text:SetPoint("RIGHT", d.sf.content, "RIGHT", -4, 0)
+        r.text:SetText(line.kind == "head" and T.Hex("goldBright", line.text) or line.text)
+        r.text:Show()
+        y = y + (line.kind == "head" and 26 or 22)
+        plain[#plain + 1] = line.plain
+    end
+    for k = #lines + 1, #d.rows do
+        d.rows[k].left:Hide()
+        d.rows[k].text:Hide()
+    end
+    d.plain = table.concat(plain, "\n")
+    d.sf.content:SetHeight(math.max(y, 1))
+    d.sf:SetVerticalScroll(0)
+    d.sf.UpdateThumb()
+    d:Show()
 end
 
 function UI:TextDialog(title, hint, text, onAccept, acceptLabel)

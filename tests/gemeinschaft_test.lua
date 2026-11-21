@@ -70,9 +70,8 @@ test("Stufenaufstiege: nach langer Pause alle da (über 60) und als Block „wä
     ups = w2.ns.Leveling:Ups()
     equal(#ups, 81)
     equal(ups[1].since, nil)
-    local shown
-    w2.ns.UI.TextDialog = function(_, _, _, text) shown = text end
     w2.ns.UI:ShowLevelUps()
+    local shown = w2.ns.UI.levelDialog.plain
     check(shown:find("Anna Sturmwind  19 » 20", 1, true), shown)
     check(shown:find("Während du offline warst", 1, true) and shown:find("– 80:", 1, true), shown)
     check(shown:find("Brunhilde Blutaxt  30 » 31", 1, true), shown)
@@ -90,10 +89,16 @@ test("Stufenaufstiege: neueste zuerst, „Alle“ zeigt die Liste", function()
     Roster(w)
     local ups = w.ns.Leveling:Ups()
     equal(ups[1].name, "Beta Lux")
-    local shown
-    w.ns.UI.TextDialog = function(_, title, _, text) shown = { title = title, text = text } end
     w:call(w.ns.UI.ShowLevelUps, w.ns.UI)
-    check(shown and shown.text:find("Beta Lux  30 » 31", 1, true), shown and shown.text)
+    local shown = w.ns.UI.levelDialog.plain
+    check(shown:find("Beta Lux  30 » 31", 1, true), shown)
+    -- Klassenfarbe am Namen, neue Stufe hervorgehoben
+    local colored = false
+    for _, r in ipairs(w.ns.UI.levelDialog.rows) do
+        local t = r.text:GetText() or ""
+        if t:find("|c%x%x%x%x%x%x%x%xBeta Lux|r") and t:find("31") then colored = true end
+    end
+    check(colored, "Name ohne Klassenfarbe")
     noErrors(w)
 end)
 
