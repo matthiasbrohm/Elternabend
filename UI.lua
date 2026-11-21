@@ -4215,9 +4215,11 @@ function UI:CreateBoardPanel()
     filterBtn:SetScript("OnClick", function() menu:SetShown(not menu:IsShown()) end)
     p:HookScript("OnHide", function() menu:Hide() end)
 
+    -- Umschalter: Karteikarten oder Liste (gemerkt in ns.db.board.view)
+    local VIEW_W = 96
     p.summary = T.Text(p, "muted")
     p.summary:SetPoint("LEFT", filterBtn, "RIGHT", 12, 0)
-    p.summary:SetWidth(leftWidth - FILTER_W - 12 - 150)
+    p.summary:SetWidth(leftWidth - FILTER_W - 12 - 140 - 12 - 2 * VIEW_W - 4 - 8)
     p.summary:SetWordWrap(false)
 
     local newBtn = T.Button(p, "Neuer Zettel", 140, "primary")
@@ -4226,6 +4228,22 @@ function UI:CreateBoardPanel()
         p.mode = (p.mode == "new") and "detail" or "new"
         p:Refresh()
     end)
+
+    p.viewList = T.Button(p, "Liste", VIEW_W)
+    p.viewList:SetPoint("RIGHT", newBtn, "LEFT", -12, 0)
+    p.viewCards = T.Button(p, "Karteikarten", VIEW_W)
+    p.viewCards:SetPoint("RIGHT", p.viewList, "LEFT", -4, 0)
+    local function View()
+        return ns.db.board.view == "list" and "list" or "cards"
+    end
+    p.View = View
+    for btn, v in pairs({ [p.viewList] = "list", [p.viewCards] = "cards" }) do
+        btn.view = v
+        btn:SetScript("OnClick", function()
+            ns.db.board.view = v
+            p:Refresh()
+        end)
+    end
 
     -- Liste ------------------------------------------------------------------------------
     local list = CreateList(p, {
@@ -4259,6 +4277,132 @@ function UI:CreateBoardPanel()
     p.empty:SetPoint("CENTER")
     p.empty:SetWidth(leftWidth - 80)
     p.empty:SetSpacing(3)
+
+    -- Karteikarten: drei nebeneinander, darunter scrollen ------------------------------------
+    local CARD_COLS, CARD_GAP, CARD_H = 3, 10, 158
+    local CARD_W = math.floor((leftWidth - 10 - CARD_GAP * (CARD_COLS - 1)) / CARD_COLS)
+    local REACT_W = 108
+    local cards = CreateFrame("Frame", nil, p)
+    cards:SetPoint("TOPLEFT", 0, -36)
+    cards:SetPoint("BOTTOMRIGHT", -(rightWidth + 12), 36)
+    local cardSf = T.Scroll(cards)
+    cardSf:SetPoint("TOPLEFT")
+    cardSf:SetPoint("BOTTOMRIGHT")
+    p.cards, p.cardList = cards, {}
+
+    local function Rgb(key)
+        local h = T.hex[key] or key
+        return tonumber(h:sub(3, 4), 16) / 255, tonumber(h:sub(5, 6), 16) / 255, tonumber(h:sub(7, 8), 16) / 255
+    end
+
+    local function NewCard(i)
+        local col = T.colors
+        local c = CreateFrame("Button", nil, cardSf.content, "BackdropTemplate")
+        c:SetSize(CARD_W, CARD_H)
+        c:SetPoint("TOPLEFT", ((i - 1) % CARD_COLS) * (CARD_W + CARD_GAP), -math.floor((i - 1) / CARD_COLS) * (CARD_H + CARD_GAP))
+        T.Backdrop(c, col.panel, 0.92, 0.45)
+        c:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+        local hl = c:CreateTexture(nil, "HIGHLIGHT")
+        hl:SetPoint("TOPLEFT", 1, -1)
+        hl:SetPoint("BOTTOMRIGHT", -1, 1)
+        hl:SetColorTexture(col.gold[1], col.gold[2], col.gold[3], 0.07)
+        -- Farbiges Schildchen mit der Art
+        c.chip = c:CreateTexture(nil, "ARTWORK")
+        c.chip:SetPoint("TOPLEFT", 12, -12)
+        c.chip:SetHeight(16)
+        c.chipText = T.Text(c, "kicker")
+        c.chipText:SetPoint("LEFT", c.chip, "LEFT", 6, 0)
+        c.chipText:SetTextColor(col.ink[1], col.ink[2], col.ink[3], 1)
+        c.chipText:SetShadowOffset(0, 0)
+        c.corner = T.Text(c, "kicker", "RIGHT")
+        c.corner:SetPoint("TOPRIGHT", -12, -16)
+        c.title = T.Text(c, "heading")
+        c.title:SetPoint("TOPLEFT", 12, -38)
+        c.title:SetWidth(CARD_W - 24)
+        c.title:SetWordWrap(false)
+        c.text = T.Text(c, "muted")
+        c.text:SetPoint("TOPLEFT", c.title, "BOTTOMLEFT", 0, -6)
+        c.text:SetWidth(CARD_W - 24)
+        c.text:SetHeight(44)
+        c.text:SetJustifyV("TOP")
+        c.text:SetSpacing(2)
+        c.text:SetMaxLines(3)
+        c.meta = T.Text(c, "small")
+        c.meta:SetPoint("BOTTOMLEFT", 12, 40)
+        c.meta:SetWidth(CARD_W - 24)
+        c.meta:SetWordWrap(false)
+        c.info = T.Text(c, "muted")
+        c.info:SetPoint("BOTTOMLEFT", 12, 17)
+        c.info:SetWidth(CARD_W - 24 - REACT_W - 6)
+        c.info:SetWordWrap(false)
+        -- Rückmelde-Knopf: golden, wenn man schon dabei ist
+        local function React() if c.data then B:React(c.data.id) end end
+        c.react = T.Button(c, "", REACT_W)
+        c.react:SetHeight(24)
+        c.react:SetPoint("BOTTOMRIGHT", -10, 10)
+        c.react:SetScript("OnClick", React)
+        c.reacted = T.Button(c, "", REACT_W, "primary")
+        c.reacted:SetHeight(24)
+        c.reacted:SetPoint("BOTTOMRIGHT", -10, 10)
+        c.reacted:SetScript("OnClick", React)
+        c:SetScript("OnClick", function(_, button) if c.data then list.onClick(c, c.data, button) end end)
+        c:SetScript("OnEnter", function() if c.data then list.onEnter(c, c.data) end end)
+        c:SetScript("OnLeave", GameTooltip_Hide)
+        return c
+    end
+
+    local function FillCard(c, n)
+        local col = T.colors
+        local cat = B.CAT[n.cat] or B.CAT.info
+        local done = n.state == "erledigt"
+        local sel = n.id == p.selected
+        c:SetAlpha(done and 0.6 or 1)
+        if sel then
+            c:SetBackdropBorderColor(col.goldBright[1], col.goldBright[2], col.goldBright[3], 1)
+        else
+            c:SetBackdropBorderColor(col.gold[1], col.gold[2], col.gold[3], n.pinned and 0.8 or 0.45)
+        end
+        local r, g, b = Rgb(done and "dim" or cat.color)
+        c.chip:SetColorTexture(r, g, b, 1)
+        c.chipText:SetText(cat.label:upper())
+        c.chip:SetWidth(math.max(30, (c.chipText:GetStringWidth() or 40) + 12))
+        local corner = {}
+        if p.fresh[n.id] then table.insert(corner, T.Hex("goldBright", "NEU")) end
+        if done then table.insert(corner, T.Hex("green", "ERLEDIGT")) elseif n.pinned then table.insert(corner, "ANGEPINNT") end
+        c.corner:SetText(table.concat(corner, "  ·  "))
+        c.title:SetText(n.title)
+        c.text:SetText(n.text ~= "" and B.Markup(n.text, true) or T.Hex("dim", "Kein weiterer Text."))
+        c.meta:SetText(T.Hex("dim", "von ") .. (ns.ShortName(n.author) or "?") .. T.Hex("dim", "  ·  an ")
+            .. (n.to == "all" and "alle" or T.Hex("goldBright", B:ToLabel(n.to))))
+        local info = n.when and T.Hex("goldBright", WhenLabel(n.when)) or LeftLabel(n.expires)
+        local replies = #B:Replies(n)
+        if replies > 0 then info = info .. "  ·  " .. replies .. " Antw." end
+        c.info:SetText(info)
+        local reacts, mine = #B:Reactions(n), B:HasReacted(n)
+        local label = cat.react .. (reacts > 0 and ("  ·  " .. reacts) or "")
+        c.react:SetShown(not mine)
+        c.reacted:SetShown(mine)
+        c.react:SetText(label)
+        c.reacted:SetText(label)
+        c.react:SetEnabled(not done)
+    end
+
+    local function ShowCards(notes)
+        for i, n in ipairs(notes) do
+            local c = p.cardList[i] or NewCard(i)
+            p.cardList[i] = c
+            c.data = n
+            FillCard(c, n)
+            c:Show()
+        end
+        for i = #notes + 1, #p.cardList do
+            p.cardList[i]:Hide()
+            p.cardList[i].data = nil
+        end
+        local rows = math.ceil(#notes / CARD_COLS)
+        cardSf.content:SetHeight(math.max(1, rows * (CARD_H + CARD_GAP) - CARD_GAP))
+        cardSf.UpdateThumb()
+    end
 
     -- Unten links: Hinweis, alles gelesen, Export für die Webseite
     local readAll = T.Button(p, "Alles gelesen", 120)
@@ -4703,10 +4847,26 @@ function UI:CreateBoardPanel()
             p.selected = notes[1] and notes[1].id or nil
         end
 
+        -- Ansicht: Karteikarten oder Liste
+        local view = View()
+        local asCards = view == "cards"
+        cards:SetShown(asCards)
+        list.panel:SetShown(not asCards)
+        local c = T.colors
+        for _, btn in ipairs({ p.viewCards, p.viewList }) do
+            local on = btn.view == view
+            if on then btn:SetBackdropColor(c.gold[1], c.gold[2], c.gold[3], 0.3) else btn:SetBackdropColor(c.ink[1], c.ink[2], c.ink[3], 0.35) end
+            btn:SetText(on and T.Hex("goldBright", btn.view == "cards" and "Karteikarten" or "Liste") or (btn.view == "cards" and "Karteikarten" or "Liste"))
+        end
+        p.empty:SetParent(asCards and cards or list.panel)
+        p.empty:ClearAllPoints()
+        p.empty:SetPoint("CENTER", asCards and cards or list.panel, "CENTER")
+
         p.empty:SetShown(#notes == 0)
         p.empty:SetText(p.filter and "Hier hängt gerade nichts." or
             "Die Pinnwand ist noch leer.\n\nHefte mit „Neuer Zettel“ etwas an: eine Aktion mit Termin, ein Gesuch, ein Dankeschön – oder eine Nachricht an jemanden, der gerade offline ist.")
-        list:SetData(notes, function(row, n)
+        if asCards then ShowCards(notes) end
+        if not asCards then list:SetData(notes, function(row, n)
             local sel = n.id == p.selected
             local done = n.state == "erledigt"
             row.cols.mark:SetText(sel and T.Hex("goldBright", "»") or (p.fresh[n.id] and T.Hex("goldBright", "•") or ""))
@@ -4721,14 +4881,14 @@ function UI:CreateBoardPanel()
             if reacts > 0 then table.insert(echo, reacts .. ((n.cat == "aktion") and " dabei" or " Rückm.")) end
             if replies > 0 then table.insert(echo, replies .. " Antw.") end
             row.cols.echo:SetText(T.Hex("muted", table.concat(echo, " · ")))
-        end)
+        end) end
         export:SetShown(B:AmOfficer())
 
         -- Rechts: Formular oder Detail
         local isNew = p.mode == "new"
         form:SetShown(isNew)
         detail:SetShown(not isNew)
-        newBtn:SetText(isNew and "Zurück zur Liste" or "Neuer Zettel")
+        newBtn:SetText(isNew and "Zurück zur Pinnwand" or "Neuer Zettel")
         if isNew then
             for key, b in pairs(catButtons) do
                 b:SetText(key == p.newCat and T.Hex("goldBright", "» " .. B.CAT[key].label) or B.CAT[key].label)
