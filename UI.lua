@@ -41,8 +41,9 @@ local IN_GROUPS = { gruppen = true, gruppe = true }
 local GUILD_TABS = {
     { key = "mitglieder", label = "Mitglieder" },
     { key = "spielzeiten", label = "Spielzeiten" },
+    { key = "raidwunsch", label = "Raidwünsche" },
 }
-local IN_GUILD = { mitglieder = true, spielzeiten = true }
+local IN_GUILD = { mitglieder = true, spielzeiten = true, raidwunsch = true }
 -- Welche Unterleiste zu welchem Hauptreiter gehört
 local SUB_SETS = {
     { tabs = RAID_TABS, keys = IN_RAID_GROUP, parent = "raid" },
@@ -325,6 +326,7 @@ function UI:Create()
     self.panels.abstimmung = self:CreateVotePanel()
     self.panels.leitung = self:CreateLeadPanel()
     self.panels.spielzeiten = self:CreatePlayTimesPanel()
+    self.panels.raidwunsch = self:CreateRaidWishPanel()
     self.panels.gruppe = self.panels.gruppen.own
     -- Die Reiter mit Unterleiste (Raid, Gruppen, Gilde) beginnen unter ihr
     local below = {}
@@ -1454,6 +1456,8 @@ function UI:CreateMembersPanel()
                     GameTooltip:AddLine("Wie du: " .. ns.Profile.TimesText(common), 0.95, 0.86, 0.6, true)
                 end
             end
+            local wish = ns.Profile.WishText(prof)
+            if wish ~= "" then GameTooltip:AddLine("Raidwunsch: " .. wish, 0.95, 0.86, 0.6, true) end
             if UI:IsLeader() and (prof.steps or 0) < ns.Profile.ALL_STEPS then
                 GameTooltip:AddLine("Erste Schritte offen: " .. table.concat(ns.Profile.OpenSteps(prof.steps), ", "), 0.78, 0.75, 0.68, true)
             end
@@ -6379,6 +6383,279 @@ function UI:CreatePlayTimesPanel()
         p.dirty = false
         p.compare = nil
     end)
+    return p
+end
+
+-- Gilde » Raidwünsche: will ich raiden, an welchen Tagen, ab welcher Uhrzeit, in welcher Rolle?
+-- Rechts die Auswertung für alle (beliebteste Termine), die Gildenleitung kann sie für Discord kopieren.
+local function MarkToggle(btn, on, label)
+    local c = T.colors
+    if on then btn:SetBackdropColor(c.gold[1], c.gold[2], c.gold[3], 0.3) else btn:SetBackdropColor(c.ink[1], c.ink[2], c.ink[3], 0.35) end
+    btn:SetText(on and T.Hex("goldBright", label) or label)
+end
+
+function UI:CreateRaidWishPanel()
+    local p = self:NewPanel()
+    local P = ns.Profile
+    local col = T.colors
+    local leftWidth = 620
+    local rightWidth = CONTENT_W - leftWidth - 12
+    local TILE_W, TILE_H, GAP, X0, Y0 = 56, 28, 4, 150, -122
+    local function Fresh() return { 0, 0, 0, 0, 0, 0, 0 } end
+    p.days, p.wish, p.roles, p.dirty = Fresh(), nil, 0, false
+
+    local function Has(d, t) return math.floor((p.days[d] or 0) / P.RAID_TIMES[t].bit) % 2 == 1 end
+    local function Changed()
+        p.dirty = true
+        p:Refresh()
+    end
+
+    -- Links: mein Wunsch ------------------------------------------------------------------------
+    local mine = StartCard(p, "Mein Raidwunsch", 0)
+    mine:SetPoint("TOPLEFT")
+    mine:SetPoint("BOTTOMLEFT")
+    mine:SetWidth(leftWidth)
+    local q = T.Text(mine, "body")
+    q:SetPoint("TOPLEFT", 16, -40)
+    q:SetText("Willst du raiden?")
+    p.wishButtons = {}
+    for i, w in ipairs(P.WISHES) do
+        local b = T.Button(mine, w.label, 112)
+        b:SetHeight(24)
+        b:SetPoint("TOPLEFT", X0 + (i - 1) * 118, -34)
+        b:SetScript("OnClick", function()
+            p.wish = (p.wish == i) and nil or i
+            Changed()
+        end)
+        p.wishButtons[i] = b
+    end
+    local rq = T.Text(mine, "body")
+    rq:SetPoint("TOPLEFT", 16, -72)
+    rq:SetText("Als")
+    p.roleButtons = {}
+    for i, r in ipairs(P.ROLES) do
+        local b = T.Button(mine, r.label, 80)
+        b:SetHeight(24)
+        b:SetPoint("TOPLEFT", X0 + (i - 1) * 86, -66)
+        b:SetScript("OnClick", function()
+            local on = math.floor(p.roles / r.bit) % 2 == 1
+            p.roles = on and (p.roles - r.bit) or (p.roles + r.bit)
+            Changed()
+        end)
+        p.roleButtons[i] = b
+    end
+    local rh = T.Text(mine, "muted")
+    rh:SetPoint("TOPLEFT", X0 + 3 * 86 + 4, -72)
+    rh:SetText("mehrere möglich")
+
+    for d, day in ipairs(P.DAYS) do
+        local t = T.Text(mine, "kicker", "CENTER")
+        t:SetPoint("TOPLEFT", X0 + (d - 1) * (TILE_W + 6), Y0 + 16)
+        t:SetWidth(TILE_W)
+        t:SetText(day:upper())
+    end
+    p.tiles = {}
+    for t, slot in ipairs(P.RAID_TIMES) do
+        local y = Y0 - (t - 1) * (TILE_H + GAP)
+        local label = T.Text(mine, "body")
+        label:SetPoint("TOPLEFT", 16, y - 8)
+        label:SetText("ab " .. slot.label .. " Uhr")
+        p.tiles[t] = {}
+        for d = 1, 7 do
+            local b = CreateFrame("Button", nil, mine, "BackdropTemplate")
+            b:SetSize(TILE_W, TILE_H)
+            b:SetPoint("TOPLEFT", X0 + (d - 1) * (TILE_W + 6), y)
+            b:SetBackdrop({ bgFile = "Interface\\Buttons\\WHITE8x8", edgeFile = "Interface\\Buttons\\WHITE8x8", edgeSize = 1 })
+            b:SetBackdropColor(col.ink[1], col.ink[2], col.ink[3], 0.55)
+            b.fill = b:CreateTexture(nil, "BORDER")
+            b.fill:SetPoint("TOPLEFT", 1, -1)
+            b.fill:SetPoint("BOTTOMRIGHT", -1, 1)
+            b.fill:SetColorTexture(1, 1, 1, 1)
+            b.fill:SetGradient("VERTICAL", CreateColor(col.gold[1], col.gold[2], col.gold[3], 1),
+                CreateColor(col.goldBright[1], col.goldBright[2], col.goldBright[3], 1))
+            local hl = b:CreateTexture(nil, "HIGHLIGHT")
+            hl:SetAllPoints()
+            hl:SetColorTexture(1, 1, 1, 0.08)
+            b.count = T.Text(b, "small", "CENTER")
+            b.count:SetPoint("CENTER")
+            b:SetScript("OnClick", function()
+                if p.wish == 3 then return end
+                local bit = slot.bit
+                p.days[d] = Has(d, t) and (p.days[d] - bit) or (p.days[d] + bit)
+                if not p.wish then p.wish = 1 end -- wer Zeiten ankreuzt, will raiden
+                Changed()
+            end)
+            b:SetScript("OnEnter", function()
+                local who = p.slots and p.slots[d][t] or {}
+                GameTooltip:SetOwner(b, "ANCHOR_RIGHT")
+                GameTooltip:AddLine(P.DAYS[d] .. " ab " .. slot.label .. " Uhr (" .. slot.hint .. ")")
+                if #who == 0 then
+                    GameTooltip:AddLine("Hier hat noch niemand Lust auf einen Raid eingetragen.", 0.78, 0.75, 0.68, true)
+                else
+                    GameTooltip:AddLine(#who .. " würden dann raiden: " .. P.RoleCount(who), 0.78, 0.75, 0.68, true)
+                    for i = 1, math.min(#who, 15) do
+                        local e = who[i]
+                        local roles = P.RolesText(e.roles)
+                        GameTooltip:AddLine("|c" .. ClassHex(e.member.classFile) .. (ns.ShortName(e.member.name) or e.member.name) .. "|r"
+                            .. T.Hex("muted", (roles ~= "" and ("  " .. roles) or "") .. (e.wish == 2 and "  (ab und zu)" or "")))
+                    end
+                    if #who > 15 then GameTooltip:AddLine("… und " .. (#who - 15) .. " weitere", 0.78, 0.75, 0.68) end
+                end
+                if p.wish ~= 3 then GameTooltip:AddLine("Klick: " .. (Has(d, t) and "abwählen" or "ankreuzen"), 0.84, 0.69, 0.35) end
+                GameTooltip:Show()
+            end)
+            b:SetScript("OnLeave", GameTooltip_Hide)
+            p.tiles[t][d] = b
+        end
+    end
+    local legend = T.Text(mine, "muted")
+    legend:SetPoint("TOPLEFT", X0, Y0 - #P.RAID_TIMES * (TILE_H + GAP) - 2)
+    legend:SetWidth(leftWidth - X0 - 16)
+    legend:SetText("Ein Raid dauert etwa zwei Stunden. Die Zahl im Feld: so viele würden dann mitraiden.")
+
+    p.save = T.Button(mine, "Speichern", 140, "primary")
+    p.save:SetPoint("BOTTOMLEFT", 16, 14)
+    p.save:SetScript("OnClick", function()
+        P:SetRaid(p.wish, P.PackRaid(p.days), p.roles)
+        p.dirty = false
+        local text = P.WishText(P.Me())
+        ns.Print(text ~= "" and ("Dein Raidwunsch: " .. text .. ".") or "Dein Raidwunsch ist geleert.")
+        p:Refresh()
+    end)
+    p.clear = T.Button(mine, "Alles leeren", 120)
+    p.clear:SetPoint("LEFT", p.save, "RIGHT", 8, 0)
+    p.clear:SetScript("OnClick", function()
+        p.days, p.wish, p.roles = Fresh(), nil, 0
+        Changed()
+    end)
+    p.state = T.Text(mine, "muted")
+    p.state:SetPoint("LEFT", p.clear, "RIGHT", 12, 0)
+    p.state:SetPoint("RIGHT", mine, "RIGHT", -16, 0)
+    p.state:SetWordWrap(false)
+
+    -- Rechts: Auswertung -----------------------------------------------------------------------------
+    local right = StartCard(p, "Raidwünsche der Gilde", 0)
+    right:SetPoint("TOPRIGHT")
+    right:SetPoint("BOTTOMRIGHT")
+    right:SetWidth(rightWidth)
+    p.summary = T.Text(right, "body")
+    p.summary:SetPoint("TOPLEFT", 16, -34)
+    p.summary:SetWidth(rightWidth - 32)
+    p.summary:SetSpacing(4)
+    local bestKicker = T.Text(right, "kicker")
+    bestKicker:SetPoint("TOPLEFT", 16, -112)
+    bestKicker:SetText("BELIEBTESTE TERMINE")
+    local ROW_N, ROW_STEP = 11, 22
+    p.rows = {}
+    for i = 1, ROW_N do
+        local row = CreateFrame("Button", nil, right)
+        row:SetPoint("TOPLEFT", 16, -128 - (i - 1) * ROW_STEP)
+        row:SetPoint("TOPRIGHT", -16, -128 - (i - 1) * ROW_STEP)
+        row:SetHeight(ROW_STEP - 2)
+        local hl = row:CreateTexture(nil, "HIGHLIGHT")
+        hl:SetAllPoints()
+        hl:SetColorTexture(col.gold[1], col.gold[2], col.gold[3], 0.08)
+        row.text = T.Text(row, "small")
+        row.text:SetPoint("LEFT", 4, 0)
+        row.text:SetPoint("RIGHT", -4, 0)
+        row.text:SetWordWrap(false)
+        row:SetScript("OnEnter", function()
+            local b = row.best and p.tiles[row.best.time][row.best.day]
+            if b then b:GetScript("OnEnter")(b) end
+        end)
+        row:SetScript("OnLeave", GameTooltip_Hide)
+        p.rows[i] = row
+    end
+    p.empty = T.Text(right, "muted", "CENTER")
+    p.empty:SetPoint("TOPLEFT", 16, -140)
+    p.empty:SetWidth(rightWidth - 32)
+    p.empty:SetSpacing(3)
+    p.empty:SetText("Noch keine Raidwünsche mit Uhrzeit eingetragen.")
+
+    -- Gildenleitung: Auswertung als Text (z. B. für Discord)
+    p.export = T.Button(right, "Auswertung kopieren", 180)
+    p.export:SetPoint("BOTTOMLEFT", 16, 12)
+    p.export:SetScript("OnClick", function()
+        UI:TextDialog("Raidwünsche der Gilde", "Mit Strg+C kopieren und z. B. im Discord einfügen.", p:ExportText())
+    end)
+
+    function p.ExportText()
+        local s = P:RaidSlots()
+        local lines = { "Raidwünsche der Gilde (Stand " .. date("%d.%m.%Y") .. ")",
+            (s.count[1] + s.count[2]) .. " wollen raiden (" .. s.count[1] .. " ja, gern · " .. s.count[2] .. " ab und zu), "
+                .. s.count[3] .. " eher nicht" }
+        local roles = P.RoleCount(s.people)
+        if roles ~= "" then table.insert(lines, "Rollen: " .. roles) end
+        if #s.best > 0 then
+            table.insert(lines, "")
+            table.insert(lines, "Beliebteste Termine:")
+            for i = 1, math.min(#s.best, 10) do
+                local b = s.best[i]
+                local rc = P.RoleCount(b.list)
+                table.insert(lines, "• " .. P.DAYS[b.day] .. " ab " .. P.RAID_TIMES[b.time].label .. " Uhr: " .. #b.list
+                    .. (rc ~= "" and (" (" .. rc .. ")") or ""))
+            end
+        end
+        return table.concat(lines, "\n")
+    end
+
+    p.PaintTiles = function()
+        local off = p.wish == 3
+        for t = 1, #P.RAID_TIMES do
+            for d = 1, 7 do
+                local b, on = p.tiles[t][d], Has(d, t) and not off
+                b.fill:SetShown(on)
+                b:SetAlpha(off and 0.45 or 1)
+                b:SetBackdropBorderColor(col.gold[1], col.gold[2], col.gold[3], on and 0.9 or 0.3)
+                local n = p.slots and #p.slots[d][t] or 0
+                b.count:SetText(n > 0 and n or "")
+                if on then b.count:SetTextColor(col.ink[1], col.ink[2], col.ink[3], 1) else b.count:SetTextColor(col.muted[1], col.muted[2], col.muted[3], 1) end
+            end
+        end
+    end
+
+    p.Refresh = function()
+        local me = P.Me()
+        if not p.dirty then
+            local days = P.ParseRaid(me.raid) or {}
+            for d = 1, 7 do p.days[d] = days[d] or 0 end
+            p.wish, p.roles = me.wish, me.roles or 0
+        end
+        for i, b in ipairs(p.wishButtons) do MarkToggle(b, p.wish == i, P.WISHES[i].label) end
+        for i, b in ipairs(p.roleButtons) do
+            local r = P.ROLES[i]
+            MarkToggle(b, math.floor(p.roles / r.bit) % 2 == 1, r.label)
+            b:SetEnabled(p.wish ~= 3)
+        end
+        local s = P:RaidSlots()
+        p.slots = s
+        p:PaintTiles()
+        local saved = me.wish ~= nil
+        p.state:SetText(p.dirty and T.Hex("orange", "Noch nicht gespeichert")
+            or (saved and T.Hex("green", "Gespeichert – die Gildenleitung sieht deinen Wunsch") or "Noch nichts eingetragen"))
+
+        local want = s.count[1] + s.count[2]
+        local roles = P.RoleCount(s.people)
+        p.summary:SetText(T.Hex("goldBright", want .. (want == 1 and " will" or " wollen") .. " raiden")
+            .. T.Hex("muted", "  (" .. s.count[1] .. " ja, gern · " .. s.count[2] .. " ab und zu)")
+            .. "\n" .. T.Hex("muted", s.count[3] .. " eher nicht")
+            .. (roles ~= "" and ("\nRollen: " .. roles) or ""))
+        for i, row in ipairs(p.rows) do
+            local b = s.best[i]
+            row.best = b
+            if b then
+                local rc = P.RoleCount(b.list)
+                row.text:SetText(T.Hex("goldBright", P.DAYS[b.day] .. " ab " .. P.RAID_TIMES[b.time].label)
+                    .. "  ·  " .. #b.list .. (#b.list == 1 and " würde" or " würden") .. " mitraiden"
+                    .. (rc ~= "" and T.Hex("muted", "  (" .. rc .. ")") or ""))
+            end
+            row:SetShown(b ~= nil)
+        end
+        p.empty:SetShown(#s.best == 0)
+        p.export:SetShown(UI:IsLeader())
+    end
+
+    p:HookScript("OnHide", function() p.dirty = false end)
     return p
 end
 

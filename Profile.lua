@@ -9,6 +9,9 @@
 -- Bekannte Angaben aller:        ns.db.profiles[Schlüssel] = { name, t, times, steps, note }
 --   times  sieben Hex-Ziffern, Montag bis Sonntag; je Tag Bits 1 Vormittag, 2 Nachmittag, 4 Abend, 8 Spät
 --   steps  Bitmaske der erledigten Schritte (Reihenfolge wie in Profile.STEPS)
+--   wish   Raidwunsch: 1 ja, gern · 2 ab und zu · 3 eher nicht (0 = keine Angabe, nil = altes Addon)
+--   raid   vierzehn Hex-Ziffern, je Tag zwei: Bits für die Startzeiten in Profile.RAID_TIMES
+--   roles  Bitmaske 1 Tank, 2 Heiler, 4 DD
 -- Nachrichten: PRF (eigener Stand), PRQ (wer hat Neueres als ich?), PRA (alles Bekannte, in Stücken)
 local _, ns = ...
 
@@ -103,6 +106,101 @@ function Profile.TimesText(times)
     return table.concat(parts, " · ")
 end
 
+-- Raidwünsche ---------------------------------------------------------------------------------
+-- Wer will raiden, an welchen Tagen, zu welchen Startzeiten, in welcher Rolle? (für die Raidplanung)
+Profile.WISHES = {
+    { label = "Ja, gern", short = "ja, gern", color = "green" },
+    { label = "Ab und zu", short = "ab und zu", color = "goldBright" },
+    { label = "Eher nicht", short = "eher nicht", color = "muted" },
+}
+-- Startzeiten (ein Raid dauert etwa zwei Stunden); bei Bedarf einfach hier ändern – höchstens acht
+Profile.RAID_TIMES = {
+    { label = "9:00", hint = "bis etwa 11 Uhr" },
+    { label = "10:00", hint = "bis etwa 12 Uhr" },
+    { label = "11:30", hint = "bis etwa 13:30 Uhr" },
+    { label = "14:00", hint = "bis etwa 16 Uhr" },
+    { label = "17:00", hint = "bis etwa 19 Uhr" },
+    { label = "19:00", hint = "bis etwa 21 Uhr" },
+    { label = "20:00", hint = "bis etwa 22 Uhr" },
+    { label = "21:00", hint = "bis etwa 23 Uhr – unsere übliche Zeit" },
+}
+for i, t in ipairs(Profile.RAID_TIMES) do t.bit = 2 ^ (i - 1) end
+Profile.ROLES = {
+    { bit = 1, label = "Tank", plural = "Tanks" },
+    { bit = 2, label = "Heiler", plural = "Heiler" },
+    { bit = 4, label = "DD", plural = "DD" },
+}
+
+-- "000000000000a1" → { 0, 0, 0, 0, 0, 0, 161 }; nil, wenn ungültig oder nichts angekreuzt
+function Profile.ParseRaid(raid)
+    if type(raid) ~= "string" or not raid:match("^" .. string.rep("%x", 14) .. "$") then return nil end
+    local days, any = {}, false
+    for i = 1, 7 do
+        days[i] = tonumber(raid:sub(i * 2 - 1, i * 2), 16)
+        if days[i] > 0 then any = true end
+    end
+    return any and days or nil
+end
+
+function Profile.PackRaid(days)
+    local out = {}
+    for i = 1, 7 do out[i] = string.format("%02x", (days[i] or 0) % 256) end
+    return table.concat(out)
+end
+
+local function DayList(names)
+    local list = table.concat(names, ", ")
+    if #names == 7 then return "täglich" end
+    if list == "Mo, Di, Mi, Do, Fr" then return "Mo–Fr" end
+    if list == "Sa, So" then return "am Wochenende" end
+    return list
+end
+
+-- „am Wochenende ab 10:00 · Mo–Fr ab 21:00“
+function Profile.RaidText(raid)
+    local days = Profile.ParseRaid(raid)
+    if not days then return "" end
+    local parts = {}
+    for _, t in ipairs(Profile.RAID_TIMES) do
+        local names = {}
+        for i = 1, 7 do
+            if HasBit(days[i], t.bit) then table.insert(names, Profile.DAYS[i]) end
+        end
+        if #names > 0 then table.insert(parts, DayList(names) .. " ab " .. t.label) end
+    end
+    return table.concat(parts, " · ")
+end
+
+function Profile.RolesText(roles)
+    local out = {}
+    for _, r in ipairs(Profile.ROLES) do
+        if HasBit(roles or 0, r.bit) then table.insert(out, r.label) end
+    end
+    return table.concat(out, "/")
+end
+
+-- Ganze Zeile für Tooltips: „ja, gern – Sa, So 10:00 · Heiler/DD“
+function Profile.WishText(r)
+    local w = r and Profile.WISHES[r.wish or 0]
+    if not w then return "" end
+    local parts = { w.short }
+    if r.wish ~= 3 then
+        local when, roles = Profile.RaidText(r.raid), Profile.RolesText(r.roles)
+        if when ~= "" then table.insert(parts, when) end
+        if roles ~= "" then table.insert(parts, roles) end
+    end
+    return table.concat(parts, " – ")
+end
+
+function Profile:SetRaid(wish, raid, roles)
+    local me = Me()
+    me.wish = Profile.WISHES[wish or 0] and wish or nil
+    me.raid = Profile.ParseRaid(raid) and raid or nil
+    me.roles = (tonumber(roles) or 0) % 8
+    if me.roles == 0 then me.roles = nil end
+    self:Changed()
+end
+
 -- Erste Schritte ------------------------------------------------------------------------------
 Profile.STEPS = {
     { key = "discord", label = "Dem Discord beitreten", manual = true, button = "Bin drin",
@@ -161,17 +259,26 @@ end
 local function Clean(s) return (tostring(s or ""):gsub("[%^~\t\r\n|]", " ")) end
 
 local function Encode(r)
-    return table.concat({ Clean(r.name), r.t, r.times or "", r.steps or 0, Clean(r.note) }, "^")
+    return table.concat({ Clean(r.name), r.t, r.times or "", r.steps or 0, Clean(r.note),
+        r.wish or 0, r.raid or "", r.roles or 0 }, "^")
 end
 
 local function Decode(text)
-    local name, t, times, steps, note = strsplit("^", text or "")
+    local name, t, times, steps, note, wish, raid, roles = strsplit("^", text or "")
     t = tonumber(t)
     if not name or name == "" or not t then return nil end
     if times ~= "" and not (times or ""):match("^%x%x%x%x%x%x%x$") then times = "" end
     note = strtrim(note or "")
     if #note > NOTE_MAX * 2 then note = "" end
-    return { name = name, t = t, times = times or "", steps = math.min(tonumber(steps) or 0, Profile.ALL_STEPS), note = note }
+    local r = { name = name, t = t, times = times or "", steps = math.min(tonumber(steps) or 0, Profile.ALL_STEPS), note = note }
+    -- Raidwunsch: fehlt bei älteren Addons ganz (dann bleibt wish nil)
+    wish = tonumber(wish)
+    if wish then
+        r.wish = Profile.WISHES[wish] and wish or 0
+        r.raid = Profile.ParseRaid(raid) and raid or ""
+        r.roles = (tonumber(roles) or 0) % 8
+    end
+    return r
 end
 
 -- Eintrag übernehmen, wenn er neuer ist. Gibt true zurück, wenn sich etwas geändert hat.
@@ -179,7 +286,8 @@ function Profile:Accept(r)
     local key = ns.NameKey(r.name)
     if not key or r.t > time() + 86400 then return false end
     local old = All()[key]
-    if old and old.t >= r.t then return false end
+    -- Gleich alt, aber mit Raidwunsch (ein älteres Addon hat ihn beim Weitergeben weggelassen): nehmen
+    if old and (old.t > r.t or (old.t == r.t and not (r.wish and not old.wish))) then return false end
     All()[key] = r
     return true
 end
@@ -198,7 +306,8 @@ function Profile:Broadcast()
     local key = ns.NameKey(name)
     local me = Me()
     if not key or not me.t then return end
-    local r = { name = name, t = me.t, times = me.times or "", steps = self:StepMask(), note = me.note or "" }
+    local r = { name = name, t = me.t, times = me.times or "", steps = self:StepMask(), note = me.note or "",
+        wish = me.wish or 0, raid = me.raid or "", roles = me.roles or 0 }
     All()[key] = r
     if IsInGuild() then ns.Comm:Send("PRF", Encode(r), "GUILD") end
 end
@@ -345,6 +454,71 @@ function Profile:Slots()
         end
     end
     return out
+end
+
+-- Raidwünsche der Gilde (mit mir): out[Tag][Startzeit] = { { member, roles, wish }, … } für alle, die
+-- raiden wollen (ja oder ab und zu); dazu out.count[Wunsch] und out.roles[Rolle] (nur wer raiden will)
+function Profile:RaidSlots()
+    local out = { count = { 0, 0, 0 }, roles = { 0, 0, 0 }, people = {} }
+    for d = 1, 7 do
+        out[d] = {}
+        for t = 1, #Profile.RAID_TIMES do out[d][t] = {} end
+    end
+    local self_ = MyMain()
+    for _, m in ipairs(ns.Members.mains or {}) do
+        local r = self:For(m)
+        if m == self_ then
+            local me = Me()
+            r = { wish = me.wish, raid = me.raid, roles = me.roles }
+        end
+        local wish = r and r.wish
+        if wish and out.count[wish] then
+            out.count[wish] = out.count[wish] + 1
+            if wish ~= 3 then
+                local e = { member = m, roles = r.roles or 0, wish = wish, raid = r.raid }
+                table.insert(out.people, e)
+                for i, role in ipairs(Profile.ROLES) do
+                    if HasBit(e.roles, role.bit) then out.roles[i] = out.roles[i] + 1 end
+                end
+                local days = Profile.ParseRaid(r.raid)
+                if days then
+                    for d = 1, 7 do
+                        for t, slot in ipairs(Profile.RAID_TIMES) do
+                            if HasBit(days[d], slot.bit) then table.insert(out[d][t], e) end
+                        end
+                    end
+                end
+            end
+        end
+    end
+    -- Beliebteste Termine zuerst
+    out.best = {}
+    for d = 1, 7 do
+        for t = 1, #Profile.RAID_TIMES do
+            if #out[d][t] > 0 then table.insert(out.best, { day = d, time = t, list = out[d][t] }) end
+        end
+    end
+    table.sort(out.best, function(a, b)
+        if #a.list ~= #b.list then return #a.list > #b.list end
+        if a.day ~= b.day then return a.day < b.day end
+        return a.time < b.time
+    end)
+    return out
+end
+
+-- „3 Tanks, 2 Heiler, 7 DD“ für eine Liste aus RaidSlots
+function Profile.RoleCount(list)
+    local n = { 0, 0, 0 }
+    for _, e in ipairs(list) do
+        for i, role in ipairs(Profile.ROLES) do
+            if HasBit(e.roles or 0, role.bit) then n[i] = n[i] + 1 end
+        end
+    end
+    local out = {}
+    for i, role in ipairs(Profile.ROLES) do
+        if n[i] > 0 then table.insert(out, n[i] .. " " .. (n[i] == 1 and role.label or role.plural)) end
+    end
+    return table.concat(out, ", ")
 end
 
 -- Für die Gildenleitung: wer hat bei den ersten Schritten noch etwas offen?
