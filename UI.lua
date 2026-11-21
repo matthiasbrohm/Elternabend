@@ -23,13 +23,14 @@ local TABS = {
 local RAID_TABS = {
     { key = "raid", label = "Übersicht" },
     { key = "raidgruppen", label = "Raidgruppen" },
+    { key = "abstimmung", label = "Abstimmung" },
     { key = "sr", label = "Soft-Reserve" },
     { key = "loot", label = "Plündermeister" },
     { key = "history", label = "Loot" },
     { key = "taktik", label = "Taktik" },
     { key = "fame", label = "Ruhmeshalle" },
 }
-local IN_RAID_GROUP = { raid = true, raidgruppen = true, sr = true, loot = true, history = true, taktik = true, fame = true }
+local IN_RAID_GROUP = { raid = true, raidgruppen = true, abstimmung = true, sr = true, loot = true, history = true, taktik = true, fame = true }
 -- Unterreiter von „Gruppen“: offene Gesuche (Standard) und die eigene Gruppensuche
 local GROUP_TABS = {
     { key = "gruppen", label = "Offene Gruppen" },
@@ -309,6 +310,7 @@ function UI:Create()
     self.panels.web = self:CreateWebPanel()
     self.panels.kalender = self:CreateCalendarPanel()
     self.panels.raidgruppen = self:CreateRaidGroupsPanel()
+    self.panels.abstimmung = self:CreateVotePanel()
     self.panels.leitung = self:CreateLeadPanel()
     self.panels.gruppe = self.panels.gruppen.own
     -- Die Raid- und Gruppen-Reiter beginnen unter der Unterleiste
@@ -469,7 +471,7 @@ function UI:QueueRefresh()
 end
 
 for _, msg in ipairs({ "ROSTER_UPDATE", "SR_UPDATE", "LOOT_UPDATE", "ROLL_UPDATE", "HISTORY_UPDATE", "SESSION_UPDATE", "NOTES_UPDATE", "INFO_UPDATE", "MEMBERS_UPDATE", "JOIN_UPDATE", "PROF_UPDATE",
-    "GROUPS_UPDATE", "ORDERS_UPDATE", "FAME_UPDATE", "LEVELUP_UPDATE", "READY_UPDATE", "BOARD_UPDATE", "CALENDAR_UPDATE", "GUILDLOG_UPDATE", "PROFILE_UPDATE" }) do
+    "GROUPS_UPDATE", "VOTE_UPDATE", "ORDERS_UPDATE", "FAME_UPDATE", "LEVELUP_UPDATE", "READY_UPDATE", "BOARD_UPDATE", "CALENDAR_UPDATE", "GUILDLOG_UPDATE", "PROFILE_UPDATE" }) do
     ns:Listen(msg, function() UI:QueueRefresh() end)
 end
 
@@ -2294,6 +2296,166 @@ function UI:CreateHistoryPanel()
 end
 
 -- Reiter: Ruhmeshalle – die Erstkills der Gilde ------------------------------
+-- Unterreiter Raid » Abstimmung: Frage stellen (Leitung), abstimmen, wer wie gestimmt hat
+function UI:CreateVotePanel()
+    local p = self:NewPanel()
+    local V = ns.Vote
+    local LEFT_W = 330
+
+    -- Links: neue Abstimmung (für die Leitung)
+    local new = StartCard(p, "Neue Abstimmung", 0)
+    new:SetPoint("TOPLEFT")
+    new:SetPoint("BOTTOMLEFT")
+    new:SetWidth(LEFT_W)
+    local inner = LEFT_W - 32
+    p.question = T.EditBox(new, inner, "Frage, z. B. „Noch ein Boss?“")
+    p.question:SetPoint("TOPLEFT", 16, -32)
+    p.question:SetMaxLetters(V.MAX_LEN)
+    -- Schnellwahl für häufige Fragen
+    local QUICK = { "Noch ein Boss?", "Kurze Pause?", "Nächste Woche weiter?" }
+    local prev
+    for i, q in ipairs(QUICK) do
+        local b = T.Button(new, q, inner)
+        b:SetHeight(22)
+        b:SetPoint("TOPLEFT", prev or p.question, "BOTTOMLEFT", 0, i == 1 and -8 or -4)
+        b:SetScript("OnClick", function() p.question:SetText(q) end)
+        prev = b
+    end
+    ns.db.vote = ns.db.vote or { announce = true }
+    p.announce = T.Checkbox(new, "Frage auch im Raidchat ansagen")
+    p.announce:SetPoint("TOPLEFT", prev, "BOTTOMLEFT", 0, -10)
+    p.announce:SetChecked(ns.db.vote.announce ~= false)
+    p.announce.onChange = function(checked) ns.db.vote.announce = checked end
+    p.start = T.Button(new, "Abstimmung starten", inner, "primary")
+    p.start:SetPoint("TOPLEFT", p.announce, "BOTTOMLEFT", 0, -10)
+    p.start:SetScript("OnClick", function()
+        p.question:ClearFocus()
+        if V:Start(p.question:GetText(), ns.db.vote.announce ~= false) then p.question:SetText("") end
+    end)
+    p.stop = T.Button(new, "Beenden", (inner - 8) / 2)
+    p.stop:SetPoint("TOPLEFT", p.start, "BOTTOMLEFT", 0, -8)
+    p.stop:SetScript("OnClick", function() V:End() end)
+    p.post = T.Button(new, "Ergebnis posten", (inner - 8) / 2)
+    p.post:SetPoint("LEFT", p.stop, "RIGHT", 8, 0)
+    p.post:SetScript("OnClick", function() V:Announce() end)
+    p.post:SetScript("OnEnter", function(btn)
+        GameTooltip:SetOwner(btn, "ANCHOR_BOTTOM")
+        GameTooltip:AddLine("Ergebnis posten")
+        GameTooltip:AddLine("Schreibt das Ergebnis in den Raidchat, z. B. „29 dafür, 1 dagegen, 10 passt beides“ – so sehen es alle, auch ohne Addon.", 1, 1, 1, true)
+        GameTooltip:Show()
+    end)
+    p.post:SetScript("OnLeave", GameTooltip_Hide)
+    p.leadHint = T.Text(new, "muted")
+    p.leadHint:SetPoint("TOPLEFT", p.stop, "BOTTOMLEFT", 0, -12)
+    p.leadHint:SetWidth(inner)
+    p.leadHint:SetJustifyH("LEFT")
+    p.leadHint:SetSpacing(3)
+
+    -- Rechts: aktuelle Abstimmung
+    local cur = StartCard(p, "Abstimmung", 0)
+    cur:SetPoint("TOPLEFT", new, "TOPRIGHT", 12, 0)
+    cur:SetPoint("BOTTOMRIGHT")
+    p.title = T.Text(cur, "heading")
+    p.title:SetPoint("TOPLEFT", cur.kicker, "BOTTOMLEFT", 0, -8)
+    p.title:SetPoint("RIGHT", -16, 0)
+    p.title:SetJustifyH("LEFT")
+    p.sub = T.Text(cur, "muted")
+    p.sub:SetPoint("TOPLEFT", p.title, "BOTTOMLEFT", 0, -4)
+    p.sub:SetPoint("RIGHT", -16, 0)
+    p.sub:SetJustifyH("LEFT")
+    p.vote = {}
+    p.cols = {}
+    for i, choice in ipairs(V.CHOICES) do
+        local b = T.Button(cur, choice.label, 150)
+        b:SetHeight(28)
+        if i == 1 then b:SetPoint("TOPLEFT", p.sub, "BOTTOMLEFT", 0, -12) else b:SetPoint("LEFT", p.vote[i - 1], "RIGHT", 8, 0) end
+        b:SetScript("OnClick", function() V:Cast(i) end)
+        p.vote[i] = b
+        local col = CreateFrame("Frame", nil, cur)
+        col.head = T.Text(col, "heading")
+        col.head:SetPoint("TOPLEFT")
+        col.names = T.Text(col, "small")
+        col.names:SetPoint("TOPLEFT", col.head, "BOTTOMLEFT", 0, -6)
+        col.names:SetPoint("RIGHT")
+        col.names:SetJustifyH("LEFT")
+        col.names:SetJustifyV("TOP")
+        col.names:SetSpacing(3)
+        p.cols[i] = col
+    end
+    local COL_GAP = 12
+    cur:SetScript("OnSizeChanged", function(_, w)
+        local colW = (w - 32 - 2 * COL_GAP) / 3
+        for i, col in ipairs(p.cols) do
+            col:ClearAllPoints()
+            col:SetPoint("TOPLEFT", p.vote[1], "BOTTOMLEFT", (i - 1) * (colW + COL_GAP), -16)
+            col:SetSize(colW, 200)
+            col.names:SetWidth(colW)
+        end
+    end)
+    p.missing = T.Text(cur, "muted")
+    p.missing:SetPoint("BOTTOMLEFT", 16, 14)
+    p.missing:SetPoint("RIGHT", -16, 0)
+    p.missing:SetJustifyH("LEFT")
+    p.missing:SetSpacing(3)
+
+    local function Names(list)
+        local out = {}
+        for _, e in ipairs(list) do
+            local m = ns.Members and ns.Members:Find(e.name)
+            local classFile = m and m.classFile
+            if not classFile then
+                for _, r in ipairs(ns.Raid.members) do
+                    if ns.SameName(r.name, e.name) then classFile = r.classFile end
+                end
+            end
+            out[#out + 1] = "|c" .. ClassHex(classFile) .. (ns.ShortName(e.name) or e.name) .. "|r"
+        end
+        return table.concat(out, ", ")
+    end
+
+    p.Refresh = function()
+        local v = V.current
+        local lead = V.CanStart()
+        p.start:SetEnabled(lead and not (v and v.open))
+        p.stop:SetEnabled(lead and v ~= nil and v.open)
+        p.post:SetEnabled(lead and v ~= nil)
+        p.leadHint:SetText(lead and "Alle mit Addon bekommen ein kleines Fenster mit drei Knöpfen. Haben alle abgestimmt, sagt dir das Addon Bescheid – dann „Ergebnis posten“."
+            or "Abstimmungen startet die Leitung der Gruppe (Leiter oder Assistent). Du stimmst rechts oder im Fenster ab.")
+        if not v then
+            p.title:SetText("Gerade läuft keine Abstimmung.")
+            p.sub:SetText("Stellt die Leitung eine Frage, kannst du hier und im kleinen Fenster abstimmen.")
+            for _, b in ipairs(p.vote) do b:Hide() end
+            for _, col in ipairs(p.cols) do col:Hide() end
+            p.missing:SetText("")
+            return
+        end
+        p.title:SetText(v.question)
+        local t = V:Tally()
+        local state = v.open and (v.complete and T.Hex("green", "alle haben abgestimmt") or T.Hex("green", "läuft"))
+            or T.Hex("goldBright", "beendet")
+        p.sub:SetText("von " .. (ns.ShortName(v.host) or "?") .. "  ·  " .. state .. "  ·  " .. V:CountText())
+        local mine = V:Mine()
+        for i, b in ipairs(p.vote) do
+            local choice = V.CHOICES[i]
+            b:Show()
+            b:SetEnabled(v.open)
+            b:SetText(mine == i and T.Hex(choice.color, "» " .. choice.label .. " «") or choice.label)
+        end
+        for i, col in ipairs(p.cols) do
+            col:Show()
+            local choice = V.CHOICES[i]
+            col.head:SetText(T.Hex(choice.color, choice.label .. "  " .. #t[i]))
+            col.names:SetText(#t[i] > 0 and Names(t[i]) or T.Hex("muted", "–"))
+        end
+        if #t.missing > 0 and v.open then
+            p.missing:SetText("Noch nicht abgestimmt (" .. #t.missing .. "): " .. Names(t.missing))
+        else
+            p.missing:SetText("")
+        end
+    end
+    return p
+end
+
 function UI:CreateFamePanel()
     local p = self:NewPanel()
     local title = T.Text(p, "heading")

@@ -439,6 +439,7 @@ ns.OPTIONS = {
     { key = "raidReminder", label = "Erinnerung kurz vor dem Raid", hint = "eine Zeile im Chat" },
     { key = "raidReminderScreen", label = "Erinnerung auch groß in der Bildschirmmitte", hint = "mit Ton" },
     { key = "quizOpen", label = "Quizfenster öffnen, wenn die Leitung startet", hint = "sonst mit /ea quiz" },
+    { key = "voteOpen", label = "Abstimmungsfenster öffnen, wenn die Leitung fragt", hint = "sonst unter Raid » Abstimmung" },
     { key = "recruitPopup", label = "Fenster bei Gildenanfragen",
         hint = "sonst still im Reiter Invite",
         get = function() return ns.db.recruit.popup ~= false end,
@@ -475,7 +476,7 @@ ns.OPTIONS = {
 -- nichts öffnet sich von selbst, Töne nur, wenn jemand auf dich wartet, Twinks im Chat bleiben.
 ns.PRESETS = {
     an = {},
-    ruhig = { minimap = false, sounds = false, chatBoard = false, raidReminderScreen = false, quizOpen = false,
+    ruhig = { minimap = false, sounds = false, chatBoard = false, raidReminderScreen = false, quizOpen = false, voteOpen = false,
         notices = false, awayButtonIdle = false, recruitPopup = false, rollWindow = false },
 }
 

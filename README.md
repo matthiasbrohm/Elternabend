@@ -342,6 +342,9 @@ Drei Knöpfe stellen alles auf einmal:
 
 Der Austausch mit der Gilde (Berufe, Twinks, Pinnwand, Kalender, Antworten auf Bereitschafts- und Versionsabfragen) läuft in jedem Fall weiter. Wer vor dieser Version „Töne“ oder die Pinnwand-Meldungen abgeschaltet hatte, hat danach beide neuen Teile davon aus.
 
+## Abstimmung
+Unter **Raid » Abstimmung** stellt die Leitung der Gruppe (im Schlachtzug Leiter oder Assistent) eine Frage – frei oder per Schnellwahl („Noch ein Boss?“, „Kurze Pause?“, „Nächste Woche weiter?“). Auf Wunsch steht die Frage auch im Raidchat. Bei allen mit Addon geht ein kleines Fenster mit drei Knöpfen auf: **Dafür**, **Dagegen**, **Passt beides** (abschaltbar in den Einstellungen, dann nur im Reiter). Umentscheiden geht bis zum Ende. Im Reiter sehen alle, wer wie gestimmt hat (Namen in Klassenfarbe) und wer noch fehlt. Haben alle abgestimmt, gibt das Addon der Leitung Bescheid; **„Ergebnis posten“** schreibt es in den Raidchat, z. B. „Ergebnis der Abstimmung „Noch ein Boss?“: 29 dafür, 1 dagegen, 10 passt beides“. Nach zehn Minuten endet eine Abstimmung von selbst.
+
 ## Quiz
 Für Zeltlager, Lagerfeuer und Wartezeiten: Im Reiter **Raid » Übersicht** öffnet „Quiz“ (oder `/ea quiz`) das Quizfenster. Die Leitung der Gruppe (Raidleitung und Assistenten, in der Fünfergruppe der Anführer) startet die Runde für alle: Das Addon zieht zehn Fragen zufällig aus hundert, bei allen mit Addon geht das Fenster auf, und jeder beantwortet dieselben Fragen – vier Antworten zur Auswahl, 20 Sekunden je Frage. Die Uhr läuft erst nach dem Klick auf „Los geht's“.
 

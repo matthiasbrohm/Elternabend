@@ -37,6 +37,7 @@ GuildLog.lua
 Profile.lua
 QuizFragen.lua
 Quiz.lua
+Vote.lua
 Sync.lua
 Fame.lua
 Rolls.lua
