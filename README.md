@@ -217,7 +217,7 @@ Neben Soft-Reserve kann ein Raid auch nach **Wunschliste** verteilt werden (Vorb
 
 ## DKP (Bieterrunde)
 Als dritte Möglichkeit kann ein Raid nach **DKP** verteilt werden. Steht in `raids.php` bei der Raid-Vorlage `'loot' => 'dkp'`, bringt der Raid-Text das Mindestgebot (`dkpregel`) und alle Punktestände (`dkp`) mit; Konten, Regeln und Verfall pflegt die Gildenleitung auf `dkp.php`. Im Spiel:
-- **Statt einer Würfelrunde** startet der Plündermeister eine verdeckte **Bieterrunde**. Alle mit Addon bekommen sie angesagt und bieten mit `/ea biete 30` (oder im Würfelfenster mit „Bieten“). Wer kein Addon hat, flüstert dem Plündermeister „biete 30“.
+- **Statt einer Würfelrunde** startet der Plündermeister eine verdeckte **Bieterrunde**. Alle mit Addon bekommen sie angesagt und bekommen ein Fenster mit Eingabefeld: Zahl eintippen, Enter – fertig (oder `/ea biete 30`). Der Plündermeister startet die Runde im Reiter Beute mit „Bieten“. Wer kein Addon hat, flüstert dem Plündermeister „biete 30“.
 - Nur der Plündermeister sieht die Gebote. Geprüft wird: im Raid, Mindestgebot erreicht, nicht mehr als die eigenen Punkte. Wer neu bietet, ersetzt sein altes Gebot.
 - Das höchste Gebot gewinnt und zahlt sein Gebot. Im Raid-Bericht steht die Beute mit Art „DKP“ und Preis; beim Einfügen im Raidplaner bucht die Webseite Bosspunkte, Anwesenheit und die Preise.
 - `/ea dkp` zeigt die eigenen Punkte. „An Gruppe senden“ verteilt die Punktestände mit.

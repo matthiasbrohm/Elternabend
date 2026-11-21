@@ -69,6 +69,7 @@ test("DKP: Spieler bekommt die Bieterrunde angesagt und bietet mit /ea biete", f
     local ns = w.ns
     w:receive("BIDOPEN\t" .. LINK .. "\t20\t10", "RAID", "Beta Lux")
     seen(w, "print", "Bieterrunde:.*du hast 30 DKP")
+    seen(w, "popup", "ELTERNABEND_BID")
     check(not ns.DKP:Bid(5), "unter Mindestgebot angenommen")
     check(not ns.DKP:Bid(50), "mehr als eigene Punkte angenommen")
     check(ns.DKP:Bid(25), "Gebot abgelehnt")

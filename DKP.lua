@@ -146,7 +146,39 @@ ns.Comm.handlers.BIDOPEN = function(sender, parts)
     ns.Print(string.format("|cff40ff40Bieterrunde:|r %s – %s. Bieten mit /ea biete <Zahl> (mind. %d, %ds).", link,
         mine and ("du hast " .. mine .. " DKP") or "für dich sind keine DKP bekannt", min, seconds))
     ns.Sound(SOUNDKIT and SOUNDKIT.RAID_WARNING or 8959, nil, true)
+    -- Fenster mit Eingabefeld: Zahl eintippen, Enter oder „Bieten“
+    StaticPopupDialogs["ELTERNABEND_BID"].timeout = seconds
+    StaticPopup_Show("ELTERNABEND_BID", link, (mine and (mine .. " DKP") or "keine DKP") .. ", Mindestgebot " .. min)
 end
+
+local function BidBox(dialog)
+    return dialog.editBox or (dialog.GetEditBox and dialog:GetEditBox())
+end
+
+StaticPopupDialogs["ELTERNABEND_BID"] = {
+    text = "Bieterrunde für %s\n(du hast %s)\n\nDein Gebot:",
+    button1 = "Bieten",
+    button2 = "Passen",
+    hasEditBox = true,
+    maxLetters = 5,
+    OnShow = function(self)
+        local box = BidBox(self)
+        if box then box:SetNumeric(true) box:SetText("") box:SetFocus() end
+    end,
+    OnAccept = function(self)
+        local box = BidBox(self)
+        DKP:Bid(box and box:GetText())
+    end,
+    EditBoxOnEnterPressed = function(self)
+        local parent = self:GetParent()
+        DKP:Bid(self:GetText())
+        parent:Hide()
+    end,
+    EditBoxOnEscapePressed = function(self) self:GetParent():Hide() end,
+    timeout = 20,
+    whileDead = true,
+    hideOnEscape = true,
+}
 
 ns.Comm.handlers.BIDOK = function(sender, parts)
     local r = DKP.round
