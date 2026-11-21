@@ -132,7 +132,8 @@ function Groups:Mine()
     return self.mine
 end
 
-function Groups:Post(what, need, note)
+-- role: als was der Suchende selbst mitgeht (tank/heal/dd) – erscheint bei den anderen unter „Wer ist dabei?“
+function Groups:Post(what, need, note, role)
     what = strtrim(what or "")
     if what == "" then
         ns.Print("Bitte eintragen, wofür du eine Gruppe suchst.")
@@ -150,6 +151,7 @@ function Groups:Post(what, need, note)
         wipe(self.applicants)
     end
     mine.what, mine.note = what, strtrim(note or "")
+    mine.role = Groups.ROLES[role or ""] and role or nil
     mine.need = { tank = need.tank or 0, heal = need.heal or 0, dd = need.dd or 0 }
     mine.started = mine.started or GetTime()
     -- Zielgröße: wer jetzt schon in der Gruppe ist plus die gesuchten Plätze.
@@ -282,6 +284,10 @@ function Groups:Who(g)
         byName[key] = true
         out[#out + 1] = { role = role or "", name = ns.ShortName(name) or name, classFile = classFile or "", state = state }
     end
+    -- zuerst der Suchende selbst, mit seiner Rolle
+    local me = ns.UnitFullName("player")
+    local _, myClass = UnitClass("player")
+    if me then Add(g.role, me, Safe(myClass), "leitet") end
     -- Meldungen nach Name, damit Gruppenmitglieder ihre gemeldete Rolle behalten
     local applied = {}
     for _, a in pairs(self.applicants) do
@@ -313,6 +319,15 @@ function Groups:Who(g)
         end
     end
     return out
+end
+
+-- Eigene Rolle ändern, während die Suche läuft
+function Groups:SetMyRole(role)
+    if self.mine then
+        self.mine.role = self.ROLES[role or ""] and role or nil
+        self:QueueWho()
+        ns:Fire("GROUPS_UPDATE")
+    end
 end
 
 -- Nach jeder Änderung (kurz gesammelt) an die Gilde schicken
@@ -558,7 +573,7 @@ if hooksecurefunc and ReloadUI then
 end
 
 local function Snapshot(g)
-    return { id = g.id, leader = g.leader, what = g.what, note = g.note, posted = g.posted, chatKey = g.chatKey, target = g.target,
+    return { id = g.id, leader = g.leader, what = g.what, note = g.note, posted = g.posted, chatKey = g.chatKey, target = g.target, role = g.role,
         need = { tank = g.need.tank, heal = g.need.heal, dd = g.need.dd }, age = GetTime() - g.started }
 end
 

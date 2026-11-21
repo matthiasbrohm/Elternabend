@@ -3774,7 +3774,7 @@ function UI:CreateGroupsPanel()
     site:SetPoint("LEFT", siteLabel, "RIGHT", 10, 0)
 
     -- Unterreiter „Eigene Gruppe“, links: Gruppe suchen
-    local own = StartCard(q, "Gruppe suchen", 232)
+    local own = StartCard(q, "Gruppe suchen", 266)
     own:SetPoint("TOPLEFT")
     own:SetWidth(OWN_W)
     local inner = OWN_W - 32
@@ -3882,8 +3882,31 @@ function UI:CreateGroupsPanel()
         p.needButtons[role] = b
         prev = b
     end
+    -- Als was gehst du selbst mit? Steht bei den anderen unter „Wer ist dabei?“ (Klick: weiter, Rechtsklick: zurück)
+    local MY_ROLES = { "", "tank", "heal", "dd" }
+    p.myRole = T.Button(own, "", inner)
+    p.myRole:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+    p.myRole:SetPoint("TOPLEFT", p.needButtons.tank, "BOTTOMLEFT", 0, -8)
+    p.myRole:SetScript("OnClick", function(_, button)
+        local cur = ns.db.groups.myRole or ""
+        local index = 1
+        for i, r in ipairs(MY_ROLES) do if r == cur then index = i end end
+        index = index + (button == "RightButton" and -1 or 1)
+        if index > #MY_ROLES then index = 1 elseif index < 1 then index = #MY_ROLES end
+        ns.db.groups.myRole = MY_ROLES[index] ~= "" and MY_ROLES[index] or nil
+        G:SetMyRole(ns.db.groups.myRole)
+        p:Refresh()
+    end)
+    p.myRole:SetScript("OnEnter", function(btn)
+        GameTooltip:SetOwner(btn, "ANCHOR_BOTTOM")
+        GameTooltip:AddLine("Als was gehst du selbst mit?")
+        GameTooltip:AddLine("Steht bei den anderen unter „Wer ist dabei?“ ganz oben – so sieht jeder, dass z. B. der Heiler schon da ist.", 1, 1, 1, true)
+        GameTooltip:AddLine("Klick: weiter  ·  Rechtsklick: zurück", 0.84, 0.69, 0.35)
+        GameTooltip:Show()
+    end)
+    p.myRole:SetScript("OnLeave", GameTooltip_Hide)
     p.note = T.EditBox(own, inner, "Notiz, z. B. „gemütlich, mit Erklärung“")
-    p.note:SetPoint("TOPLEFT", p.needButtons.tank, "BOTTOMLEFT", 0, -8)
+    p.note:SetPoint("TOPLEFT", p.myRole, "BOTTOMLEFT", 0, -8)
     -- Für Mitglieder ohne Addon: Gesuch einmal in den Gildenchat schreiben (Wahl wird gemerkt)
     p.toChat = T.Checkbox(own, "Auch im Gildenchat posten")
     p.toChat:SetPoint("TOPLEFT", p.note, "BOTTOMLEFT", 0, -8)
@@ -3903,7 +3926,7 @@ function UI:CreateGroupsPanel()
         pickMenu:Hide()
         p.what:ClearFocus()
         p.note:ClearFocus()
-        G:Post(p.what:GetText(), p.need, p.note:GetText())
+        G:Post(p.what:GetText(), p.need, p.note:GetText(), ns.db.groups.myRole)
     end)
     p.close = T.Button(own, "Beenden", inner - 178)
     p.close:SetPoint("LEFT", p.post, "RIGHT", 8, 0)
@@ -3945,7 +3968,7 @@ function UI:CreateGroupsPanel()
 
     -- Unter „Wer ist dabei?“: Rolle, Name in Klassenfarbe, Stand
     local STATE = { dabei = { "in der Gruppe", "green" }, eingeladen = { "eingeladen", "green" }, gemeldet = { "gemeldet", "goldBright" },
-        umloggen = { "loggt um", "goldBright" } }
+        umloggen = { "loggt um", "goldBright" }, leitet = { "sucht die Gruppe", "goldBright" } }
     local function WhoLine(e)
         local role = e.role ~= "" and G.ROLES[e.role] or "–"
         local st = STATE[e.state] or STATE.gemeldet
@@ -3968,21 +3991,24 @@ function UI:CreateGroupsPanel()
             p.whoRows[1]:SetText(T.Hex("muted", "Noch keine Angaben – kommt mit dem nächsten Stand des Suchenden."))
             return
         end
-        if #who == 0 then
-            p.whoRows[1]:SetText(T.Hex("muted", "Noch niemand gemeldet – sei der Erste!"))
-            return
-        end
+
         -- nach Rolle: Tank, Heiler, DD, ohne Rolle
         local order = { tank = 1, heal = 2, dd = 3 }
         local sorted = {}
         for _, e in ipairs(who) do sorted[#sorted + 1] = e end
         table.sort(sorted, function(a, b)
+            if (a.state == "leitet") ~= (b.state == "leitet") then return a.state == "leitet" end
             local x, y = order[a.role] or 4, order[b.role] or 4
             if x ~= y then return x < y end
             return a.name < b.name
         end)
+        local others = 0
         for i, e in ipairs(sorted) do
             if p.whoRows[i] then p.whoRows[i]:SetText(WhoLine(e)) end
+            if e.state ~= "leitet" then others = others + 1 end
+        end
+        if others == 0 and p.whoRows[#sorted + 1] then
+            p.whoRows[#sorted + 1]:SetText(T.Hex("muted", "Noch niemand gemeldet – sei der Erste!"))
         end
     end
 
@@ -4060,6 +4086,8 @@ function UI:CreateGroupsPanel()
         RefreshWho(sel)
 
         for role, b in pairs(p.needButtons) do b:SetText(G.ROLES[role] .. ": " .. p.need[role]) end
+        local myRole = ns.db.groups.myRole
+        p.myRole:SetText("Ich gehe mit als: " .. (myRole and T.Hex("goldBright", G.ROLES[myRole]) or T.Hex("muted", "– (wählen)")))
         p.post:SetText(mine and "Aktualisieren" or "Gruppe suchen")
         p.close:SetEnabled(mine ~= nil)
         local applicants = G:Applicants()
