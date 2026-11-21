@@ -94,6 +94,8 @@ sr;Beta;30911;Scepter of Purification;Anetheron
 gruppe;1;Deltana;Beta
 wunsch;Beta;30904;1
 prio;30904;Beta,Deltana
+dkpregel;10
+dkp;Beta;50
 termin;42;Hyjal Summit;1794517200;180;12;20;offen
 #ENDE
 ```
@@ -106,6 +108,8 @@ termin;42;Hyjal Summit;1794517200;180;12;20;offen
 | `gruppe` | Nummer der Raidgruppe (1–8), danach bis zu fünf Charakternamen |
 | `wunsch` | Loot-Wunschliste: Charaktername, Item-ID, Platz auf seiner Wunschliste (1 = am wichtigsten) – nur offene Wünsche |
 | `prio` | Loot-Wunschliste: Item-ID, Charakternamen mit Komma in der Reihenfolge, in der das Item vergeben wird |
+| `dkpregel` | DKP: Mindestgebot |
+| `dkp` | DKP: Charaktername, Punktestand |
 | `termin` | Raid-ID, Titel, Start (Unix-Zeit), Dauer in Minuten, Zusagen, Plätze, Status – alle kommenden Raids, für den Kalender |
 
 **Ein Text für alles:** Dieser eine Text bringt Aufstellung, Raidgruppen, Soft-Reserves und die Raidtermine für den Kalender mit. Fügt ihn ein Offizier ein, verteilt das Addon die Termine gleich an die Gilde (nur wenn sich etwas geändert hat). Beide Einfüge-Fenster – „Raid einfügen“ und „Raidtermine einfügen“ – nehmen beide Texte an.
@@ -210,6 +214,13 @@ Neben Soft-Reserve kann ein Raid auch nach **Wunschliste** verteilt werden (Vorb
 - **Reiter Beute:** in der Spalte „Soft-Reserve / Prio“ steht, wer dran ist („Prio: Beta Lux · danach Mira Mondschein“); **„An Prio“** vergibt das Item direkt. Wer etwas bekommen hat, fällt aus der Prio, der Nächste rückt nach.
 - **„An Gruppe senden“** schickt Soft-Reserves und Wunschliste zusammen an alle in der Gruppe; jeder bekommt gesagt, wo er als Nächstes dran ist.
 - Erhaltene Items stehen wie immer im Raid-Bericht – beim Einfügen im Raidplaner hakt die Webseite sie auf den Wunschlisten ab.
+
+## DKP (Bieterrunde)
+Als dritte Möglichkeit kann ein Raid nach **DKP** verteilt werden. Steht in `raids.php` bei der Raid-Vorlage `'loot' => 'dkp'`, bringt der Raid-Text das Mindestgebot (`dkpregel`) und alle Punktestände (`dkp`) mit; Konten, Regeln und Verfall pflegt die Gildenleitung auf `dkp.php`. Im Spiel:
+- **Statt einer Würfelrunde** startet der Plündermeister eine verdeckte **Bieterrunde**. Alle mit Addon bekommen sie angesagt und bieten mit `/ea biete 30` (oder im Würfelfenster mit „Bieten“). Wer kein Addon hat, flüstert dem Plündermeister „biete 30“.
+- Nur der Plündermeister sieht die Gebote. Geprüft wird: im Raid, Mindestgebot erreicht, nicht mehr als die eigenen Punkte. Wer neu bietet, ersetzt sein altes Gebot.
+- Das höchste Gebot gewinnt und zahlt sein Gebot. Im Raid-Bericht steht die Beute mit Art „DKP“ und Preis; beim Einfügen im Raidplaner bucht die Webseite Bosspunkte, Anwesenheit und die Preise.
+- `/ea dkp` zeigt die eigenen Punkte. „An Gruppe senden“ verteilt die Punktestände mit.
 
 ## Plündermeister-Reiter
 Der Reiter erscheint nur für Plündermeister, Leitung und Assistenten – oder für alle, solange gerade Beute ansteht oder gewürfelt wird. Mit `/ea loot` lässt er sich jederzeit öffnen (mit eingeschaltetem Würfelfenster: `/ea raid`).
@@ -407,6 +418,8 @@ Unter **Optionen » Tastaturbelegung » Elternabend** (eigener Abschnitt, unten 
 | `/ea loot` | Würfelfenster für Bedarf und Gier auf/zu (wenn eingeschaltet; sonst Reiter Plündermeister) |
 | `/ea loot test` | Würfelfenster mit Beispielen ausprobieren, auch ohne Gruppe |
 | `/ea roll [Itemlink]` | Item aus den Taschen auswürfeln (Vergabe wird „per Handel“ notiert) |
+| `/ea biete 30` | In einer DKP-Bieterrunde bieten (das letzte Gebot zählt) |
+| `/ea dkp` | Eigene DKP anzeigen |
 | `/ea rolltime 30` | Würfeldauer in Sekunden |
 | `/ea quality 3` | Mindestqualität im Plündermeister-Reiter (3 = Selten, 4 = Episch) |
 | `/ea rw` | Schlachtzugswarnung an/aus |

@@ -492,7 +492,7 @@ function UI:QueueRefresh()
 end
 
 for _, msg in ipairs({ "ROSTER_UPDATE", "SR_UPDATE", "LOOT_UPDATE", "ROLL_UPDATE", "HISTORY_UPDATE", "SESSION_UPDATE", "NOTES_UPDATE", "INFO_UPDATE", "MEMBERS_UPDATE", "JOIN_UPDATE", "PROF_UPDATE",
-    "GROUPS_UPDATE", "VOTE_UPDATE", "WISHLIST_UPDATE", "ORDERS_UPDATE", "FAME_UPDATE", "LEVELUP_UPDATE", "READY_UPDATE", "BOARD_UPDATE", "CALENDAR_UPDATE", "GUILDLOG_UPDATE", "PROFILE_UPDATE" }) do
+    "GROUPS_UPDATE", "VOTE_UPDATE", "WISHLIST_UPDATE", "DKP_UPDATE", "ORDERS_UPDATE", "FAME_UPDATE", "LEVELUP_UPDATE", "READY_UPDATE", "BOARD_UPDATE", "CALENDAR_UPDATE", "GUILDLOG_UPDATE", "PROFILE_UPDATE" }) do
     ns:Listen(msg, function() UI:QueueRefresh() end)
 end
 
@@ -2243,6 +2243,7 @@ function UI:CreateLootPanel()
             end
             row.srBtn:SetText(d.srWinner and d.srWinner.prio and "An Prio" or "An SR")
             row.srBtn:SetShown(d.srWinner ~= nil)
+            row.rollBtn:SetText(ns.DKP:Active() and "Bieten" or "Würfeln")
             row.rollBtn:SetEnabled(not rolling)
         end)
 
@@ -2574,6 +2575,7 @@ function UI:CreateWebPanel()
     drop:SetScript("OnClick", function()
         ns.db.plan = nil
         ns.WL:Clear()
+        ns.DKP:Clear()
         ns:Fire("ROSTER_UPDATE")
     end)
     imp:SetPoint("BOTTOMLEFT", 20, 20)

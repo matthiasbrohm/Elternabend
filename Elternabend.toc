@@ -14,6 +14,7 @@ Theme.lua
 Comm.lua
 SoftRes.lua
 Wishlist.lua
+DKP.lua
 Raid.lua
 Web.lua
 Loot.lua

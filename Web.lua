@@ -43,6 +43,7 @@ function Web:ImportPlan(text)
     local entries = {}
     local dates = {} -- kommende Raidtermine für den Kalender („termin;…“)
     local prio, wishes, prioCount = {}, {}, 0 -- Loot-Wunschlisten („wunsch;…“, „prio;…“)
+    local dkp, dkpMin, dkpCount = {}, 0, 0 -- DKP („dkpregel;…“, „dkp;…“)
 
     for line in text:gmatch("[^\r\n]+") do
         local f = Split(line)
@@ -85,12 +86,20 @@ function Web:ImportPlan(text)
                 prio[tonumber(f[2])] = names
                 prioCount = prioCount + 1
             end
+        elseif kind == "dkpregel" then
+            dkpMin = tonumber(f[2]) or 0
+        elseif kind == "dkp" and f[2] and f[2] ~= "" and tonumber(f[3]) then
+            local key = ns.NameKey(f[2])
+            if key then
+                dkp[key] = { name = f[2], n = tonumber(f[3]) }
+                dkpCount = dkpCount + 1
+            end
         elseif kind == "sr" and f[2] and tonumber(f[3]) then
             table.insert(entries, { name = f[2], itemId = tonumber(f[3]), itemName = f[4], boss = f[5] ~= "" and f[5] or nil, plus = 0 })
         end
     end
 
-    if not plan.id and next(plan.signups) == nil and #entries == 0 and prioCount == 0 then
+    if not plan.id and next(plan.signups) == nil and #entries == 0 and prioCount == 0 and dkpCount == 0 then
         ns.Print("|cffff5555Import fehlgeschlagen:|r Keine Raid-Daten gefunden.")
         return false
     end
@@ -99,12 +108,17 @@ function Web:ImportPlan(text)
     ns.SR:SetEntries(entries, "Raidplaner" .. (plan.title and (": " .. plan.title) or ""))
     -- Ohne Wunschlisten-Zeilen wird die alte Liste entfernt (der Raid wird dann nicht nach Wunschliste verteilt)
     ns.WL:Set(prio, wishes, plan.title)
+    ns.DKP:Set(dkp, dkpMin)
     local count = 0
     for _ in pairs(plan.signups) do count = count + 1 end
     ns.Print(string.format("Raid „%s“ geladen: %d Anmeldungen, %d Soft-Reserves%s%s.", plan.title or "?", count, #entries,
         prioCount > 0 and (", Wunschliste mit Prio für " .. prioCount .. (prioCount == 1 and " Item" or " Items")) or "",
         plan.groups and " – mit Raidgruppen (Raid » Raidgruppen)" or ""))
     if prioCount > 0 then ns.WL:PrintOwn() end
+    if dkpCount > 0 then
+        ns.Print("DKP-Raid: Beute wird per Bieterrunde verteilt (" .. dkpCount .. " Punktestände).")
+        ns.DKP:PrintOwn()
+    end
     -- Ein Text für alles: die Raidtermine gleich in den Kalender (nur Offiziere dürfen sie verteilen)
     if #dates > 0 and ns.Board:AmOfficer() then
         local ok, n, changed = ns.Calendar:Import("EART1^" .. time() .. "\n" .. table.concat(dates, "\n"), true)

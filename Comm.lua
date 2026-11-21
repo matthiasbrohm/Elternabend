@@ -387,7 +387,7 @@ end
 -- Neues Mitglied fragt nach der Liste: ein Leiter/Assistent mit Daten antwortet,
 -- zufällig verzögert, damit nicht alle gleichzeitig senden.
 Comm.handlers.SRQ = function(sender)
-    if Comm.srqPending or (ns.SR:Count() == 0 and ns.WL:Count() == 0) or not ns.IsTrusted(ns.UnitFullName("player")) then return end
+    if Comm.srqPending or (ns.SR:Count() == 0 and ns.WL:Count() == 0 and not ns.DKP:Active()) or not ns.IsTrusted(ns.UnitFullName("player")) then return end
     Comm.srqPending = true
     C_Timer.After(2 + math.random() * 4, function()
         if Comm.srqPending then

@@ -110,7 +110,19 @@ function Loot:StartRoll(item)
     self.current = cur
 
     local msg
-    if cur.hasSR then
+    if ns.DKP:Active() then
+        -- DKP-Raid: verdeckte Bieterrunde statt Würfeln (siehe DKP.lua)
+        cur.dkp, cur.hasSR = true, false
+        cur.min = ns.DKP:Min()
+        msg = string.format("%s – Bieterrunde (DKP): /ea biete <Zahl> oder „biete <Zahl>“ an %s flüstern, mind. %d (%ds)",
+            item.link, ns.ShortName(ns.UnitFullName("player")), cur.min, s.rollTime)
+        ns.Announce(msg, true)
+        ns.Comm:SendUrgent("BIDOPEN", item.link .. "\t" .. s.rollTime .. "\t" .. cur.min)
+        self.lastCount = nil
+        self.ticker = C_Timer.NewTicker(0.5, function() Loot:Tick() end)
+        ns:Fire("ROLL_UPDATE")
+        return
+    elseif cur.hasSR then
         local names = {}
         for _, n in ipairs(reservers) do table.insert(names, n.label) end
         msg = string.format("%s – SR: %s – nur SR-Spieler /roll %d (%ds)", item.link, table.concat(names, ", "), s.msMax, s.rollTime)
@@ -149,7 +161,9 @@ function Loot:GetSortedRolls()
     local s = ns.db.settings
     for _, r in pairs(cur.rolls) do
         local tier, label
-        if r.min ~= 1 then
+        if cur.dkp then
+            tier, label = r.bid and 1 or 9, r.bid and "DKP" or "ungültig"
+        elseif r.min ~= 1 then
             tier, label = 9, "ungültig"
         elseif r.max == s.msMax then
             if r.sr and cur.hasSR and s.srPriority then
@@ -184,7 +198,16 @@ function Loot:EndRoll(silent)
     if not silent then
         local sorted = self:GetSortedRolls()
         local w, second = sorted[1], sorted[2]
-        if not w or not w.valid then
+        if cur.dkp then
+            if not w or not w.valid then
+                ns.Announce("Keine Gebote für " .. cur.link)
+            elseif second and second.valid and second.roll == w.roll then
+                ns.Announce(string.format("Gleichstand für %s: %s und %s bieten je %d DKP – die Leitung entscheidet.",
+                    cur.link, ns.ShortName(w.name), ns.ShortName(second.name), w.roll))
+            else
+                ns.Announce(string.format("Höchstes Gebot für %s: %s (%d DKP)", cur.link, ns.ShortName(w.name), w.roll))
+            end
+        elseif not w or not w.valid then
             ns.Announce("Keine gültigen Würfe für " .. cur.link)
         elseif second and second.valid and second.tier == w.tier and second.roll == w.roll then
             ns.Announce(string.format("Gleichstand für %s: %s und %s (%d) – bitte nochmal würfeln!",
@@ -236,6 +259,8 @@ function Loot:Award(name, item)
     end
 
     local roll = cur.rolls[key]
+    local price = cur.dkp and roll and roll.bid and roll.roll or nil
+    if price then ns.DKP:Spend(displayName, price) end
     local sr = ns.SR:HasReserved(cur.itemId, key)
     if sr then ns.SR:MarkWon(cur.itemId, key) end
     ns.WL:MarkWon(cur.itemId, key)
@@ -248,7 +273,7 @@ function Loot:Award(name, item)
     })
 
     ns.Announce(string.format("%s erhält %s%s", displayName, cur.link, viaTrade and " (per Handel)" or ""))
-    ns.Comm:Send("AWARD", cur.link .. "\t" .. displayName)
+    ns.Comm:Send("AWARD", cur.link .. "\t" .. displayName .. (price and ("\t" .. price) or ""))
     self.current = nil
     ns:Fire("ROLL_UPDATE")
     ns:Fire("HISTORY_UPDATE")
@@ -317,5 +342,6 @@ ns.Comm.handlers.AWARD = function(sender, parts)
     if itemId and winner then
         ns.SR:MarkWon(itemId, ns.NameKey(winner))
         ns.WL:MarkWon(itemId, winner)
+        if parts[4] and not ns.SameName(sender, ns.UnitFullName("player")) then ns.DKP:Spend(winner, tonumber(parts[4])) end
     end
 end
