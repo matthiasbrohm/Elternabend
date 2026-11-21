@@ -103,6 +103,6 @@ test("Gruppensuche: Tipp, vorher Discord und Webseite anzusehen", function()
     w.ns.UI:Show("gruppen")
     local p = w.ns.UI.panels.gruppen
     w:call(p.Refresh, p)
-    check(p.ownState:GetText():find("Gruppensuche im Discord oder auf der Webseite", 1, true), p.ownState:GetText())
+    check(p.ownState:GetText():find("aus dem Discord und von der Webseite", 1, true), p.ownState:GetText())
     noErrors(w)
 end)

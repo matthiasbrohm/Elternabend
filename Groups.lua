@@ -8,6 +8,8 @@
 --   LFGQ                                         (Gilde, beim Einloggen)
 --   LFGJOIN  id Rolle Klasse [Twink]             (Flüstern an den Suchenden; Twink: mit diesem Charakter, loggt dafür um)
 --   LFGANS   id Antwort                          (Flüstern zurück: invited / full / relog = „jetzt umloggen“)
+--   LFGWHO   (SendLarge) id \n Rolle,Name,Klasse,Stand \n …   (Gilde: wer bei diesem Gesuch schon dabei oder gemeldet ist;
+--            Stand: dabei / eingeladen / gemeldet / umloggen – der Suchende schickt es bei jeder Änderung)
 local _, ns = ...
 
 local Groups = { list = {}, applicants = {}, sent = {} }
@@ -175,6 +177,7 @@ function Groups:Post(what, need, note)
         self:ChatUpdate(mine)
     end
     self:Broadcast()
+    self:QueueWho()
     -- Eigene Nachrichten kommen nicht zurück: deshalb hier bestätigen
     ns.Print(string.format(isNew and "Dein Gesuch für %s ist in der Gilde unterwegs (%s)."
         or "Dein Gesuch für %s ist aktualisiert (%s).", what, self.NeedText(mine.need)))
@@ -218,6 +221,7 @@ function Groups:Invite(applicant)
             end
             ns.Print(string.format("%s ist noch nicht online – %s loggt jetzt um. Sobald er da ist, kannst du einladen.",
                 ns.ShortName(applicant.alt), ns.ShortName(applicant.name)))
+            self:QueueWho()
             ns:Fire("GROUPS_UPDATE")
             return
         end
@@ -229,6 +233,7 @@ function Groups:Invite(applicant)
         InviteUnit(name)
     end
     applicant.state = "invited"
+    self:QueueWho()
     local m = self.mine
     ns.Comm:Send("LFGANS", (m and m.id or "") .. "\tinvited", "WHISPER", name)
     if name ~= applicant.name then ns.Comm:Send("LFGANS", (m and m.id or "") .. "\tinvited", "WHISPER", applicant.name) end
@@ -249,6 +254,7 @@ end
 
 function Groups:Decline(applicant)
     applicant.state = "declined"
+    self:QueueWho()
     ns.Comm:Send("LFGANS", (self.mine and self.mine.id or "") .. "\tfull", "WHISPER", applicant.name)
     ns:Fire("GROUPS_UPDATE")
 end
@@ -258,6 +264,89 @@ function Groups:Applicants()
     for _, a in pairs(self.applicants) do table.insert(list, a) end
     table.sort(list, function(a, b) return a.time < b.time end)
     return list
+end
+
+-- Wer ist dabei? ------------------------------------------------------------------
+-- Für das eigene Gesuch: wer schon in der Gruppe ist (mit gemeldeter Rolle, sonst der im Spiel gesetzten)
+-- und wer sich gemeldet hat. Für fremde Gesuche: was der Suchende zuletzt geschickt hat (LFGWHO).
+local GAME_ROLES = { TANK = "tank", HEALER = "heal", DAMAGER = "dd" }
+local function Safe(v) return v ~= nil and not ns.IsSecret(v) and v or nil end
+
+function Groups:Who(g)
+    if not g then return nil end
+    if g ~= self.mine then return g.who end
+    local out, byName = {}, {}
+    local function Add(role, name, classFile, state)
+        local key = ns.NameKey(name)
+        if not key or byName[key] then return end
+        byName[key] = true
+        out[#out + 1] = { role = role or "", name = ns.ShortName(name) or name, classFile = classFile or "", state = state }
+    end
+    -- Meldungen nach Name, damit Gruppenmitglieder ihre gemeldete Rolle behalten
+    local applied = {}
+    for _, a in pairs(self.applicants) do
+        if a.state ~= "declined" then
+            applied[ns.NameKey(a.alt or a.name) or ""] = a
+            applied[ns.NameKey(a.name) or ""] = a
+        end
+    end
+    if IsInGroup() then
+        local raid = IsInRaid()
+        for i = 1, raid and GetNumGroupMembers() or 4 do
+            local unit = raid and ("raid" .. i) or ("party" .. i)
+            if UnitExists(unit) and not (UnitIsUnit and UnitIsUnit(unit, "player")) then
+                local name = Safe(ns.UnitFullName(unit))
+                if name then
+                    local a = applied[ns.NameKey(name) or ""]
+                    local _, classFile = UnitClass(unit)
+                    local role = a and a.role or GAME_ROLES[Safe(UnitGroupRolesAssigned and UnitGroupRolesAssigned(unit)) or ""]
+                    Add(role, name, Safe(classFile), "dabei")
+                end
+            end
+        end
+    end
+    local list = self:Applicants()
+    for _, a in ipairs(list) do
+        if a.state ~= "declined" then
+            local state = a.state == "invited" and "eingeladen" or a.state == "relog" and "umloggen" or "gemeldet"
+            Add(a.role, a.alt or a.name, a.classFile ~= "" and a.classFile or nil, state)
+        end
+    end
+    return out
+end
+
+-- Nach jeder Änderung (kurz gesammelt) an die Gilde schicken
+local function WhoText(m)
+    local lines = { m.id }
+    for i, e in ipairs(Groups:Who(m)) do
+        if i > 12 then break end
+        lines[#lines + 1] = table.concat({ e.role, Clean(e.name):gsub(",", " "), e.classFile, e.state }, ",")
+    end
+    return table.concat(lines, "\n")
+end
+
+function Groups:SendWho(channel, target)
+    if not self.mine or not ns.Info:AtHome() then return end
+    ns.Comm:SendLarge("LFGWHO", WhoText(self.mine), channel or "GUILD", target)
+end
+
+function Groups:QueueWho()
+    if not self.mine or self.whoQueued then return end
+    self.whoQueued = true
+    C_Timer.After(2, function()
+        self.whoQueued = nil
+        self:SendWho()
+    end)
+end
+
+-- Neue Meldungen auf das eigene Gesuch (rote Plakette an „Eigene Gruppe“)
+function Groups:NewApplicants()
+    if not self.mine then return 0 end
+    local n = 0
+    for _, a in pairs(self.applicants) do
+        if a.state == "new" then n = n + 1 end
+    end
+    return n
 end
 
 -- Gesuche der anderen -------------------------------------------------------------
@@ -357,9 +446,10 @@ ns.Comm.handlers.LFG = function(sender, parts)
     if not ns.Info:AtHome() then return end -- Gruppensuche nur innerhalb der Gilde
     local id = parts[2]
     if not id or not parts[3] then return end
-    local isNew = Groups.list[id] == nil
+    local old = Groups.list[id]
+    local isNew = old == nil
     Groups.list[id] = {
-        id = id, leader = sender, what = parts[3],
+        id = id, leader = sender, what = parts[3], who = old and old.who or (Groups.whoEarly and Groups.whoEarly[id]),
         need = { tank = tonumber(parts[4]) or 0, heal = tonumber(parts[5]) or 0, dd = tonumber(parts[6]) or 0 },
         note = parts[7] or "", started = GetTime() - (tonumber(parts[8]) or 0),
     }
@@ -379,8 +469,37 @@ end
 
 ns.Comm.handlers.LFGQ = function(sender)
     if Groups.mine and ns.Info:AtHome() then
-        C_Timer.After(math.random() * 3, function() Groups:Broadcast("WHISPER", sender) end)
+        C_Timer.After(math.random() * 3, function()
+            Groups:Broadcast("WHISPER", sender)
+            Groups:SendWho("WHISPER", sender)
+        end)
     end
+end
+
+-- Wer ist bei einem fremden Gesuch dabei? Nur vom Suchenden selbst angenommen.
+ns.Comm.handlers.LFGWHO = function(sender, parts)
+    local data = ns.Comm:Assemble(sender, parts)
+    if not data or not ns.Info:AtHome() then return end
+    local lines = { strsplit("\n", data) }
+    local id = lines[1]
+    if not id or id == "" then return end
+    local who = {}
+    for i = 2, #lines do
+        local role, name, classFile, state = strsplit(",", lines[i])
+        if name and name ~= "" and #who < 12 then
+            who[#who + 1] = { role = Groups.ROLES[role or ""] and role or "", name = name, classFile = classFile or "", state = state or "gemeldet" }
+        end
+    end
+    local g = Groups.list[id]
+    if g then
+        if not ns.SameName(sender, g.leader) then return end
+        g.who = who
+    else
+        -- LFGWHO kam vor dem Gesuch an: kurz merken
+        Groups.whoEarly = Groups.whoEarly or {}
+        Groups.whoEarly[id] = who
+    end
+    ns:Fire("GROUPS_UPDATE")
 end
 
 ns.Comm.handlers.LFGJOIN = function(sender, parts)
@@ -389,8 +508,9 @@ ns.Comm.handlers.LFGJOIN = function(sender, parts)
     local key = ns.NameKey(sender)
     local alt = parts[5] ~= nil and parts[5] ~= "" and not ns.IsSecret(parts[5]) and parts[5] or nil
     Groups.applicants[key] = { name = sender, role = parts[3], classFile = parts[4], alt = alt, time = GetTime(), state = "new" }
+    Groups:QueueWho()
     ns.Sound(SOUNDKIT and SOUNDKIT.READY_CHECK or 8960, "Master", true)
-    ns.Print(string.format("%s möchte als %s mit%s – /ea gruppen", ns.ShortName(sender), Groups.ROLES[parts[3]],
+    ns.Print(string.format("%s möchte als %s mit%s – Reiter „Gruppen“ » „Eigene Gruppe“", ns.ShortName(sender), Groups.ROLES[parts[3]],
         alt and (" (mit " .. ns.ShortName(alt) .. ", loggt dafür um)") or ""))
     ns:Fire("GROUPS_UPDATE")
 end
@@ -427,6 +547,7 @@ ns:On("GROUP_ROSTER_UPDATE", function()
     C_Timer.After(1, function()
         Groups.fullCheckQueued = false
         Groups:CheckFull()
+        Groups:QueueWho() -- wer jetzt in der Gruppe ist, steht bei den anderen unter „Wer ist dabei?“
     end)
 end)
 

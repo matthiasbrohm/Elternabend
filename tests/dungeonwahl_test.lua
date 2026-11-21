@@ -47,6 +47,7 @@ end)
 
 local function Panel(w)
     w:slash("/ea gruppen")
+    w.ns.UI:Show("gruppe") -- Gesuch erstellen steht im Unterreiter „Eigene Gruppe“
     return w.ns.UI.panels.gruppen
 end
 
@@ -75,7 +76,7 @@ test("Liste: zweiter Klick auf den Knopf schließt sie, Reiterwechsel auch", fun
     p.pick:Click()
     check(not p.pickMenu:IsShown(), "zweiter Klick schließt nicht")
     p.pick:Click()
-    p:Hide()
+    p.own:Hide()
     check(not p.pickMenu:IsShown(), "bleibt beim Reiterwechsel offen")
     noErrors(w)
 end)

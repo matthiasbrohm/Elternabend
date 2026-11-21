@@ -30,6 +30,12 @@ local RAID_TABS = {
     { key = "fame", label = "Ruhmeshalle" },
 }
 local IN_RAID_GROUP = { raid = true, raidgruppen = true, sr = true, loot = true, history = true, taktik = true, fame = true }
+-- Unterreiter von „Gruppen“: offene Gesuche (Standard) und die eigene Gruppensuche
+local GROUP_TABS = {
+    { key = "gruppen", label = "Offene Gruppen" },
+    { key = "gruppe", label = "Eigene Gruppe" },
+}
+local IN_GROUPS = { gruppen = true, gruppe = true }
 local PANEL_TOP, SUBNAV_H = 116, 30
 
 local LOOT_METHODS = {
@@ -262,6 +268,16 @@ function UI:Create()
         b:SetScript("OnClick", function() UI:Show(tab.key) end)
         self.subTabs[tab.key] = b
     end
+    for _, tab in ipairs(GROUP_TABS) do
+        local b = self.subTabs[tab.key] or T.NavButton(subnav, tab.label)
+        b:SetText(tab.label)
+        b:SetSize(b:GetFontString():GetStringWidth() + 18, 30)
+        b:SetScript("OnClick", function() UI:Show(tab.key) end)
+        self.subTabs[tab.key] = b
+    end
+    -- Rote Plakette an „Eigene Gruppe“: neue Meldungen auf dein Gesuch
+    self.subTabs.gruppe.badge = T.Badge(self.subTabs.gruppe, "rot")
+    self.subTabs.gruppe.badge:SetPoint("TOPRIGHT", 4, 2)
     local subline = T.GoldLine(subnav, 0.35)
     subline:SetPoint("BOTTOMLEFT", 10, -2)
     subline:SetPoint("BOTTOMRIGHT", -10, -2)
@@ -294,8 +310,12 @@ function UI:Create()
     self.panels.kalender = self:CreateCalendarPanel()
     self.panels.raidgruppen = self:CreateRaidGroupsPanel()
     self.panels.leitung = self:CreateLeadPanel()
-    -- Die Raid-Reiter beginnen unter der Unterleiste
-    for key in pairs(IN_RAID_GROUP) do
+    self.panels.gruppe = self.panels.gruppen.own
+    -- Die Raid- und Gruppen-Reiter beginnen unter der Unterleiste
+    local below = {}
+    for key in pairs(IN_RAID_GROUP) do below[key] = true end
+    for key in pairs(IN_GROUPS) do below[key] = true end
+    for key in pairs(below) do
         local p = self.panels[key]
         p:ClearAllPoints()
         p:SetPoint("TOPLEFT", 18, -(PANEL_TOP + SUBNAV_H))
@@ -341,6 +361,7 @@ function UI:CanSee(key)
     if (tab and tab.guests) or (not tab and IN_RAID_GROUP[key]) then
         return ns.Info:AtHome() or IsInGroup()
     end
+    if not tab and IN_GROUPS[key] then return ns.Info:AtHome() end
     if not tab then return true end
     if tab.invite then return IsInGuild() and CanGuildInvite() and true or false end
     if tab.leaders then return self:IsLeader() end
@@ -363,7 +384,10 @@ function UI:LayoutTabs()
         end
     end
     prev = nil
-    for _, tab in ipairs(RAID_TABS) do
+    -- In der Unterleiste stehen je nach Reiter die Raid- oder die Gruppen-Unterreiter
+    local groups = IN_GROUPS[self.currentTab or ""] or false
+    for _, tab in ipairs(groups and RAID_TABS or GROUP_TABS) do self.subTabs[tab.key]:Hide() end
+    for _, tab in ipairs(groups and GROUP_TABS or RAID_TABS) do
         local b = self.subTabs[tab.key]
         local visible = tab.key ~= "loot" or self:LootTabVisible()
         b:SetShown(visible)
@@ -380,18 +404,19 @@ function UI:Show(key)
     if key and not self:CanSee(key) then
         ns.Print(key == "gilde" and "Den Reiter „Invite“ sieht nur, wer in die Gilde einladen darf."
             or IN_RAID_GROUP[key] and "Den Reiter „Raid“ sehen Charaktere außerhalb der Gilde nur, solange sie in einer Gruppe oder einem Schlachtzug sind."
-            or (key == "pinnwand" or key == "berufe" or key == "gruppen") and "Pinnwand, Berufe und Gruppensuche gibt es nur für Charaktere in der Gilde."
+            or (key == "pinnwand" or key == "berufe" or IN_GROUPS[key]) and "Pinnwand, Berufe und Gruppensuche gibt es nur für Charaktere in der Gilde."
             or "Dieser Reiter ist nur für Offiziere und Gildenleitung.")
         key = nil
     end
     self.currentTab = key or self.currentTab or "start"
     local inRaid = IN_RAID_GROUP[self.currentTab] or false
+    local inGroups = IN_GROUPS[self.currentTab] or false
     if inRaid then self.lastRaidTab = self.currentTab end
     self:LayoutTabs()
     for k, panel in pairs(self.panels) do panel:SetShown(k == self.currentTab) end
-    for k, b in pairs(self.tabs) do b:SetActive(k == self.currentTab or (k == "raid" and inRaid)) end
+    for k, b in pairs(self.tabs) do b:SetActive(k == self.currentTab or (k == "raid" and inRaid) or (k == "gruppen" and inGroups)) end
     for k, b in pairs(self.subTabs) do b:SetActive(k == self.currentTab) end
-    self.subnav:SetShown(inRaid)
+    self.subnav:SetShown(inRaid or inGroups)
     self.frame:Show()
     self:Refresh()
     self:UpdateBadges()
@@ -468,7 +493,10 @@ function UI:UpdateBadges()
         mm.badgeBoard:SetCount(notes)
         mm.badgeOrders:SetCount(orders)
     end
-    if self.tabs.gruppen and self.tabs.gruppen.badge then self.tabs.gruppen.badge:SetCount(groups) end
+    -- Neue Meldungen auf das eigene Gesuch: rot am Unterreiter „Eigene Gruppe“ und am Reiter „Gruppen“
+    local applied = (open and self.currentTab == "gruppe") and 0 or ns.Groups:NewApplicants()
+    if self.tabs.gruppen and self.tabs.gruppen.badge then self.tabs.gruppen.badge:SetCount(groups + applied) end
+    if self.subTabs.gruppe and self.subTabs.gruppe.badge then self.subTabs.gruppe.badge:SetCount(applied) end
     if self.tabs.pinnwand and self.tabs.pinnwand.badge then self.tabs.pinnwand.badge:SetCount(notes) end
     if self.tabs.berufe and self.tabs.berufe.badge then
         self.tabs.berufe.badge:SetCount((open and self.currentTab == "berufe") and 0 or orders)
@@ -3446,10 +3474,14 @@ ns:Listen("RECRUIT_UPDATE", function()
 end)
 
 -- Reiter: Gruppen (Gruppensuche in der Gilde) -----------------------------------------
+-- Reiter „Gruppen“ mit zwei Unterreitern: „Offene Gruppen“ (p, Standard) und „Eigene Gruppe“ (p.own)
 function UI:CreateGroupsPanel()
     local p = self:NewPanel()
+    local q = self:NewPanel()
+    p.own = q
     local G = ns.Groups
     local rightWidth = 330
+    local OWN_W = 400
     local leftWidth = CONTENT_W - rightWidth - 12
     local SENT = { sent = { "gemeldet", "goldBright" }, invited = { "Einladung kommt", "green" }, full = { "schon voll", "red" },
         relog = { "jetzt umloggen!", "green" } }
@@ -3504,7 +3536,29 @@ function UI:CreateGroupsPanel()
     p.empty = T.Text(list.panel, "muted", "CENTER")
     p.empty:SetPoint("CENTER")
     p.empty:SetWidth(leftWidth - 60)
-    p.empty:SetText("Gerade sucht niemand eine Gruppe. Trag rechts ein, wofür du Mitspieler suchst – die Gilde sieht es sofort.")
+    p.empty:SetText("Gerade sucht niemand eine Gruppe. Unter „Eigene Gruppe“ trägst du ein, wofür du Mitspieler suchst – die Gilde sieht es sofort.")
+
+    -- Rechts: wer ist beim ausgewählten Gesuch schon dabei oder gemeldet?
+    local whoCard = StartCard(p, "Wer ist dabei?", 0)
+    whoCard:SetPoint("TOPRIGHT")
+    whoCard:SetPoint("BOTTOMRIGHT")
+    whoCard:SetWidth(rightWidth)
+    p.whoTitle = T.Text(whoCard, "heading")
+    p.whoTitle:SetPoint("TOPLEFT", whoCard.kicker, "BOTTOMLEFT", 0, -8)
+    p.whoTitle:SetPoint("RIGHT", -16, 0)
+    p.whoTitle:SetWordWrap(false)
+    p.whoSub = T.Text(whoCard, "muted")
+    p.whoSub:SetPoint("TOPLEFT", p.whoTitle, "BOTTOMLEFT", 0, -4)
+    p.whoSub:SetPoint("RIGHT", -16, 0)
+    p.whoSub:SetWordWrap(false)
+    p.whoRows = {}
+    for i = 1, 14 do
+        local row = T.Text(whoCard, "small")
+        row:SetPoint("TOPLEFT", p.whoSub, "BOTTOMLEFT", 0, -10 - (i - 1) * 20)
+        row:SetPoint("RIGHT", -16, 0)
+        row:SetWordWrap(false)
+        p.whoRows[i] = row
+    end
 
     -- Darunter: beim ausgewählten Gesuch melden
     p.joinButtons = {}
@@ -3557,11 +3611,11 @@ function UI:CreateGroupsPanel()
     local site = LinkBox(p, G.WEBSITE, leftWidth - 210)
     site:SetPoint("LEFT", siteLabel, "RIGHT", 10, 0)
 
-    -- Rechts oben: eigene Gruppe suchen
-    local own = StartCard(p, "Gruppe suchen", 232)
-    own:SetPoint("TOPRIGHT")
-    own:SetWidth(rightWidth)
-    local inner = rightWidth - 32
+    -- Unterreiter „Eigene Gruppe“, links: Gruppe suchen
+    local own = StartCard(q, "Gruppe suchen", 232)
+    own:SetPoint("TOPLEFT")
+    own:SetWidth(OWN_W)
+    local inner = OWN_W - 32
     -- Wofür: frei eintragen („Hogger“, „PvP“, „Weltboss“) oder einen Dungeon aus der Liste wählen
     local PICK_W = 92
     p.what = T.EditBox(own, inner - PICK_W - 8, "Wofür? Frei eintragen")
@@ -3580,7 +3634,7 @@ function UI:CreateGroupsPanel()
 
     -- Aufklappliste unter dem Feld: scrollbar, passende Dungeons für die eigene Stufe grün
     local PICK_ROWS = 12
-    local pickMenu = T.Panel(p)
+    local pickMenu = T.Panel(q)
     pickMenu:SetFrameStrata("DIALOG")
     pickMenu:SetPoint("TOPRIGHT", p.pick, "BOTTOMRIGHT", 0, -2)
     pickMenu:SetSize(inner + 40, 12 + PICK_ROWS * ROW_H) -- etwas breiter als die Karte: lange Namen passen
@@ -3642,7 +3696,7 @@ function UI:CreateGroupsPanel()
     p.pick:SetScript("OnClick", function()
         if pickMenu:IsShown() then pickMenu:Hide() else pickMenu:Open() end
     end)
-    p:HookScript("OnHide", function() pickMenu:Hide() end)
+    q:HookScript("OnHide", function() pickMenu:Hide() end)
     p.need = { tank = 1, heal = 1, dd = 3 }
     local MAX = { tank = 2, heal = 3, dd = 9 }
     p.needButtons = {}
@@ -3697,14 +3751,14 @@ function UI:CreateGroupsPanel()
     p.ownState:SetWidth(inner)
     p.ownState:SetJustifyH("LEFT")
 
-    -- Rechts unten: wer möchte mit?
-    local apps = StartCard(p, "Meldungen", 0)
-    apps:SetPoint("TOPRIGHT", own, "BOTTOMRIGHT", 0, -10)
+    -- Rechts daneben: wer möchte mit?
+    local apps = StartCard(q, "Meldungen", 0)
+    apps:SetPoint("TOPLEFT", own, "TOPRIGHT", 12, 0)
     apps:SetPoint("BOTTOMRIGHT")
-    apps:SetWidth(rightWidth)
     p.appsHint = T.Text(apps, "muted")
     p.appsHint:SetPoint("TOPLEFT", apps.kicker, "BOTTOMLEFT", 0, -6)
-    p.appsHint:SetWidth(inner)
+    p.appsHint:SetPoint("RIGHT", -16, 0)
+    p.appsHint:SetJustifyH("LEFT")
     p.appsHint:SetSpacing(3)
     p.appRows = {}
     local APP_H = 30
@@ -3715,20 +3769,64 @@ function UI:CreateGroupsPanel()
         row:SetHeight(APP_H)
         row.text = T.Text(row, "small")
         row.text:SetPoint("LEFT")
-        row.text:SetPoint("RIGHT", -150, 0)
+        row.text:SetPoint("RIGHT", -170, 0)
         row.text:SetWordWrap(false)
-        row.no = T.Button(row, "Absagen", 70)
+        row.no = T.Button(row, "Absagen", 76)
         row.no:SetHeight(20)
         row.no:SetPoint("RIGHT")
-        row.yes = T.Button(row, "Einladen", 74, "primary")
+        row.yes = T.Button(row, "Einladen", 80, "primary")
         row.yes:SetHeight(20)
         row.yes:SetPoint("RIGHT", row.no, "LEFT", -6, 0)
         p.appRows[i] = row
         return row
     end
 
+    -- Unter „Wer ist dabei?“: Rolle, Name in Klassenfarbe, Stand
+    local STATE = { dabei = { "in der Gruppe", "green" }, eingeladen = { "eingeladen", "green" }, gemeldet = { "gemeldet", "goldBright" },
+        umloggen = { "loggt um", "goldBright" } }
+    local function WhoLine(e)
+        local role = e.role ~= "" and G.ROLES[e.role] or "–"
+        local st = STATE[e.state] or STATE.gemeldet
+        return T.Hex("muted", role) .. "   |c" .. ClassHex(e.classFile ~= "" and e.classFile or nil) .. e.name .. "|r  " .. T.Hex(st[2], st[1])
+    end
+    local function RefreshWho(sel)
+        for _, r in ipairs(p.whoRows) do r:SetText("") end
+        if not sel then
+            p.whoTitle:SetText("")
+            p.whoSub:SetText("Ein Gesuch anklicken – dann steht hier, wer schon mitkommt und in welcher Rolle.")
+            p.whoSub:SetWordWrap(true)
+            return
+        end
+        p.whoSub:SetWordWrap(false)
+        p.whoTitle:SetText(sel.what)
+        local leader = ns.Members and ns.Members:Find(sel.leader)
+        p.whoSub:SetText("Sucht: |c" .. ClassHex(leader and leader.classFile) .. ns.ShortName(sel.leader) .. "|r  ·  noch " .. G.NeedText(sel.need))
+        local who = G:Who(sel)
+        if not who then
+            p.whoRows[1]:SetText(T.Hex("muted", "Noch keine Angaben – kommt mit dem nächsten Stand des Suchenden."))
+            return
+        end
+        if #who == 0 then
+            p.whoRows[1]:SetText(T.Hex("muted", "Noch niemand gemeldet – sei der Erste!"))
+            return
+        end
+        -- nach Rolle: Tank, Heiler, DD, ohne Rolle
+        local order = { tank = 1, heal = 2, dd = 3 }
+        local sorted = {}
+        for _, e in ipairs(who) do sorted[#sorted + 1] = e end
+        table.sort(sorted, function(a, b)
+            local x, y = order[a.role] or 4, order[b.role] or 4
+            if x ~= y then return x < y end
+            return a.name < b.name
+        end)
+        for i, e in ipairs(sorted) do
+            if p.whoRows[i] then p.whoRows[i]:SetText(WhoLine(e)) end
+        end
+    end
+
     function p:Refresh()
-        G:MarkSeen() -- wer die Liste sieht, hat die Gesuche gesehen: Plakette weg bis zum nächsten neuen
+        -- wer die Liste sieht, hat die Gesuche gesehen: Plakette weg bis zum nächsten neuen
+        if not q:IsShown() then G:MarkSeen() end
         local mine = G:Mine()
         local groups = G:List()
         if not p.selected or not G.list[p.selected] then
@@ -3797,6 +3895,7 @@ function UI:CreateGroupsPanel()
             p.selText:SetText(sel and ("bei " .. T.Hex("goldBright", ns.ShortName(sel.leader)) .. ": " .. sel.what)
                 or T.Hex("muted", "Erst oben ein Gesuch anklicken."))
         end
+        RefreshWho(sel)
 
         for role, b in pairs(p.needButtons) do b:SetText(G.ROLES[role] .. ": " .. p.need[role]) end
         p.post:SetText(mine and "Aktualisieren" or "Gruppe suchen")
@@ -3807,14 +3906,14 @@ function UI:CreateGroupsPanel()
                 " Min  ·  noch " .. G.NeedText(mine.need)
                 .. (mine.target and ("\n" .. T.Hex("muted", "Schließt von selbst, sobald die Gruppe " .. mine.target .. " Spieler hat.")) or ""))
         else
-            p.ownState:SetText(T.Hex("muted", "Tipp: Schau vorher kurz in die Gruppensuche im Discord oder auf der Webseite "
-                .. "(Link links unten) – vielleicht sucht dort schon jemand dasselbe."))
+            p.ownState:SetText(T.Hex("muted", "Tipp: Schau vorher kurz unter „Offene Gruppen“ – dort stehen auch die Suchen "
+                .. "aus dem Discord und von der Webseite. Vielleicht sucht schon jemand dasselbe."))
         end
 
         p.appsHint:SetShown(#applicants == 0)
         p.appsHint:SetText(mine and "Noch hat sich niemand gemeldet." or
             "Wer sich auf dein Gesuch meldet, steht hier – mit Knopf zum Einladen.")
-        local maxRows = 6
+        local maxRows = 12
         for i = 1, math.max(#applicants, #p.appRows) do
             local a = applicants[i]
             local row = p.appRows[i] or (a and i <= maxRows and AppRow(i))
@@ -3838,15 +3937,19 @@ function UI:CreateGroupsPanel()
         end
     end
 
+    q.Refresh = function() p:Refresh() end
+
     -- Laufzeiten aktuell halten, solange der Reiter offen ist
     local elapsed = 0
-    p:SetScript("OnUpdate", function(_, e)
+    local function Tick(_, e)
         elapsed = elapsed + e
         if elapsed > 15 then
             elapsed = 0
             p:Refresh()
         end
-    end)
+    end
+    p:SetScript("OnUpdate", Tick)
+    q:SetScript("OnUpdate", Tick)
 
     return p
 end
