@@ -37,6 +37,23 @@ local GROUP_TABS = {
     { key = "gruppe", label = "Eigene Gruppe" },
 }
 local IN_GROUPS = { gruppen = true, gruppe = true }
+-- Unterreiter von „Gilde“: die Mitgliederliste (Standard) und die Spielzeiten
+local GUILD_TABS = {
+    { key = "mitglieder", label = "Mitglieder" },
+    { key = "spielzeiten", label = "Spielzeiten" },
+}
+local IN_GUILD = { mitglieder = true, spielzeiten = true }
+-- Welche Unterleiste zu welchem Hauptreiter gehört
+local SUB_SETS = {
+    { tabs = RAID_TABS, keys = IN_RAID_GROUP, parent = "raid" },
+    { tabs = GROUP_TABS, keys = IN_GROUPS, parent = "gruppen" },
+    { tabs = GUILD_TABS, keys = IN_GUILD, parent = "mitglieder" },
+}
+local function SubSet(key)
+    for _, set in ipairs(SUB_SETS) do
+        if set.keys[key or ""] then return set end
+    end
+end
 local PANEL_TOP, SUBNAV_H = 116, 30
 
 local LOOT_METHODS = {
@@ -264,17 +281,12 @@ function UI:Create()
     subnav:SetPoint("TOPLEFT", line, "BOTTOMLEFT", 8, -4)
     subnav:SetPoint("TOPRIGHT", line, "BOTTOMRIGHT", -8, -4)
     subnav:SetHeight(SUBNAV_H)
-    for _, tab in ipairs(RAID_TABS) do
-        local b = T.NavButton(subnav, tab.label)
-        b:SetScript("OnClick", function() UI:Show(tab.key) end)
-        self.subTabs[tab.key] = b
-    end
-    for _, tab in ipairs(GROUP_TABS) do
-        local b = self.subTabs[tab.key] or T.NavButton(subnav, tab.label)
-        b:SetText(tab.label)
-        b:SetSize(b:GetFontString():GetStringWidth() + 18, 30)
-        b:SetScript("OnClick", function() UI:Show(tab.key) end)
-        self.subTabs[tab.key] = b
+    for _, set in ipairs(SUB_SETS) do
+        for _, tab in ipairs(set.tabs) do
+            local b = T.NavButton(subnav, tab.label)
+            b:SetScript("OnClick", function() UI:Show(tab.key) end)
+            self.subTabs[tab.key] = b
+        end
     end
     -- Rote Plakette an „Eigene Gruppe“: neue Meldungen auf dein Gesuch
     self.subTabs.gruppe.badge = T.Badge(self.subTabs.gruppe, "rot")
@@ -312,11 +324,13 @@ function UI:Create()
     self.panels.raidgruppen = self:CreateRaidGroupsPanel()
     self.panels.abstimmung = self:CreateVotePanel()
     self.panels.leitung = self:CreateLeadPanel()
+    self.panels.spielzeiten = self:CreatePlayTimesPanel()
     self.panels.gruppe = self.panels.gruppen.own
-    -- Die Raid- und Gruppen-Reiter beginnen unter der Unterleiste
+    -- Die Reiter mit Unterleiste (Raid, Gruppen, Gilde) beginnen unter ihr
     local below = {}
-    for key in pairs(IN_RAID_GROUP) do below[key] = true end
-    for key in pairs(IN_GROUPS) do below[key] = true end
+    for _, set in ipairs(SUB_SETS) do
+        for key in pairs(set.keys) do below[key] = true end
+    end
     for key in pairs(below) do
         local p = self.panels[key]
         p:ClearAllPoints()
@@ -364,6 +378,7 @@ function UI:CanSee(key)
         return ns.Info:AtHome() or IsInGroup()
     end
     if not tab and IN_GROUPS[key] then return ns.Info:AtHome() end
+    if not tab and IN_GUILD[key] then return true end
     if not tab then return true end
     if tab.invite then return IsInGuild() and CanGuildInvite() and true or false end
     if tab.leaders then return self:IsLeader() end
@@ -386,10 +401,14 @@ function UI:LayoutTabs()
         end
     end
     prev = nil
-    -- In der Unterleiste stehen je nach Reiter die Raid- oder die Gruppen-Unterreiter
-    local groups = IN_GROUPS[self.currentTab or ""] or false
-    for _, tab in ipairs(groups and RAID_TABS or GROUP_TABS) do self.subTabs[tab.key]:Hide() end
-    for _, tab in ipairs(groups and GROUP_TABS or RAID_TABS) do
+    -- In der Unterleiste stehen je nach Reiter die Unterreiter von Raid, Gruppen oder Gilde
+    local active = SubSet(self.currentTab) or SUB_SETS[1]
+    for _, set in ipairs(SUB_SETS) do
+        if set ~= active then
+            for _, tab in ipairs(set.tabs) do self.subTabs[tab.key]:Hide() end
+        end
+    end
+    for _, tab in ipairs(active.tabs) do
         local b = self.subTabs[tab.key]
         local visible = tab.key ~= "loot" or self:LootTabVisible()
         b:SetShown(visible)
@@ -412,13 +431,13 @@ function UI:Show(key)
     end
     self.currentTab = key or self.currentTab or "start"
     local inRaid = IN_RAID_GROUP[self.currentTab] or false
-    local inGroups = IN_GROUPS[self.currentTab] or false
+    local set = SubSet(self.currentTab)
     if inRaid then self.lastRaidTab = self.currentTab end
     self:LayoutTabs()
     for k, panel in pairs(self.panels) do panel:SetShown(k == self.currentTab) end
-    for k, b in pairs(self.tabs) do b:SetActive(k == self.currentTab or (k == "raid" and inRaid) or (k == "gruppen" and inGroups)) end
+    for k, b in pairs(self.tabs) do b:SetActive(k == self.currentTab or (set ~= nil and k == set.parent)) end
     for k, b in pairs(self.subTabs) do b:SetActive(k == self.currentTab) end
-    self.subnav:SetShown(inRaid or inGroups)
+    self.subnav:SetShown(set ~= nil)
     self.frame:Show()
     self:Refresh()
     self:UpdateBadges()
@@ -1465,7 +1484,7 @@ function UI:CreateMembersPanel()
     setMine:SetPoint("BOTTOMLEFT", 16, 12)
     setMine:SetScript("OnClick", function() M:SetMyMain() end)
     -- Wann spiele ich meist? (für alle sichtbar, hilft beim Finden von Mitspielern)
-    local myTimes = T.Button(mine, "Meine Spielzeiten …", rightWidth - 32)
+    local myTimes = T.Button(mine, "Meine Spielzeiten", rightWidth - 32)
     myTimes:SetPoint("BOTTOMLEFT", setMine, "TOPLEFT", 0, 6)
     myTimes:SetScript("OnClick", function() UI:ShowPlayTimes() end)
     myTimes:SetScript("OnEnter", function(self)
@@ -1488,7 +1507,7 @@ function UI:CreateMembersPanel()
     p.suggEmpty:SetWidth(rightWidth - 32)
     p.suggEmpty:SetText("Noch nichts im Addon zugeordnet. Rechtsklick auf einen Charakter » „Twink von …“ – oder Spieler legen mit dem Addon selbst ihren Main fest.")
     p.suggLines = {}
-    for i = 1, 6 do
+    for i = 1, 4 do
         local row = CreateFrame("Frame", nil, sugg)
         row:SetPoint("TOPLEFT", 16, -32 - (i - 1) * 24)
         row:SetPoint("TOPRIGHT", -12, -32 - (i - 1) * 24)
@@ -6130,111 +6149,237 @@ local function NewDialog(name, width, height, title)
     return d
 end
 
--- Meine Spielzeiten: Wochentage × Tageszeiten zum Ankreuzen, daneben wer genauso spielt
+-- Gilde » Spielzeiten: Wochentage × Tageszeiten zum Anklicken, daneben wer zu ähnlichen Zeiten spielt.
+-- Die Zahl in jedem Feld: so viele aus der Gilde spielen dann meist (Drüberfahren zeigt die Namen).
 function UI:ShowPlayTimes()
+    self:Show("spielzeiten")
+end
+
+function UI:CreatePlayTimesPanel()
+    local p = self:NewPanel()
     local P = ns.Profile
-    local d = self.timesDialog
-    if not d then
-        d = NewDialog("ElternabendPlayTimes", 720, 400, "Meine Spielzeiten")
-        local hint = T.Text(d, "muted")
-        hint:SetPoint("TOPLEFT", d.title, "BOTTOMLEFT", 0, -8)
-        hint:SetWidth(680)
-        hint:SetSpacing(3)
-        hint:SetText("Wann bist du meist online? Kreuze an, was ungefähr passt. Die Gilde sieht es in der Gildenliste, "
-            .. "und du findest Mitspieler mit denselben Zeiten.")
+    local col = T.colors
+    local leftWidth = 620
+    local rightWidth = CONTENT_W - leftWidth - 12
+    local TILE_W, TILE_H, GAP, X0, Y0 = 60, 42, 6, 136, -62
+    p.days = { 0, 0, 0, 0, 0, 0, 0 } -- Entwurf, bis „Speichern“
+    p.dirty = false
 
-        local X0, Y0, COL, ROW = 170, -128, 36, 30
-        for i, day in ipairs(P.DAYS) do
-            local t = T.Text(d, "small", "CENTER")
-            t:SetPoint("TOPLEFT", X0 + (i - 1) * COL - 11, Y0 + 22)
-            t:SetWidth(COL)
-            t:SetText(day)
-        end
-        d.boxes = {}
-        for s, slot in ipairs(P.SLOTS) do
-            local label = T.Text(d, "small")
-            label:SetPoint("TOPLEFT", 20, Y0 - (s - 1) * ROW)
-            label:SetText(slot.label .. T.Hex("muted", "  " .. slot.hint))
-            d.boxes[s] = {}
-            for i = 1, 7 do
-                local cb = T.Checkbox(d, "")
-                cb:SetPoint("TOPLEFT", X0 + (i - 1) * COL, Y0 - (s - 1) * ROW + 2)
-                cb.onChange = function() d:UpdateMatches() end
-                d.boxes[s][i] = cb
-            end
-        end
+    local function Has(d, s) return math.floor((p.days[d] or 0) / P.SLOTS[s].bit) % 2 == 1 end
 
-        local noteLabel = T.Text(d, "small")
-        noteLabel:SetPoint("TOPLEFT", 20, Y0 - #P.SLOTS * ROW - 12)
-        noteLabel:SetText("Notiz dazu (wenn du magst)")
-        d.note = T.EditBox(d, 380, "z. B. meist ab 20:30, am Wochenende auch länger")
-        d.note:SetPoint("TOPLEFT", noteLabel, "BOTTOMLEFT", 0, -6)
-        d.note:SetMaxLetters(60)
-
-        -- Rechts: wer passt zu mir?
-        local who = T.Text(d, "kicker")
-        who:SetPoint("TOPLEFT", 450, Y0 + 22)
-        who:SetText("SPIELT WIE DU")
-        d.matches = T.Text(d, "small")
-        d.matches:SetPoint("TOPLEFT", who, "BOTTOMLEFT", 0, -8)
-        d.matches:SetWidth(250)
-        d.matches:SetSpacing(4)
-        d.matches:SetJustifyV("TOP")
-
-        function d:Current()
-            local days = {}
-            for i = 1, 7 do
-                days[i] = 0
-                for s, slot in ipairs(P.SLOTS) do
-                    if self.boxes[s][i]:GetChecked() then days[i] = days[i] + slot.bit end
-                end
-            end
-            return P.Pack(days)
-        end
-        function d:UpdateMatches()
-            local list = P:Matches(self:Current())
-            local lines = {}
-            for i = 1, math.min(#list, 8) do
-                local m = list[i]
-                table.insert(lines, "|c" .. ClassHex(m.member.classFile) .. m.member.display .. "|r"
-                    .. T.Hex("muted", "  " .. P.TimesText(m.common)))
-            end
-            if #list > 8 then table.insert(lines, T.Hex("muted", "… und " .. (#list - 8) .. " weitere")) end
-            self.matches:SetText(#lines > 0 and table.concat(lines, "\n")
-                or T.Hex("muted", "Noch niemand mit denselben Zeiten – oder die anderen haben ihre noch nicht eingetragen."))
-        end
-        function d:Load()
-            local me = P.Me()
-            local days = P.Parse(me.times) or {}
-            for s, slot in ipairs(P.SLOTS) do
-                for i = 1, 7 do
-                    self.boxes[s][i]:SetChecked(math.floor((days[i] or 0) / slot.bit) % 2 == 1)
-                end
-            end
-            self.note:SetText(me.note or "")
-            self:UpdateMatches()
-        end
-
-        d.save = T.Button(d, "Speichern", 140, "primary")
-        d.save:SetPoint("RIGHT", d.close, "LEFT", -8, 0)
-        d.save:SetScript("OnClick", function()
-            P:SetTimes(d:Current(), d.note:GetText())
-            local text = P.TimesText(P.Me().times)
-            ns.Print(text ~= "" and ("Deine Spielzeiten: " .. text .. ".") or "Deine Spielzeiten sind geleert.")
-            d:Hide()
-        end)
-        d.clear = T.Button(d, "Alles leeren", 110)
-        d.clear:SetPoint("BOTTOMLEFT", 20, 18)
-        d.clear:SetScript("OnClick", function()
-            for s = 1, #P.SLOTS do
-                for i = 1, 7 do d.boxes[s][i]:SetChecked(false) end
-            end
-            d:UpdateMatches()
-        end)
-        self.timesDialog = d
+    -- Links: meine Zeiten ---------------------------------------------------------------------
+    local mine = StartCard(p, "Meine Spielzeiten", 0)
+    mine:SetPoint("TOPLEFT")
+    mine:SetPoint("BOTTOMLEFT")
+    mine:SetWidth(leftWidth)
+    for d, day in ipairs(P.DAYS) do
+        local t = T.Text(mine, "kicker", "CENTER")
+        t:SetPoint("TOPLEFT", X0 + (d - 1) * (TILE_W + GAP), Y0 + 18)
+        t:SetWidth(TILE_W)
+        t:SetText(day:upper())
     end
-    d:Load()
-    d:Show()
+    p.tiles = {}
+    for s, slot in ipairs(P.SLOTS) do
+        local y = Y0 - (s - 1) * (TILE_H + GAP)
+        local label = T.Text(mine, "body")
+        label:SetPoint("TOPLEFT", 16, y - 7)
+        label:SetText(slot.label)
+        local hint = T.Text(mine, "muted")
+        hint:SetPoint("TOPLEFT", label, "BOTTOMLEFT", 0, -2)
+        hint:SetText(slot.hint)
+        p.tiles[s] = {}
+        for d = 1, 7 do
+            local b = CreateFrame("Button", nil, mine, "BackdropTemplate")
+            b:SetSize(TILE_W, TILE_H)
+            b:SetPoint("TOPLEFT", X0 + (d - 1) * (TILE_W + GAP), y)
+            b:SetBackdrop({ bgFile = "Interface\\Buttons\\WHITE8x8", edgeFile = "Interface\\Buttons\\WHITE8x8", edgeSize = 1 })
+            b:SetBackdropColor(col.ink[1], col.ink[2], col.ink[3], 0.55)
+            b.fill = b:CreateTexture(nil, "BORDER")
+            b.fill:SetPoint("TOPLEFT", 1, -1)
+            b.fill:SetPoint("BOTTOMRIGHT", -1, 1)
+            b.fill:SetColorTexture(1, 1, 1, 1)
+            b.fill:SetGradient("VERTICAL", CreateColor(col.gold[1], col.gold[2], col.gold[3], 1),
+                CreateColor(col.goldBright[1], col.goldBright[2], col.goldBright[3], 1))
+            local hl = b:CreateTexture(nil, "HIGHLIGHT")
+            hl:SetAllPoints()
+            hl:SetColorTexture(1, 1, 1, 0.08)
+            b.count = T.Text(b, "small", "CENTER")
+            b.count:SetPoint("CENTER")
+            b:SetScript("OnClick", function()
+                local bit = P.SLOTS[s].bit
+                p.days[d] = Has(d, s) and (p.days[d] - bit) or (p.days[d] + bit)
+                p.dirty = true
+                p:Refresh()
+            end)
+            b:SetScript("OnEnter", function()
+                local who = p.slots and p.slots[d][s] or {}
+                GameTooltip:SetOwner(b, "ANCHOR_RIGHT")
+                GameTooltip:AddLine(P.DAYS[d] .. " " .. slot.short .. " (" .. slot.hint .. ")")
+                if #who == 0 then
+                    GameTooltip:AddLine("Noch niemand aus der Gilde hat diese Zeit eingetragen.", 0.78, 0.75, 0.68, true)
+                else
+                    GameTooltip:AddLine(#who .. (#who == 1 and " spielt" or " spielen") .. " dann meist:", 0.78, 0.75, 0.68)
+                    for i = 1, math.min(#who, 15) do
+                        local m = who[i]
+                        GameTooltip:AddLine("|c" .. ClassHex(m.classFile) .. (ns.ShortName(m.name) or m.name) .. "|r"
+                            .. (m.onlineAs and T.Hex("green", "  online") or ""))
+                    end
+                    if #who > 15 then GameTooltip:AddLine("… und " .. (#who - 15) .. " weitere", 0.78, 0.75, 0.68) end
+                end
+                GameTooltip:AddLine("Klick: " .. (Has(d, s) and "abwählen" or "ankreuzen"), 0.84, 0.69, 0.35)
+                GameTooltip:Show()
+            end)
+            b:SetScript("OnLeave", GameTooltip_Hide)
+            p.tiles[s][d] = b
+        end
+    end
+    local legend = T.Text(mine, "muted")
+    legend:SetPoint("TOPLEFT", X0, Y0 - #P.SLOTS * (TILE_H + GAP) - 2)
+    legend:SetWidth(leftWidth - X0 - 16)
+    legend:SetText("Die Zahl im Feld: so viele aus der Gilde spielen dann meist.")
+
+    p.note = T.EditBox(mine, leftWidth - 32, "Notiz, z. B. meist ab 20:30, am Wochenende auch länger")
+    p.note:SetPoint("BOTTOMLEFT", 16, 52)
+    p.note:SetMaxLetters(60)
+    p.note:SetScript("OnTextChanged", function(_, user)
+        if user then
+            p.dirty = true
+            p.state:SetText(T.Hex("orange", "Noch nicht gespeichert"))
+        end
+    end)
+
+    p.save = T.Button(mine, "Speichern", 140, "primary")
+    p.save:SetPoint("BOTTOMLEFT", 16, 14)
+    p.save:SetScript("OnClick", function()
+        p.note:ClearFocus()
+        P:SetTimes(P.Pack(p.days), p.note:GetText())
+        p.dirty = false
+        local text = P.TimesText(P.Me().times)
+        ns.Print(text ~= "" and ("Deine Spielzeiten: " .. text .. ".") or "Deine Spielzeiten sind geleert.")
+        p:Refresh()
+    end)
+    p.clear = T.Button(mine, "Alles leeren", 120)
+    p.clear:SetPoint("LEFT", p.save, "RIGHT", 8, 0)
+    p.clear:SetScript("OnClick", function()
+        p.days = { 0, 0, 0, 0, 0, 0, 0 }
+        p.dirty = true
+        p:Refresh()
+    end)
+    p.state = T.Text(mine, "muted")
+    p.state:SetPoint("LEFT", p.clear, "RIGHT", 12, 0)
+    p.state:SetPoint("RIGHT", mine, "RIGHT", -16, 0)
+    p.state:SetWordWrap(false)
+
+    -- Rechts: wer spielt zu ähnlichen Zeiten? --------------------------------------------------
+    local right = StartCard(p, "Spielen zu ähnlichen Zeiten", 0)
+    right:SetPoint("TOPRIGHT")
+    right:SetPoint("BOTTOMRIGHT")
+    right:SetWidth(rightWidth)
+    local ROW_N, ROW_STEP = 14, 26
+    p.rows = {}
+    for i = 1, ROW_N do
+        local row = CreateFrame("Button", nil, right)
+        row:SetPoint("TOPLEFT", 16, -34 - (i - 1) * ROW_STEP)
+        row:SetPoint("TOPRIGHT", -16, -34 - (i - 1) * ROW_STEP)
+        row:SetHeight(ROW_STEP - 2)
+        row:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+        local hl = row:CreateTexture(nil, "HIGHLIGHT")
+        hl:SetAllPoints()
+        hl:SetColorTexture(col.gold[1], col.gold[2], col.gold[3], 0.08)
+        row.text = T.Text(row, "body")
+        row.text:SetPoint("LEFT", 4, 0)
+        row.text:SetPoint("RIGHT", -4, 0)
+        row.text:SetWordWrap(false)
+        row:SetScript("OnEnter", function()
+            local m = row.match
+            if not m then return end
+            p.compare = P.Parse(m.times)
+            p:PaintTiles()
+            GameTooltip:SetOwner(row, "ANCHOR_LEFT")
+            GameTooltip:AddLine(ns.ShortName(m.member.name) or m.member.name)
+            GameTooltip:AddLine("Gemeinsam: " .. P.TimesText(m.common), 0.95, 0.86, 0.6, true)
+            if (m.note or "") ~= "" then GameTooltip:AddLine("„" .. m.note .. "“", 1, 1, 1, true) end
+            GameTooltip:AddLine("Links sind die Zeiten von " .. (ns.ShortName(m.member.name) or "") .. " umrandet.", 0.78, 0.75, 0.68, true)
+            GameTooltip:AddLine("Klick: anflüstern", 0.84, 0.69, 0.35)
+            GameTooltip:Show()
+        end)
+        row:SetScript("OnLeave", function()
+            p.compare = nil
+            p:PaintTiles()
+            GameTooltip:Hide()
+        end)
+        row:SetScript("OnClick", function()
+            local m = row.match
+            if not m then return end
+            local target = (m.member.onlineAs or m.member).name
+            if ChatFrame_SendTell then ChatFrame_SendTell(target) elseif ChatFrameUtil and ChatFrameUtil.SendTell then ChatFrameUtil.SendTell(target) end
+        end)
+        p.rows[i] = row
+    end
+    p.more = T.Text(right, "muted")
+    p.more:SetPoint("TOPLEFT", 20, -34 - ROW_N * ROW_STEP - 2)
+    p.empty = T.Text(right, "muted", "CENTER")
+    p.empty:SetPoint("CENTER")
+    p.empty:SetWidth(rightWidth - 60)
+    p.empty:SetSpacing(3)
+
+    -- Felder einfärben: angekreuzt = golden, beim Drüberfahren über einen Namen dessen Zeiten umrandet
+    p.PaintTiles = function()
+        for s, slot in ipairs(P.SLOTS) do
+            for d = 1, 7 do
+                local b, on = p.tiles[s][d], Has(d, s)
+                b.fill:SetShown(on)
+                local theirs = p.compare and math.floor(p.compare[d] / slot.bit) % 2 == 1
+                if theirs then
+                    b:SetBackdropBorderColor(col.cream[1], col.cream[2], col.cream[3], 1)
+                else
+                    b:SetBackdropBorderColor(col.gold[1], col.gold[2], col.gold[3], on and 0.9 or 0.3)
+                end
+                local n = p.slots and #p.slots[d][s] or 0
+                b.count:SetText(n > 0 and n or "")
+                if on then b.count:SetTextColor(col.ink[1], col.ink[2], col.ink[3], 1) else b.count:SetTextColor(col.muted[1], col.muted[2], col.muted[3], 1) end
+            end
+        end
+    end
+
+    p.Refresh = function()
+        local me = P.Me()
+        if not p.dirty then
+            local days = P.Parse(me.times) or {}
+            for d = 1, 7 do p.days[d] = days[d] or 0 end
+            if not p.note:HasFocus() then p.note:SetText(me.note or "") end
+        end
+        p.slots = P:Slots()
+        p:PaintTiles()
+        local packed = P.Pack(p.days)
+        p.state:SetText(p.dirty and T.Hex("orange", "Noch nicht gespeichert")
+            or (P.Parse(packed) and T.Hex("green", "Gespeichert – die Gilde sieht deine Zeiten") or "Noch nichts eingetragen"))
+
+        local list = P:Matches(packed)
+        for i, row in ipairs(p.rows) do
+            local m = list[i]
+            row.match = m
+            if m then
+                local r = P:For(m.member)
+                m.times = r and r.times
+                row.text:SetText("|c" .. ClassHex(m.member.classFile) .. (ns.ShortName(m.member.name) or m.member.name) .. "|r"
+                    .. T.Hex("muted", "  ·  " .. m.count .. (m.count == 1 and " gemeinsame Zeit" or " gemeinsame Zeiten"))
+                    .. (m.member.onlineAs and T.Hex("green", "  ·  online") or ""))
+            end
+            row:SetShown(m ~= nil)
+        end
+        p.more:SetText(#list > #p.rows and ("… und " .. (#list - #p.rows) .. " weitere") or "")
+        p.empty:SetShown(#list == 0)
+        p.empty:SetText(P.Parse(packed) and "Noch niemand mit denselben Zeiten – oder die anderen haben ihre noch nicht eingetragen."
+            or "Kreuze links an, wann du meist spielst. Hier stehen dann alle, die zu ähnlichen Zeiten online sind.")
+    end
+
+    p:HookScript("OnHide", function()
+        -- Ungespeicherte Klicks verwerfen, beim nächsten Öffnen steht wieder der gespeicherte Stand
+        p.dirty = false
+        p.compare = nil
+    end)
+    return p
 end
 
 -- Erste Schritte: kleine Liste für Neue, mit Sprung an die passende Stelle

@@ -325,6 +325,28 @@ function Profile:Matches(times)
     return out
 end
 
+-- Wer aus der Gilde spielt wann? out[Tag][Zeitfenster] = { Mitglied, … } (ohne mich), nach Namen sortiert
+function Profile:Slots()
+    local out = {}
+    for d = 1, 7 do
+        out[d] = {}
+        for s = 1, #Profile.SLOTS do out[d][s] = {} end
+    end
+    local self_ = MyMain()
+    for _, m in ipairs(ns.Members.mains or {}) do
+        local r = m ~= self_ and self:For(m)
+        local days = r and Profile.Parse(r.times)
+        if days then
+            for d = 1, 7 do
+                for s, slot in ipairs(Profile.SLOTS) do
+                    if HasBit(days[d], slot.bit) then table.insert(out[d][s], m) end
+                end
+            end
+        end
+    end
+    return out
+end
+
 -- Für die Gildenleitung: wer hat bei den ersten Schritten noch etwas offen?
 -- Liefert Textzeilen und die Zahl derer, die alles erledigt haben.
 function Profile:StepsReport()
