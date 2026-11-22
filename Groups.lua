@@ -158,6 +158,8 @@ function Groups:Post(what, need, note, role)
     -- Ist die echte Gruppe so groß, endet das Gesuch von selbst (auch wenn per Hand eingeladen wurde).
     local total = mine.need.tank + mine.need.heal + mine.need.dd
     mine.target = math.max(1, GetNumGroupMembers()) + total
+    -- Wer jetzt schon in der Gruppe ist: Wer später dazukommt, belegt einen der gesuchten Plätze
+    mine.members = Groups.MemberKeys()
     self.mine = mine
     if total == 0 then
         if isNew then self.mine = nil; self.list[mine.id] = nil; ns.Print("Bitte mindestens einen freien Platz angeben.") return false end
@@ -543,11 +545,62 @@ ns.Comm.handlers.LFGANS = function(sender, parts)
     ns:Fire("GROUPS_UPDATE")
 end
 
+-- Schlüssel aller, die gerade mit in der Gruppe sind (ohne einen selbst)
+function Groups.MemberKeys()
+    local keys = {}
+    if not IsInGroup() then return keys end
+    local raid = IsInRaid()
+    for i = 1, raid and GetNumGroupMembers() or 4 do
+        local unit = raid and ("raid" .. i) or ("party" .. i)
+        if UnitExists(unit) and not (UnitIsUnit and UnitIsUnit(unit, "player")) then
+            local key = ns.NameKey(Safe(ns.UnitFullName(unit)))
+            if key then keys[key] = true end
+        end
+    end
+    return keys
+end
+
+-- Per Hand eingeladen (nicht über „Einladen“ im Addon)? Dann sind weniger Plätze frei als gesucht:
+-- die Rolle des Neuen abziehen (gemeldet oder im Spiel gesetzt), sonst zuerst DD, dann Heiler, dann Tank.
+function Groups:AdjustNeed(members)
+    local m = self.mine
+    if not m or not m.target then return false end
+    local free = m.target - members
+    local total = m.need.tank + m.need.heal + m.need.dd
+    if free >= total or free <= 0 then return false end
+    local extra = total - free
+    local before = m.members or {}
+    for _, e in ipairs(self:Who(m)) do
+        if extra == 0 then break end
+        local key = ns.NameKey(e.name)
+        if e.state == "dabei" and not before[key or ""] and m.need[e.role] and m.need[e.role] > 0 then
+            m.need[e.role] = m.need[e.role] - 1
+            extra = extra - 1
+        end
+    end
+    for _, role in ipairs({ "dd", "heal", "tank" }) do
+        while extra > 0 and m.need[role] > 0 do
+            m.need[role] = m.need[role] - 1
+            extra = extra - 1
+        end
+    end
+    m.members = Groups.MemberKeys()
+    self:Broadcast()
+    self:ChatUpdate(m)
+    ns.Print(string.format("Dein Gesuch für %s: jemand ist dazugekommen – gesucht wird noch %s.", m.what, self.NeedText(m.need)))
+    ns:Fire("GROUPS_UPDATE")
+    return true
+end
+
 -- Gruppe voll? Dann das eigene Gesuch automatisch beenden – daran denkt man sonst nicht
 function Groups:CheckFull()
     local m = self.mine
     if not m or not m.target then return end
     local members = GetNumGroupMembers()
+    if members < m.target then
+        self:AdjustNeed(members)
+        return
+    end
     if members >= m.target then
         ns.Print(string.format("Deine Gruppe ist voll (%d Spieler) – das Gesuch für %s wird geschlossen.", members, m.what))
         m.full = true
@@ -574,7 +627,7 @@ end
 
 local function Snapshot(g)
     return { id = g.id, leader = g.leader, what = g.what, note = g.note, posted = g.posted, chatKey = g.chatKey, target = g.target, role = g.role,
-        need = { tank = g.need.tank, heal = g.need.heal, dd = g.need.dd }, age = GetTime() - g.started }
+        need = { tank = g.need.tank, heal = g.need.heal, dd = g.need.dd }, members = g.members, age = GetTime() - g.started }
 end
 
 -- Beim Einloggen: nach neu laden das Gesuch zurückholen, sonst nach offenen Gesuchen fragen

@@ -4132,6 +4132,19 @@ function UI:CreateGroupsPanel()
         end
         RefreshWho(sel)
 
+        -- Laufendes Gesuch im Formular zeigen (nach neu laden, nach Einladungen, nach „Aktualisieren“),
+        -- damit man es direkt ändern kann – eigene, noch nicht gespeicherte Änderungen bleiben stehen
+        if mine then
+            local key = table.concat({ mine.id, mine.what, mine.note, mine.need.tank, mine.need.heal, mine.need.dd }, "\t")
+            if p.syncedKey ~= key then
+                p.syncedKey = key
+                p.need.tank, p.need.heal, p.need.dd = mine.need.tank, mine.need.heal, mine.need.dd
+                if not p.what:HasFocus() then p.what:SetText(mine.what) end
+                if not p.note:HasFocus() then p.note:SetText(mine.note or "") end
+            end
+        else
+            p.syncedKey = nil
+        end
         for role, b in pairs(p.needButtons) do b:SetText(G.ROLES[role] .. ": " .. p.need[role]) end
         local myRole = ns.db.groups.myRole
         p.myRole:SetText("Ich gehe mit als: " .. (myRole and T.Hex("goldBright", G.ROLES[myRole]) or T.Hex("muted", "– (wählen)")))
