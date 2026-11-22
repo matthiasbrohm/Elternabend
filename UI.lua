@@ -4071,10 +4071,17 @@ function UI:CreateGroupsPanel()
             rows[#rows + 1] = e
         end
         p.empty:SetShown(#rows == 0)
+        -- Empfohlene Stufe hinter bekannten Dungeons: grün, wenn sie zur eigenen Stufe passt
+        local myLevel = UnitLevel("player")
+        local function LevelText(what)
+            local d = G.Dungeon(what)
+            if not d then return "" end
+            return "  " .. T.Hex(G.Fits(d, myLevel) and "green" or "muted", d.min .. "–" .. d.max)
+        end
         list:SetData(rows, function(row, g)
             if g.web then
                 row.cols.who:SetText(T.Hex("muted", g.by))
-                row.cols.what:SetText(T.Hex("cream", g.what))
+                row.cols.what:SetText(T.Hex("cream", g.what) .. LevelText(g.what))
                 row.cols.need:SetText(T.Hex("muted", G.NeedText(g.need)))
                 -- Zeit in der breiten Spalte „Status“, sonst wird sie hinter langen Dungeonnamen abgeschnitten
                 row.cols.status:SetText(T.Hex("goldBright", ns.WebGroups.When(g)) .. T.Hex("muted", "  ·  ")
@@ -4084,7 +4091,8 @@ function UI:CreateGroupsPanel()
             local selected = g.id == p.selected
             row.cols.who:SetText((selected and T.Hex("goldBright", "» ") or "") .. ns.ShortName(g.leader))
             -- Notiz dezent hinter dem Ziel; zu lang wird sie gekürzt, im Tooltip steht sie ganz
-            row.cols.what:SetText(T.Hex("goldBright", g.what) .. (g.note ~= "" and T.Hex("muted", "  ·  " .. g.note) or ""))
+            row.cols.what:SetText(T.Hex("goldBright", g.what) .. LevelText(g.what)
+                .. (g.note ~= "" and T.Hex("muted", "  ·  " .. g.note) or ""))
             row.cols.need:SetText(G.NeedText(g.need))
             local sent = G.sent[g.id]
             if g == mine then
