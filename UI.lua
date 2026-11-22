@@ -3689,10 +3689,10 @@ function UI:CreateGroupsPanel()
 
     -- Links: offene Gesuche der Gilde
     local list = CreateList(p, {
-        { key = "who", label = "Wer", x = 4, w = 100 },
-        { key = "what", label = "Wofür", x = 106, w = 190 },
-        { key = "need", label = "Gesucht", x = 298, w = 130 },
-        { key = "status", label = "Status", x = 430 },
+        { key = "who", label = "Wer", x = 4, w = 112 },
+        { key = "what", label = "Wofür", x = 118, w = 290 },
+        { key = "need", label = "Gesucht", x = 412, w = 146 },
+        { key = "status", label = "Status", x = 562 },
     })
     list.panel:SetPoint("TOPLEFT")
     list.panel:SetPoint("BOTTOMRIGHT", -(rightWidth + 12), 76)
