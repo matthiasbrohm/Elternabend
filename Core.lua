@@ -565,7 +565,7 @@ local function Help()
     print("  /ea loot – Würfelfenster (Bedarf/Gier) auf/zu, wenn in den Einstellungen eingeschaltet")
     print("  /ea loot test – Würfelfenster mit Beispielen ausprobieren, auch ohne Gruppe")
     print("  /ea roll [Itemlink] – Würfelrunde für ein Item starten")
-    print("  /ea biete <Zahl> – in einer DKP-Bieterrunde bieten  ·  /ea dkp – eigene Punkte")
+    print("  /ea biete <Zahl> – in einer DKP-Bieterrunde bieten  ·  /ea dkp – Punkte der Gruppe")
     print("  /ea rolltime <Sekunden> – Dauer einer Würfelrunde")
     print("  /ea quality <0-5> – Mindestqualität im Plündermeister-Reiter")
     print("  /ea rw – Schlachtzugswarnung an/aus")
@@ -713,7 +713,7 @@ SlashCmdList.ELTERNABENDRAID = function(input)
     elseif cmd == "biete" or cmd == "gebot" then
         ns.DKP:Bid(rest)
     elseif cmd == "dkp" then
-        ns.DKP:PrintOwn()
+        ns.DKP:PrintAll()
     elseif cmd == "rolltime" and tonumber(rest) then
         s.rollTime = math.max(5, math.min(120, tonumber(rest)))
         ns.Print("Würfeldauer: " .. s.rollTime .. " Sekunden")

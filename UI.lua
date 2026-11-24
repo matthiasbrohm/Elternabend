@@ -117,6 +117,7 @@ local function CreateList(parent, columns, setup)
             local fs = T.Text(panel, "kicker")
             fs:SetPoint("TOPLEFT", col.x + 8, -9)
             fs:SetText(col.label:upper())
+            col.head = fs
         end
     end
     local line = T.GoldLine(panel, 0.5)
@@ -1825,6 +1826,7 @@ function UI:CreateRaidPanel()
     local list = CreateList(p, columns)
     list.panel:SetPoint("TOPLEFT", 0, -114)
     list.panel:SetPoint("BOTTOMRIGHT")
+    p.list = list
 
     list.onEnter = function(row, r)
         local classFile = r.member and r.member.classFile or ClassFileFromName(r.signup and r.signup.class)
@@ -1913,6 +1915,8 @@ function UI:CreateRaidPanel()
         p.pause:SetText(ns.Pause:IsRunning() and "Pause beenden" or "Pause 5 Min")
         p.pause:SetEnabled(ns.Pause:CanControl())
 
+        local dkp = ns.DKP:Active()
+        if columns[11].head then columns[11].head:SetText(dkp and "DKP" or "SOFT-RESERVE") end
         local rows = ns.Raid:GetOverview()
         table.sort(rows, function(a, b)
             local ga = a.member and a.member.group or 99
@@ -1983,8 +1987,12 @@ function UI:CreateRaidPanel()
                 col.camp:SetText("")
             end
 
+            -- DKP-Raid: statt der Soft-Reserves den Kontostand zeigen (für alle sichtbar)
             local items = ns.SR:GetPlayerItems(r.key)
-            if #items > 0 then
+            local points = dkp and ns.DKP:Points(r.name)
+            if dkp then
+                col.sr:SetText(points and T.Hex("goldBright", points .. " DKP") or T.Hex("dim", "–"))
+            elseif #items > 0 then
                 local names = {}
                 for _, itemId in ipairs(items) do
                     table.insert(names, ItemInfo(itemId) or ("#" .. itemId))

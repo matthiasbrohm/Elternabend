@@ -216,11 +216,11 @@ Neben Soft-Reserve kann ein Raid auch nach **Wunschliste** verteilt werden (Vorb
 - Erhaltene Items stehen wie immer im Raid-Bericht – beim Einfügen im Raidplaner hakt die Webseite sie auf den Wunschlisten ab.
 
 ## DKP (Bieterrunde)
-Als dritte Möglichkeit kann ein Raid nach **DKP** verteilt werden. Steht in `raids.php` bei der Raid-Vorlage `'loot' => 'dkp'`, bringt der Raid-Text das Mindestgebot (`dkpregel`) und alle Punktestände (`dkp`) mit; Konten, Regeln und Verfall pflegt die Gildenleitung auf `dkp.php`. Im Spiel:
-- **Statt einer Würfelrunde** startet der Plündermeister eine verdeckte **Bieterrunde**. Alle mit Addon bekommen sie angesagt und bekommen ein Fenster mit Eingabefeld: Zahl eintippen, Enter – fertig (oder `/ea biete 30`). Der Plündermeister startet die Runde im Reiter Beute mit „Bieten“. Wer kein Addon hat, flüstert dem Plündermeister „biete 30“.
-- Nur der Plündermeister sieht die Gebote. Geprüft wird: im Raid, Mindestgebot erreicht, nicht mehr als die eigenen Punkte. Wer neu bietet, ersetzt sein altes Gebot.
+Als dritte Möglichkeit kann ein Raid nach **DKP** verteilt werden. Steht in `raids.php` bei der Raid-Vorlage `'loot' => 'dkp'`, bringt der Raid-Text das Mindestgebot (`dkpregel`) und alle Punktestände (`dkp`) mit; Konten, Regeln und Verfall pflegt die Gildenleitung auf `dkp.php` – dort sieht jeder alle Kontostände, jede Buchung und wann der nächste Verfall kommt. Im Spiel:
+- **Statt einer Würfelrunde** startet der Plündermeister im Reiter Beute mit „Bieten“ eine verdeckte **Bieterrunde**. Alle mit Addon bekommen ein Fenster mit Eingabefeld: Zahl eintippen, Enter – fertig (oder `/ea biete 30`). Wer kein Addon hat, flüstert dem Plündermeister „biete 30“.
+- Nur der Plündermeister sieht die Gebote – so gibt es keine langen Bieterschlachten. Geprüft wird: im Raid, Mindestgebot erreicht, nicht mehr als die eigenen Punkte. Wer neu bietet, ersetzt sein altes Gebot.
 - Das höchste Gebot gewinnt und zahlt sein Gebot. Im Raid-Bericht steht die Beute mit Art „DKP“ und Preis; beim Einfügen im Raidplaner bucht die Webseite Bosspunkte, Anwesenheit und die Preise.
-- `/ea dkp` zeigt die eigenen Punkte. „An Gruppe senden“ verteilt die Punktestände mit.
+- Die Raid-Übersicht zeigt in einem DKP-Raid statt der Soft-Reserves die Punkte jedes Spielers. `/ea dkp` listet die Punkte aller in der Gruppe. „An Gruppe senden“ verteilt die Punktestände mit.
 
 ## Plündermeister-Reiter
 Der Reiter erscheint nur für Plündermeister, Leitung und Assistenten – oder für alle, solange gerade Beute ansteht oder gewürfelt wird. Mit `/ea loot` lässt er sich jederzeit öffnen (mit eingeschaltetem Würfelfenster: `/ea raid`).
@@ -418,8 +418,8 @@ Unter **Optionen » Tastaturbelegung » Elternabend** (eigener Abschnitt, unten 
 | `/ea loot` | Würfelfenster für Bedarf und Gier auf/zu (wenn eingeschaltet; sonst Reiter Plündermeister) |
 | `/ea loot test` | Würfelfenster mit Beispielen ausprobieren, auch ohne Gruppe |
 | `/ea roll [Itemlink]` | Item aus den Taschen auswürfeln (Vergabe wird „per Handel“ notiert) |
-| `/ea biete 30` | In einer DKP-Bieterrunde bieten (das letzte Gebot zählt) |
-| `/ea dkp` | Eigene DKP anzeigen |
+| `/ea biete 30` | In einer DKP-Bieterrunde bieten (verdeckt, das letzte Gebot zählt) |
+| `/ea dkp` | DKP aller in der Gruppe anzeigen |
 | `/ea rolltime 30` | Würfeldauer in Sekunden |
 | `/ea quality 3` | Mindestqualität im Plündermeister-Reiter (3 = Selten, 4 = Episch) |
 | `/ea rw` | Schlachtzugswarnung an/aus |

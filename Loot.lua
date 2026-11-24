@@ -195,6 +195,7 @@ function Loot:EndRoll(silent)
         self.ticker:Cancel()
         self.ticker = nil
     end
+    if cur.dkp then ns.Comm:SendUrgent("BIDEND") end
     if not silent then
         local sorted = self:GetSortedRolls()
         local w, second = sorted[1], sorted[2]

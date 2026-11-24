@@ -55,6 +55,8 @@ test("DKP: Plündermeister startet eine Bieterrunde, Gebote per Addon und Flüst
     ns.Loot:EndRoll()
     w:advance(1)
     seen(w, "chat", "Höchstes Gebot für .*Greta Glutherz %(40 DKP%)")
+    seen(w, "comm", "BIDEND")
+    notSeen(w, "chat", "Gebot: Beta Lux") -- verdeckt: Gebote werden nicht angesagt
     ns.Loot:Award("Greta Glutherz")
     w:advance(1)
     equal(ns.DKP:Points("Greta Glutherz"), 80)
@@ -75,6 +77,9 @@ test("DKP: Spieler bekommt die Bieterrunde angesagt und bietet mit /ea biete", f
     check(ns.DKP:Bid(25), "Gebot abgelehnt")
     w:advance(1)
     seen(w, "comm", "WHISPER Beta Lux BID 25")
+    -- Runde vorbei: Fenster zu
+    w:receive("BIDEND", "RAID", "Beta Lux")
+    equal(ns.DKP.round, nil)
     -- Nach der Vergabe ziehen alle den Preis ab
     w:receive("AWARD\t" .. LINK .. "\tGreta Glutherz\t40", "RAID", "Beta Lux")
     equal(ns.DKP:Points("Greta Glutherz"), 80)
@@ -89,5 +94,23 @@ test("DKP: Raid ohne DKP-Zeilen schaltet die Bieterrunde wieder ab", function()
     ns.Loot:StartRoll({ itemId = 30904, link = LINK })
     w:advance(1)
     seen(w, "chat", "Hauptspec /roll")
+    noErrors(w)
+end)
+
+test("DKP: Kontostände aller – /ea dkp und Spalte in der Raid-Übersicht", function()
+    local w = Raid(false)
+    local ns = w.ns
+    w:clear()
+    ns.DKP:PrintAll()
+    seen(w, "print", "DKP in der Gruppe: Greta Glutherz 120, Beta Lux 50, Anna Sturmwind 30")
+    ns.UI:Show("raid")
+    local p = ns.UI.panels.raid
+    w:call(p.Refresh, p)
+    local found
+    for _, row in ipairs(p.list and p.list.rows or {}) do
+        local t = row:IsShown() and row.cols.sr:GetText()
+        if t and t:find("120 DKP", 1, true) then found = true end
+    end
+    check(found, "keine DKP-Spalte in der Raid-Übersicht")
     noErrors(w)
 end)

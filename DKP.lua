@@ -8,8 +8,10 @@
 --   BIDOPEN  Link \t Sekunden \t Mindestgebot   Plündermeister → Gruppe
 --   BID      Punkte                              Spieler → Plündermeister (Flüstern); „biete 30“ im Chat geht auch
 --   BIDOK    Punkte \t Text                      Plündermeister → Spieler (Bestätigung oder Ablehnung)
--- Nur der Plündermeister sieht die Gebote. Wer gewinnt, zahlt sein Gebot; der Preis steht im Raid-Bericht
--- (Beute-Art „DKP“) und wird auf der Webseite abgebucht.
+--   BIDEND                                       Plündermeister → Gruppe: Runde vorbei (Fenster schließen)
+-- Jeder bietet genau einmal verdeckt – keine Bieterschlachten. Nur der Plündermeister sieht die Gebote; wer neu
+-- bietet, ersetzt sein altes Gebot. Wer gewinnt, zahlt sein Gebot; der Preis steht im Raid-Bericht (Beute-Art „DKP“)
+-- und wird auf der Webseite abgebucht. Die Kontostände aller sind für alle sichtbar (Raid-Übersicht, /ea dkp, Webseite).
 local _, ns = ...
 
 local DKP = {}
@@ -69,6 +71,40 @@ function DKP:PrintOwn()
         or "DKP: Für dich gibt es noch keine Punkte – sie kommen mit dem ersten Raid.")
 end
 
+-- Alle Kontostände, höchste zuerst: { { name, n }, … }
+function DKP:List()
+    local d, out = self:Data(), {}
+    for _, e in pairs(d and d.points or {}) do table.insert(out, { name = e.name, n = e.n }) end
+    table.sort(out, function(a, b) if a.n ~= b.n then return a.n > b.n end return a.name < b.name end)
+    return out
+end
+
+-- /ea dkp: eigene Punkte und die Stände aller in der Gruppe (sonst aller Konten)
+function DKP:PrintAll()
+    if not self:Active() then
+        ns.Print("Gerade sind keine DKP geladen – sie kommen mit dem Raid-Text aus dem Raidplaner.")
+        return
+    end
+    self:PrintOwn()
+    local inGroup = IsInGroup()
+    local parts = {}
+    for _, e in ipairs(self:List()) do
+        if not inGroup or ns.Raid:IsMember(ns.NameKey(e.name)) then table.insert(parts, ns.ShortName(e.name) .. " " .. e.n) end
+    end
+    if #parts == 0 then return end
+    local prefix = inGroup and "DKP in der Gruppe: " or "DKP aller Konten: "
+    local line = prefix
+    for i, p in ipairs(parts) do
+        local add = (i > 1 and line ~= prefix) and (", " .. p) or p
+        if #line + #add > 240 then
+            ns.Print(line)
+            line, add = "   ", p
+        end
+        line = line .. add
+    end
+    ns.Print(line)
+end
+
 -- Sync in der Gruppe: Zeit;Mindestgebot;Name:Punkte;…
 function DKP:Serialize()
     local d = self:Data()
@@ -103,6 +139,12 @@ end
 
 -- Bieten (alle) ------------------------------------------------------------------
 DKP.round = nil -- { link, from, endsAt, min }
+
+local function BidPopupText(r)
+    local mine = DKP:Points(ns.UnitFullName("player"))
+    return string.format("Bieterrunde für %s\n(du hast %s, Mindestgebot %d)\n\nVerdeckt: Nur der Plündermeister sieht die Gebote.\n\nDein Gebot:",
+        r.link, mine and (mine .. " DKP") or "keine DKP", r.min)
+end
 
 function DKP:Bid(amount)
     local r = self.round
@@ -148,7 +190,15 @@ ns.Comm.handlers.BIDOPEN = function(sender, parts)
     ns.Sound(SOUNDKIT and SOUNDKIT.RAID_WARNING or 8959, nil, true)
     -- Fenster mit Eingabefeld: Zahl eintippen, Enter oder „Bieten“
     StaticPopupDialogs["ELTERNABEND_BID"].timeout = seconds
-    StaticPopup_Show("ELTERNABEND_BID", link, (mine and (mine .. " DKP") or "keine DKP") .. ", Mindestgebot " .. min)
+    StaticPopupDialogs["ELTERNABEND_BID"].text = (BidPopupText(DKP.round):gsub("%%", "%%%%"))
+    StaticPopup_Show("ELTERNABEND_BID")
+end
+
+ns.Comm.handlers.BIDEND = function(sender)
+    local r = DKP.round
+    if not r or not ns.SameName(sender, r.from) then return end
+    DKP.round = nil
+    if StaticPopup_Hide then StaticPopup_Hide("ELTERNABEND_BID") end
 end
 
 local function BidBox(dialog)
@@ -156,7 +206,7 @@ local function BidBox(dialog)
 end
 
 StaticPopupDialogs["ELTERNABEND_BID"] = {
-    text = "Bieterrunde für %s\n(du hast %s)\n\nDein Gebot:",
+    text = "Bieterrunde",
     button1 = "Bieten",
     button2 = "Passen",
     hasEditBox = true,
@@ -186,6 +236,7 @@ ns.Comm.handlers.BIDOK = function(sender, parts)
 end
 
 -- Gebote annehmen (Plündermeister) -----------------------------------------------
+
 -- Liefert true, wenn das Gebot gilt, sonst false und den Grund
 function DKP:Accept(name, amount)
     local cur = ns.Loot.current
