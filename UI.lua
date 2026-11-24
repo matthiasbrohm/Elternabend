@@ -204,6 +204,31 @@ end
 -- Fensterbreite; Inhalt = Breite minus 2 × 18 Rand
 local WIN_W = 1120
 local CONTENT_W = WIN_W - 36
+local SCALE_MIN, SCALE_MAX = 60, 120 -- Fenstergröße in Prozent (darunter wird die Schrift unlesbar)
+
+-- Fenstergröße in Prozent (Einstellung, /ea größe, Strg + Mausrad)
+function UI:WindowScale()
+    local s = ns.db and ns.db.settings
+    local v = tonumber(s and s.windowScale) or 100
+    return math.max(SCALE_MIN, math.min(SCALE_MAX, math.floor(v + 0.5)))
+end
+
+function UI:SetWindowScale(percent)
+    percent = math.max(SCALE_MIN, math.min(SCALE_MAX, math.floor((tonumber(percent) or 100) / 5 + 0.5) * 5))
+    ns.db.settings.windowScale = percent
+    self:ApplyWindowScale()
+    if self.optionsDialog and self.optionsDialog:IsShown() then self.optionsDialog:Refresh() end
+end
+
+-- Eingestellte Größe; auf kleinen Bildschirmen zusätzlich so weit verkleinert, dass das Fenster passt
+function UI:ApplyWindowScale()
+    local f = self.frame
+    if not f then return end
+    local scale = self:WindowScale() / 100
+    local screenW = UIParent:GetWidth()
+    if screenW and screenW > 0 and screenW < WIN_W * scale + 40 then scale = (screenW - 40) / WIN_W end
+    f:SetScale(scale)
+end
 
 function UI:Create()
     if self.frame then return end
@@ -211,9 +236,6 @@ function UI:Create()
 
     local f = CreateFrame("Frame", "ElternabendFrame", UIParent, "BackdropTemplate")
     f:SetSize(WIN_W, 600 + SUBNAV_H)
-    -- Auf kleinen Bildschirmen passend verkleinern
-    local screenW = UIParent:GetWidth()
-    if screenW and screenW > 0 and screenW < WIN_W + 40 then f:SetScale((screenW - 40) / WIN_W) end
     f:SetPoint("CENTER")
     f:SetFrameStrata("HIGH")
     f:SetToplevel(true)
@@ -233,6 +255,11 @@ function UI:Create()
     header:RegisterForDrag("LeftButton")
     header:SetScript("OnDragStart", function() f:StartMoving() end)
     header:SetScript("OnDragStop", function() f:StopMovingOrSizing() end)
+    -- Strg + Mausrad über dem Kopf: Fenster größer oder kleiner
+    header:EnableMouseWheel(true)
+    header:SetScript("OnMouseWheel", function(_, delta)
+        if IsControlKeyDown() then UI:SetWindowScale(UI:WindowScale() + (delta > 0 and 5 or -5)) end
+    end)
 
     local sky = header:CreateTexture(nil, "BACKGROUND")
     sky:SetAllPoints()
@@ -308,6 +335,7 @@ function UI:Create()
     site:SetText(ns.WEBSITE:upper() .. "  ·  " .. ns.VERSION)
 
     self.frame = f
+    self:ApplyWindowScale()
     self.panels.start = self:CreateStartPanel()
     self.panels.raid = self:CreateRaidPanel()
     self.panels.sr = self:CreateSRPanel()
@@ -7198,7 +7226,7 @@ function UI:ShowOptions()
             if o.key then rows = rows + 1 else groups = groups + 1 end
         end
         -- Zeilen eng gesetzt: Das Fenster muss auch bei großer Oberflächen-Skalierung auf den Bildschirm passen
-        d = NewDialog("ElternabendOptions", 640, 162 + rows * 21 + groups * 30, "Einstellungen")
+        d = NewDialog("ElternabendOptions", 640, 202 + rows * 21 + groups * 30, "Einstellungen")
         local hint = T.Text(d, "muted")
         hint:SetPoint("TOPLEFT", d.title, "BOTTOMLEFT", 0, -8)
         hint:SetWidth(600)
@@ -7225,6 +7253,23 @@ function UI:ShowOptions()
             end
         end
 
+        -- Fenstergröße (auch: Strg + Mausrad über dem Kopf des Fensters, /ea größe 80)
+        local sizeLabel = T.Text(d, "small")
+        sizeLabel:SetPoint("BOTTOMLEFT", 20, 62)
+        sizeLabel:SetText("Fenstergröße")
+        local sizeSlider = T.Slider(d, 220, SCALE_MIN, SCALE_MAX, 5)
+        sizeSlider:SetPoint("LEFT", sizeLabel, "LEFT", 110, 0)
+        local sizeValue = T.Text(d, "small")
+        sizeValue:SetPoint("LEFT", sizeSlider, "RIGHT", 12, 0)
+        local sizeHint = T.Text(d, "muted")
+        sizeHint:SetPoint("LEFT", sizeValue, "RIGHT", 14, 0)
+        sizeHint:SetText("oder Strg + Mausrad über dem Fensterkopf")
+        sizeSlider:SetScript("OnValueChanged", function(_, value, userInput)
+            sizeValue:SetText(math.floor(value + 0.5) .. " %")
+            if userInput then UI:SetWindowScale(value) end
+        end)
+        d.sizeSlider = sizeSlider
+
         local function Preset(name)
             ns.SetPreset(name)
             d:Refresh()
@@ -7241,6 +7286,7 @@ function UI:ShowOptions()
 
         function d:Refresh()
             for key, box in pairs(self.boxes) do box:SetChecked(ns.Opt(key)) end
+            self.sizeSlider:SetValue(UI:WindowScale())
         end
         d:SetScript("OnShow", function(self) self:Refresh() end)
         self.optionsDialog = d

@@ -25,6 +25,7 @@ local defaults = {
         minimapAngle = 220,
         minimapHidden = false,
         guildButtonHidden = false,
+        windowScale = 100,   -- Größe des Hauptfensters in Prozent (60–120)
     },
     softres = { items = {} },
     recruit = {      -- Gildeneinladung per Flüstern
@@ -714,6 +715,9 @@ SlashCmdList.ELTERNABENDRAID = function(input)
         ns.DKP:Bid(rest)
     elseif cmd == "dkp" then
         ns.DKP:PrintAll()
+    elseif cmd == "größe" or cmd == "groesse" or cmd == "grösse" or cmd == "size" then
+        if tonumber(rest) then ns.UI:SetWindowScale(tonumber(rest)) end
+        ns.Print("Fenstergröße: " .. ns.UI:WindowScale() .. " % (ändern mit /ea größe 80, Strg + Mausrad über dem Kopf des Fensters oder unter „Einstellungen“)")
     elseif cmd == "rolltime" and tonumber(rest) then
         s.rollTime = math.max(5, math.min(120, tonumber(rest)))
         ns.Print("Würfeldauer: " .. s.rollTime .. " Sekunden")

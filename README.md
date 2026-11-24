@@ -422,6 +422,7 @@ Unter **Optionen » Tastaturbelegung » Elternabend** (eigener Abschnitt, unten 
 | `/ea loot test` | Würfelfenster mit Beispielen ausprobieren, auch ohne Gruppe |
 | `/ea roll [Itemlink]` | Item aus den Taschen auswürfeln (Vergabe wird „per Handel“ notiert) |
 | `/ea biete 30` | In einer DKP-Bieterrunde bieten (verdeckt, das letzte Gebot zählt) |
+| `/ea größe 80` | Fenstergröße in Prozent (60–120); geht auch mit Strg + Mausrad über dem Fensterkopf oder unter „Einstellungen“ |
 | `/ea dkp` | DKP aller in der Gruppe anzeigen |
 | `/ea rolltime 30` | Würfeldauer in Sekunden |
 | `/ea quality 3` | Mindestqualität im Plündermeister-Reiter (3 = Selten, 4 = Episch) |

@@ -114,6 +114,14 @@ local function FrameFactory(w)
         if s == "OnUpdate" and fn then w.updating[self] = true end
     end
     function methods:GetScript(s) return rawget(self, "_on" .. s) end
+    function methods:SetScale(v) rawset(self, "_scale", v) end
+    function methods:GetScale() return rawget(self, "_scale") or 1 end
+    function methods:SetValue(v)
+        rawset(self, "_value", v)
+        local h = rawget(self, "_onOnValueChanged")
+        if h then w:call(h, self, v, false) end
+    end
+    function methods:GetValue() return rawget(self, "_value") or 0 end
     function methods:HookScript(s, fn)
         local old = rawget(self, "_on" .. s)
         rawset(self, "_on" .. s, function(...)
