@@ -276,6 +276,7 @@ Oben rechts im Fenster öffnet **Design** (oder `/ea design`) die Auswahl. Jede 
 - **Allianz** – Königsblau und Silber
 - **Horde** – Dunkelrot und Bronze, mit glühender Glut statt Sternen
 - **Klassisch** – dunkles Leder und Blizzard-Gelb
+- **Blizzard** – wie die Fenster des Spiels: rote Knöpfe, Dialog- und Tooltip-Rahmen, Häkchen und Schieberegler von Blizzard, gelbe Schrift
 
 Das gewählte Design gilt nur für dich und wird nach dem Neuladen der Oberfläche übernommen (Knopf „Jetzt neu laden“).
 

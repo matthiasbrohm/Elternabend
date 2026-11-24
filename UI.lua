@@ -248,8 +248,9 @@ function UI:Create()
 
     -- Kopfbereich: Nachthimmel, Wappen, Gildenname, Reiter
     local header = CreateFrame("Frame", nil, f)
-    header:SetPoint("TOPLEFT", 1, -1)
-    header:SetPoint("TOPRIGHT", -1, -1)
+    local inset = T.IsBlizzard() and T.BLIZ_INSET or 1 -- im Design „Blizzard“ innerhalb des Dialograhmens
+    header:SetPoint("TOPLEFT", inset, -inset)
+    header:SetPoint("TOPRIGHT", -inset, -inset)
     header:SetHeight(100)
     header:EnableMouse(true)
     header:RegisterForDrag("LeftButton")
@@ -4951,7 +4952,7 @@ function UI:CreateBoardPanel()
         local c = T.colors
         for _, btn in ipairs({ p.viewCards, p.viewList }) do
             local on = btn.view == view
-            if on then btn:SetBackdropColor(c.gold[1], c.gold[2], c.gold[3], 0.3) else btn:SetBackdropColor(c.ink[1], c.ink[2], c.ink[3], 0.35) end
+            btn:SetSelected(on)
             btn:SetText(on and T.Hex("goldBright", btn.view == "cards" and "Karteikarten" or "Liste") or (btn.view == "cards" and "Karteikarten" or "Liste"))
         end
         p.empty:SetParent(asCards and cards or list.panel)
@@ -6078,7 +6079,7 @@ function UI:ShowSkinPicker()
     if not d then
         local c = T.colors
         d = CreateFrame("Frame", "ElternabendSkinPicker", UIParent, "BackdropTemplate")
-        d:SetSize(480, 486)
+        d:SetSize(480, 486 + (#T.SKIN_ORDER - 4) * 88)
         d:SetPoint("CENTER")
         d:SetFrameStrata("DIALOG")
         d:SetToplevel(true)
@@ -6135,19 +6136,28 @@ function UI:ShowSkinPicker()
             text:SetTextColor(sc.cream[1], sc.cream[2], sc.cream[3])
             text:SetPoint("TOPLEFT", name, "BOTTOMLEFT", 0, -6)
             text:SetText(skin.text)
-            -- Muster: ein goldener und ein umrandeter Knopf
+            -- Muster: ein goldener und ein umrandeter Knopf (beim Design „Blizzard“ zwei rote Spielknöpfe)
             local b1 = row:CreateTexture(nil, "ARTWORK")
             b1:SetSize(54, 18)
             b1:SetPoint("RIGHT", -76, -10)
-            b1:SetColorTexture(1, 1, 1, 1)
-            b1:SetGradient("VERTICAL", CreateColor(sc.gold[1], sc.gold[2], sc.gold[3], 1),
-                CreateColor(sc.goldBright[1], sc.goldBright[2], sc.goldBright[3], 1))
             local b2 = CreateFrame("Frame", nil, row, "BackdropTemplate")
             b2:SetSize(54, 18)
             b2:SetPoint("LEFT", b1, "RIGHT", 8, 0)
-            b2:SetBackdrop({ bgFile = "Interface\\Buttons\\WHITE8x8", edgeFile = "Interface\\Buttons\\WHITE8x8", edgeSize = 1 })
-            b2:SetBackdropColor(sc.ink[1], sc.ink[2], sc.ink[3], 0.5)
-            b2:SetBackdropBorderColor(sc.gold[1], sc.gold[2], sc.gold[3], 0.9)
+            if skin.blizzard then
+                b1:SetTexture("Interface\\Buttons\\UI-Panel-Button-Up")
+                b1:SetTexCoord(0, 0.625, 0, 0.6875)
+                local t2 = b2:CreateTexture(nil, "ARTWORK")
+                t2:SetAllPoints()
+                t2:SetTexture("Interface\\Buttons\\UI-Panel-Button-Up")
+                t2:SetTexCoord(0, 0.625, 0, 0.6875)
+            else
+                b1:SetColorTexture(1, 1, 1, 1)
+                b1:SetGradient("VERTICAL", CreateColor(sc.gold[1], sc.gold[2], sc.gold[3], 1),
+                    CreateColor(sc.goldBright[1], sc.goldBright[2], sc.goldBright[3], 1))
+                b2:SetBackdrop({ bgFile = "Interface\\Buttons\\WHITE8x8", edgeFile = "Interface\\Buttons\\WHITE8x8", edgeSize = 1 })
+                b2:SetBackdropColor(sc.ink[1], sc.ink[2], sc.ink[3], 0.5)
+                b2:SetBackdropBorderColor(sc.gold[1], sc.gold[2], sc.gold[3], 0.9)
+            end
             row.state = row:CreateFontString(nil, "OVERLAY")
             row.state:SetFont("Fonts\\FRIZQT__.TTF", 10, "")
             row.state:SetPoint("TOPRIGHT", -12, -12)
@@ -6462,8 +6472,7 @@ end
 -- Gilde » Raidwünsche: will ich raiden, an welchen Tagen, ab welcher Uhrzeit, in welcher Rolle?
 -- Rechts die Auswertung für alle (beliebteste Termine), die Gildenleitung kann sie für Discord kopieren.
 local function MarkToggle(btn, on, label)
-    local c = T.colors
-    if on then btn:SetBackdropColor(c.gold[1], c.gold[2], c.gold[3], 0.3) else btn:SetBackdropColor(c.ink[1], c.ink[2], c.ink[3], 0.35) end
+    btn:SetSelected(on)
     btn:SetText(on and T.Hex("goldBright", label) or label)
 end
 

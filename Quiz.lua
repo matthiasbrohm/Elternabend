@@ -334,7 +334,7 @@ function Quiz:Create()
 
     d.answers = {}
     for i = 1, 4 do
-        local b = T.Button(d, "", INNER)
+        local b = T.Button(d, "", INNER, "flat")
         b:SetHeight(32)
         b:SetPoint("TOPLEFT", 20, ANSWER_TOP - (i - 1) * ANSWER_STEP)
         b:SetScript("OnClick", function() Quiz:Answer(i) end)
