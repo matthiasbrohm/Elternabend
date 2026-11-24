@@ -289,7 +289,9 @@ function SR:Broadcast(silent)
     end
     local hasWL = ns.WL:Count() > 0
     local hasDKP = ns.DKP:Active()
-    if self:Count() == 0 and not hasWL and not hasDKP then
+    local plan = ns.db.plan
+    local hasPlan = plan and type(plan.raw) == "string" and plan.raw ~= ""
+    if self:Count() == 0 and not hasWL and not hasDKP and not hasPlan then
         if not silent then ns.Print("Keine Soft-Reserve-Liste geladen.") end
         return
     end
@@ -297,6 +299,8 @@ function SR:Broadcast(silent)
     -- Loot-Wunschliste (Prio je Item) gleich mit
     if hasWL then ns.Comm:SendLarge("WLS", ns.WL:Serialize()) end
     if hasDKP then ns.Comm:SendLarge("DKS", ns.DKP:Serialize()) end
+    -- Der ganze Raid (Anmeldungen, Raidgruppen …) für alle aus der Gilde
+    if hasPlan then ns.Comm:SendLarge("PLN", (plan.raw:gsub("\t", " "))) end
     if not silent then
         ns.Print((self:Count() > 0 and hasWL and "Soft-Reserves und Wunschliste werden"
             or (hasWL and "Wunschliste wird" or "Soft-Reserve-Liste wird")) .. " an die Gruppe gesendet.")

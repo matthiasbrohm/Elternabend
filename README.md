@@ -66,7 +66,7 @@ Danach reicht nach jeder Änderung an einer `.lua`-Datei ein `/reload`. Neu star
 | Reiter | Inhalt |
 |---|---|
 | **Raid » Übersicht** | Kacheln für Raid, Anwesenheit (Klassen im Tooltip), Beutemethode und Soft-Reserves. Liste aller Spieler mit Gruppe, Rolle, Klasse, Rang, Anmeldung (dabei, Ersatzbank, fehlt noch, nicht angemeldet), Status, Addon-Version, Vorbereitung und Soft-Reserves. Knöpfe für Bereitschaftscheck, Rollenabfrage (alle wählen Tank, Heiler oder Schaden; nur Leitung und Assistenten), Vorbereitung, Pause und **Countdown** 5 oder 10 Sekunden (Blizzards große Zahl bei allen in der Gruppe, z. B. vor dem Pull; im Schlachtzug nur Leitung und Assistenten). |
-| **Raid » Soft-Reserve** | Alle Reservierungen nach Boss, mit Suche. „An Gruppe senden“ verteilt die Liste (nur Leitung und Assistenten). |
+| **Raid » Soft-Reserve** | Alle Reservierungen nach Boss, mit Suche. „An Gruppe senden“ verteilt die Liste und den ganzen Raid (nur Leitung und Assistenten). |
 | **Raid » Plündermeister** | Beute aus der Leiche mit den SR-Spielern. Würfeln, Würfe auswerten, Item per Klick vergeben. |
 | **Gruppen** | Gruppensuche in der Gilde, mit zwei Unterreitern: **Offene Gruppen** (melden, sehen, wer schon dabei ist) und **Eigene Gruppe** (Gesuch eintragen, einladen). |
 | **Raid » Loot** | Alle im Raid vergebenen Items, als CSV; die Leitung erzeugt hier auch den Bericht für die Webseite. |
@@ -214,6 +214,9 @@ Neben Soft-Reserve kann ein Raid auch nach **Wunschliste** verteilt werden (Vorb
 - **Reiter Beute:** in der Spalte „Soft-Reserve / Prio“ steht, wer dran ist („Prio: Beta Lux · danach Mira Mondschein“); **„An Prio“** vergibt das Item direkt. Wer etwas bekommen hat, fällt aus der Prio, der Nächste rückt nach.
 - **„An Gruppe senden“** schickt Soft-Reserves und Wunschliste zusammen an alle in der Gruppe; jeder bekommt gesagt, wo er als Nächstes dran ist.
 - Erhaltene Items stehen wie immer im Raid-Bericht – beim Einfügen im Raidplaner hakt die Webseite sie auf den Wunschlisten ab.
+
+## Raid für alle in der Gruppe
+Lädt die Raidleitung den Raid (über die Abgleich-App oder den Raid-Text), geht er automatisch an alle in der Gruppe, die in der Gilde sind: Anmeldungen, Raidgruppen, Soft-Reserves und – je nach Raid – Wunschliste oder DKP. Wer später dazukommt, bekommt ihn beim Beitreten. Gäste bekommen nur die Soft-Reserves. Von Hand geht es mit „An Gruppe senden“.
 
 ## DKP (Bieterrunde)
 Als dritte Möglichkeit kann ein Raid nach **DKP** verteilt werden. Steht in `raids.php` bei der Raid-Vorlage `'loot' => 'dkp'`, bringt der Raid-Text das Mindestgebot (`dkpregel`) und alle Punktestände (`dkp`) mit; Konten, Regeln und Verfall pflegt die Gildenleitung auf `dkp.php` – dort sieht jeder alle Kontostände, jede Buchung und wann der nächste Verfall kommt. Im Spiel:

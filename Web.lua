@@ -38,8 +38,10 @@ function Web:Import(text)
     return ns.SR:Import(text)
 end
 
-function Web:ImportPlan(text)
-    local plan = { signups = {}, importedAt = time() }
+-- opts.from: Raid kam von der Raidleitung über das Addon (still übernehmen, nicht weiterverteilen)
+function Web:ImportPlan(text, opts)
+    opts = opts or {}
+    local plan = { signups = {}, importedAt = time(), raw = text, from = opts.from }
     local entries = {}
     local dates = {} -- kommende Raidtermine für den Kalender („termin;…“)
     local prio, wishes, prioCount = {}, {}, 0 -- Loot-Wunschlisten („wunsch;…“, „prio;…“)
@@ -100,7 +102,7 @@ function Web:ImportPlan(text)
     end
 
     if not plan.id and next(plan.signups) == nil and #entries == 0 and prioCount == 0 and dkpCount == 0 then
-        ns.Print("|cffff5555Import fehlgeschlagen:|r Keine Raid-Daten gefunden.")
+        if not opts.from then ns.Print("|cffff5555Import fehlgeschlagen:|r Keine Raid-Daten gefunden.") end
         return false
     end
 
@@ -111,6 +113,16 @@ function Web:ImportPlan(text)
     ns.DKP:Set(dkp, dkpMin)
     local count = 0
     for _ in pairs(plan.signups) do count = count + 1 end
+    if opts.from then
+        -- Von der Raidleitung bekommen: eine Zeile reicht
+        ns.Print(string.format("Raid „%s“ von %s übernommen: %d Anmeldungen, %d Soft-Reserves%s.", plan.title or "?", opts.from,
+            count, #entries, plan.groups and ", Raidgruppen" or ""))
+        if prioCount > 0 then ns.WL:PrintOwn() end
+        if dkpCount > 0 then ns.DKP:PrintOwn() end
+        ns:Fire("ROSTER_UPDATE")
+        ns:Fire("PLAN_IMPORTED")
+        return true
+    end
     ns.Print(string.format("Raid „%s“ geladen: %d Anmeldungen, %d Soft-Reserves%s%s.", plan.title or "?", count, #entries,
         prioCount > 0 and (", Wunschliste mit Prio für " .. prioCount .. (prioCount == 1 and " Item" or " Items")) or "",
         plan.groups and " – mit Raidgruppen (Raid » Raidgruppen)" or ""))
@@ -126,12 +138,27 @@ function Web:ImportPlan(text)
             ns.Print(n .. (n == 1 and " Raidtermin" or " Raidtermine") .. " im Kalender aktualisiert und an die Gilde geschickt.")
         end
     end
+    -- In der Gruppe als Leitung: gleich an alle verteilen (Anmeldungen, Raidgruppen, Soft-Reserves, Loot-Listen)
     if IsInGroup() and ns.IsTrusted(ns.UnitFullName("player")) then
-        ns.Print("Tipp: Mit „An Gruppe senden“ sehen alle die Soft-Reserves.")
+        C_Timer.After(1, function() ns.SR:Broadcast(true) end)
+        ns.Print("Der Raid geht automatisch an alle in der Gruppe – wer später dazukommt, bekommt ihn auch.")
     end
     ns:Fire("ROSTER_UPDATE")
     ns:Fire("PLAN_IMPORTED")
     return true
+end
+
+-- Raid an die Gruppe: Die Raidleitung schickt den ganzen Raid-Text (wie aus dem Raidplaner), alle in der Gruppe
+-- aus der Gilde übernehmen ihn – so sieht jeder Anmeldungen, Raidgruppen und Soft-Reserves, auch ohne die App.
+--   PLN  Raid-Text (in Teilen)   Leiter/Assistent → Gruppe (mit „An Gruppe senden“, nach dem Laden, für Nachzügler)
+ns.Comm.handlers.PLN = function(sender, parts)
+    local data = ns.Comm:Assemble(sender, parts)
+    if not data or not ns.IsTrusted(sender) or ns.SameName(sender, ns.UnitFullName("player")) then return end
+    -- Raiddaten gehören der Gilde: Gäste bekommen nur die Soft-Reserves (SRS), nicht die Anmeldungen
+    if not ns.Info:AtHome() then return end
+    local own = ns.db.plan
+    if own and own.raw == data then return end
+    Web:ImportPlan(data, { from = ns.ShortName(sender) })
 end
 
 -- Raid-Protokoll (Anwesenheit und Bosse) -----------------------------------
