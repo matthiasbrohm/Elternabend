@@ -88,7 +88,7 @@ function Sync:ApplyRaid(manual)
     local d = AppData()
     if not d then
         if manual then
-            ns.Print("Der Abgleich läuft über die Mac-App „Elternabend Abgleich“. Auf diesem Rechner hat sie noch nichts geschrieben.")
+            ns.Print("Der Abgleich läuft über die App „Elternabend Abgleich“ (Mac oder Windows). Auf diesem Rechner hat sie noch nichts geschrieben.")
         end
         return false
     end
@@ -130,7 +130,7 @@ end
 function Sync:Status()
     local d = AppData()
     if not d then
-        ns.Print("Abgleich: Die Mac-App „Elternabend Abgleich“ hat auf diesem Rechner noch nichts geschrieben.")
+        ns.Print("Abgleich: Die App „Elternabend Abgleich“ (Mac oder Windows) hat auf diesem Rechner noch nichts geschrieben.")
         return
     end
     ns.Print("Abgleich: Daten der Webseite vom " .. date("%d.%m.%Y, %H:%M", tonumber(d.zeit) or 0) .. " Uhr (App " .. tostring(d.app or "?") .. ").")
