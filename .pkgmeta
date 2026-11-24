@@ -4,6 +4,7 @@ package-as: Elternabend
 ignore:
   - Taktik-Werkstatt
   - Mac-App
+  - Windows-App
   - tests
   - web
   - .gitkeep
