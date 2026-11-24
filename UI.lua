@@ -248,9 +248,8 @@ function UI:Create()
 
     -- Kopfbereich: Nachthimmel, Wappen, Gildenname, Reiter
     local header = CreateFrame("Frame", nil, f)
-    local inset = T.IsBlizzard() and T.BLIZ_INSET or 1 -- im Design „Blizzard“ innerhalb des Dialograhmens
-    header:SetPoint("TOPLEFT", inset, -inset)
-    header:SetPoint("TOPRIGHT", -inset, -inset)
+    header:SetPoint("TOPLEFT", 1, -1)
+    header:SetPoint("TOPRIGHT", -1, -1)
     header:SetHeight(100)
     header:EnableMouse(true)
     header:RegisterForDrag("LeftButton")
@@ -6136,14 +6135,14 @@ function UI:ShowSkinPicker()
             text:SetTextColor(sc.cream[1], sc.cream[2], sc.cream[3])
             text:SetPoint("TOPLEFT", name, "BOTTOMLEFT", 0, -6)
             text:SetText(skin.text)
-            -- Muster: ein goldener und ein umrandeter Knopf (beim Design „Blizzard“ zwei rote Spielknöpfe)
+            -- Muster: ein goldener und ein umrandeter Knopf (mit den Bedienelementen des Spiels: zwei rote Spielknöpfe)
             local b1 = row:CreateTexture(nil, "ARTWORK")
             b1:SetSize(54, 18)
             b1:SetPoint("RIGHT", -76, -10)
             local b2 = CreateFrame("Frame", nil, row, "BackdropTemplate")
             b2:SetSize(54, 18)
             b2:SetPoint("LEFT", b1, "RIGHT", 8, 0)
-            if skin.blizzard then
+            if skin.controls == "blizzard" then
                 b1:SetTexture("Interface\\Buttons\\UI-Panel-Button-Up")
                 b1:SetTexCoord(0, 0.625, 0, 0.6875)
                 local t2 = b2:CreateTexture(nil, "ARTWORK")

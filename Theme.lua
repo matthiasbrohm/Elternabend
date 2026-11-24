@@ -58,18 +58,9 @@ T.SKINS = {
             cream = { 0.965, 0.914, 0.855 }, muted = { 0.776, 0.682, 0.604 }, skyBottom = { 0.055, 0.012, 0.008 },
         },
     },
-    -- Wie die Fenster des Spiels: rote Knöpfe, Rahmen und Hintergründe von Blizzard (blizzard = true)
-    blizzard = {
-        label = "Blizzard", text = "Wie das Spiel: rote Knöpfe, graue Rahmen, gelbe Schrift",
-        title = DISPLAY, particles = { 0 }, blizzard = true,
-        colors = {
-            ink = { 0, 0, 0 }, navy = { 0.07, 0.07, 0.07 }, panel = { 0.03, 0.03, 0.03 },
-            gold = { 1, 0.82, 0 }, goldBright = { 1, 0.82, 0 },
-            cream = { 1, 1, 1 }, muted = { 0.72, 0.72, 0.72 }, skyBottom = { 0, 0, 0 },
-        },
-    },
+    -- Mit den Bedienelementen des Spiels (controls = "blizzard"): rote Knöpfe, Häkchen und Schieberegler von Blizzard
     klassisch = {
-        label = "Klassisch", text = "Dunkles Leder und Blizzard-Gelb",
+        label = "Klassisch", text = "Dunkles Leder, Blizzard-Gelb und rote Spielknöpfe", controls = "blizzard",
         title = SERIF, particles = { 0 },
         colors = {
             ink = { 0.047, 0.035, 0.024 }, navy = { 0.118, 0.090, 0.059 }, panel = { 0.090, 0.067, 0.043 },
@@ -78,7 +69,7 @@ T.SKINS = {
         },
     },
 }
-T.SKIN_ORDER = { "elternabend", "allianz", "horde", "klassisch", "blizzard" }
+T.SKIN_ORDER = { "elternabend", "allianz", "horde", "klassisch" }
 T.skin = T.SKINS.elternabend
 
 local function ToHex(col, factor)
@@ -158,35 +149,12 @@ function T.Text(parent, font, justify)
     return fs
 end
 
--- Design „Blizzard“: Fenster mit dem Rahmen der Spieldialoge, Karten und Felder mit dem Tooltip-Rahmen
-local BLIZ_WINDOW = {
-    bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background", edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
-    tile = true, tileSize = 32, edgeSize = 32, insets = { left = 11, right = 11, top = 12, bottom = 10 },
-}
-local BLIZ_PANEL = {
-    bgFile = "Interface\\Tooltips\\UI-Tooltip-Background", edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
-    tile = true, tileSize = 16, edgeSize = 14, insets = { left = 3, right = 3, top = 3, bottom = 3 },
-}
-T.BLIZ_INSET = 11 -- so breit ist der Dialograhmen innen
-
-function T.IsBlizzard()
-    return T.skin.blizzard == true
+-- Bedienelemente des Spiels statt eigener (Design „Klassisch“): rote Knöpfe, Häkchen, Schieberegler
+function T.GameControls()
+    return T.skin.controls == "blizzard"
 end
 
 function T.Backdrop(frame, bg, alpha, borderAlpha)
-    if T.skin.blizzard then
-        -- Fenster und Dialoge (nachtblau, kaum durchsichtig) bekommen den Dialograhmen, alles andere den Tooltip-Rahmen
-        if bg == c.navy and (alpha or 0) >= 0.95 then
-            frame:SetBackdrop(BLIZ_WINDOW)
-            frame:SetBackdropColor(1, 1, 1, 1)
-            frame:SetBackdropBorderColor(1, 1, 1, 1)
-        else
-            frame:SetBackdrop(BLIZ_PANEL)
-            frame:SetBackdropColor(Color(bg or c.panel, alpha or 0.92))
-            frame:SetBackdropBorderColor(0.62, 0.62, 0.62, math.max(borderAlpha or 0.45, 0.85))
-        end
-        return
-    end
     frame:SetBackdrop({ bgFile = WHITE, edgeFile = WHITE, edgeSize = 1 })
     frame:SetBackdropColor(Color(bg or c.panel, alpha or 0.92))
     frame:SetBackdropBorderColor(Color(c.gold, borderAlpha or 0.45))
@@ -199,11 +167,11 @@ function T.Panel(parent)
     return f
 end
 
--- Goldene Linie, die zu den Rändern hin ausläuft (im Design „Blizzard“ grau)
+-- Goldene Linie, die zu den Rändern hin ausläuft
 function T.GoldLine(parent, alpha)
     local f = CreateFrame("Frame", nil, parent)
     f:SetHeight(1)
-    local lc = T.skin.blizzard and { 0.6, 0.6, 0.6 } or c.gold
+    local lc = c.gold
     local left = f:CreateTexture(nil, "ARTWORK")
     left:SetPoint("TOPLEFT")
     left:SetPoint("BOTTOMRIGHT", f, "BOTTOM")
@@ -218,10 +186,10 @@ function T.GoldLine(parent, alpha)
 end
 
 -- Knöpfe: "primary" = goldene Fläche (wie „Discord beitreten“), sonst goldener Rahmen.
--- Im Design „Blizzard“ die roten Knöpfe des Spiels; "flat" bleibt eine schlichte Fläche (z. B. Quiz-Antworten,
+-- Im Design „Klassisch“ die roten Knöpfe des Spiels; "flat" bleibt eine schlichte Fläche (z. B. Quiz-Antworten,
 -- die sich grün oder rot färben).
 function T.Button(parent, text, width, style)
-    if T.skin.blizzard and style ~= "flat" then
+    if T.GameControls() and style ~= "flat" then
         local b = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate,BackdropTemplate")
         b:SetSize(width or 130, 26)
         b:SetText(text)
@@ -232,11 +200,7 @@ function T.Button(parent, text, width, style)
     end
     local b = CreateFrame("Button", nil, parent, "BackdropTemplate")
     b:SetSize(width or 130, 26)
-    if T.skin.blizzard then
-        T.Backdrop(b, c.ink, 0.35, 0.85)
-    else
-        b:SetBackdrop({ bgFile = WHITE, edgeFile = WHITE, edgeSize = 1 })
-    end
+    b:SetBackdrop({ bgFile = WHITE, edgeFile = WHITE, edgeSize = 1 })
     if style == "primary" then
         b:SetBackdropColor(Color(c.gold))
         b:SetBackdropBorderColor(Color(c.goldBright, 0.9))
@@ -332,7 +296,7 @@ function T.Checkbox(parent, label)
     b.box:SetSize(14, 14)
     b.box:SetPoint("LEFT")
     b.mark = b.box:CreateTexture(nil, "OVERLAY")
-    if T.skin.blizzard then
+    if T.GameControls() then
         -- Häkchen des Spiels
         local bg = b.box:CreateTexture(nil, "ARTWORK")
         bg:SetPoint("CENTER")
@@ -397,7 +361,7 @@ function T.Slider(parent, width, minValue, maxValue, step)
     s:SetOrientation("HORIZONTAL")
     s:SetSize(width or 160, 12)
     local thumb = s:CreateTexture(nil, "OVERLAY")
-    if T.skin.blizzard then
+    if T.GameControls() then
         -- Schieberegler des Spiels
         s:SetHeight(17)
         s:SetBackdrop({ bgFile = "Interface\\Buttons\\UI-SliderBar-Background", edgeFile = "Interface\\Buttons\\UI-SliderBar-Border",
