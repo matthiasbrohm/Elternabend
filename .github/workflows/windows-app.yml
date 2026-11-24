@@ -22,6 +22,27 @@ jobs:
       - name: App bauen
         run: dotnet build Windows-App/ElternabendAbgleich.csproj -c Release -o Windows-App/build/app
 
+      - name: Probestart (darf nicht abstürzen) und Bildschirmfoto
+        shell: pwsh
+        run: |
+          $p = Start-Process Windows-App/build/app/ElternabendAbgleich.exe -PassThru
+          Start-Sleep -Seconds 12
+          if ($p.HasExited) { throw "Die App hat sich sofort beendet (Exitcode $($p.ExitCode))" }
+          Add-Type -AssemblyName System.Windows.Forms, System.Drawing
+          $b = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+          $bild = New-Object System.Drawing.Bitmap $b.Width, $b.Height
+          $g = [System.Drawing.Graphics]::FromImage($bild)
+          $g.CopyFromScreen($b.Location, [System.Drawing.Point]::Empty, $b.Size)
+          New-Item -ItemType Directory -Force Windows-App/build/probe | Out-Null
+          $bild.Save("$PWD/Windows-App/build/probe/start.png")
+          Stop-Process $p -Force
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Probestart
+          path: Windows-App/build/probe/start.png
+          if-no-files-found: warn
+
       - name: ZIP packen
         shell: pwsh
         run: |
