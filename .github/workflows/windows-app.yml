@@ -1,0 +1,39 @@
+# Baut die Windows-App „Elternabend Abgleich“ (Ordner Windows-App) und legt sie als Artefakt ab.
+# Auslöser: Änderungen im Ordner Windows-App – oder von Hand unter „Actions → Windows-App bauen → Run workflow“.
+name: Windows-App bauen
+
+on:
+  push:
+    paths: ['Windows-App/**', '.github/workflows/windows-app.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  bauen:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Tests
+        run: dotnet run --project Windows-App/Tests -c Release
+
+      - name: App bauen
+        run: dotnet build Windows-App/ElternabendAbgleich.csproj -c Release -o Windows-App/build/app
+
+      - name: ZIP packen
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force Windows-App/build/zip | Out-Null
+          Copy-Item Windows-App/build/app/ElternabendAbgleich.exe Windows-App/build/zip/
+          Copy-Item Windows-App/build/app/ElternabendAbgleich.exe.config Windows-App/build/zip/ -ErrorAction SilentlyContinue
+          Copy-Item Windows-App/LIESMICH.md Windows-App/build/zip/LIESMICH.txt
+          Compress-Archive -Path Windows-App/build/zip/* -DestinationPath Windows-App/build/Elternabend-Abgleich-Windows.zip -Force
+          Get-ChildItem Windows-App/build/app
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Elternabend-Abgleich-Windows
+          path: Windows-App/build/Elternabend-Abgleich-Windows.zip
+          if-no-files-found: error
