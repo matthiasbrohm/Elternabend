@@ -139,7 +139,7 @@ test("Begrüßung: allein mit dem Schalter schreibt man die lange Begrüßung", 
     seen(w, "comm", "WELCOME")
     local chats = GuildChats(w)
     equal(#chats, 1)
-    check(chats[1] == "Willkommen bei Elternabend, Dealla Südwind. Stell dich gern kurz im Discord in #vorstellungsrunde vor: discord.gg/elternabend - Tipp: Unser Addon \"Elternabend\" (CurseForge/Wago) zeigt Raids, Berufe und Gruppen.", chats[1])
+    check(chats[1]:find("Dealla Südwind", 1, true) and chats[1]:find("discord.gg/elternabend", 1, true), chats[1])
     check(chats[1]:find("#vorstellungsrunde", 1, true) and #chats[1] <= 255, chats[1])
     w:advance(60)
     equal(#GuildChats(w), 1)
@@ -158,10 +158,13 @@ test("Begrüßung: wer die niedrigere Zahl hat, schreibt nach der langen nur kur
     w:advance(4)
     equal(#GuildChats(w), 0) -- Beta hat gewonnen: erst die lange abwarten
     w:fire("CHAT_MSG_GUILD", "Herzlich willkommen bei Elternabend, Dealla Südwind! … discord.gg/elternabend …", "Beta Lux")
+    -- Greta Glutherz war schneller mit dem ersten kurzen Text: dann nicht denselben noch einmal
+    w:fire("CHAT_MSG_GUILD", "Willkommen, Dealla Südwind!", "Greta Glutherz")
     w:advance(15)
     local chats = GuildChats(w)
     equal(#chats, 1)
     check(not chats[1]:find("discord", 1, true) and chats[1]:find("Dealla", 1, true), chats[1])
+    check(chats[1] ~= "Willkommen, Dealla Südwind!", "denselben Text wie Greta Glutherz geschrieben")
     noErrors(w)
 end)
 

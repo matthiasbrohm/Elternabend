@@ -14,9 +14,47 @@ local _, ns = ...
 local Welcome = { pending = {} }
 ns.Welcome = Welcome
 
-local LONG = "Willkommen bei Elternabend, %s. Stell dich gern kurz im Discord in #vorstellungsrunde vor: "
-    .. "discord.gg/elternabend - Tipp: Unser Addon \"Elternabend\" (CurseForge/Wago) zeigt Raids, Berufe und Gruppen."
-local SHORT = { "Willkommen, %s!", "Herzlich willkommen, %s :)", "Hallo %s, schön, dass du da bist!", "Willkommen bei uns, %s!" }
+-- Lange Begrüßung (einer schreibt sie): immer mit Name, Discord-Link, #vorstellungsrunde und Addon-Tipp.
+-- Muss „discord“ enthalten – daran erkennen die anderen Addons, dass sie schon im Chat steht.
+local LONG = {
+    "Willkommen bei Elternabend, %s. Stell dich gern kurz im Discord in #vorstellungsrunde vor: "
+        .. "discord.gg/elternabend - Tipp: Unser Addon \"Elternabend\" (CurseForge/Wago) zeigt Raids, Berufe und Gruppen.",
+    "Herzlich willkommen, %s! Magst du dich kurz im Discord in #vorstellungsrunde vorstellen? discord.gg/elternabend - "
+        .. "Unser Addon \"Elternabend\" (CurseForge/Wago) zeigt dir Raids, Berufe und Gruppen.",
+    "Hallo %s, schön, dass du beim Elternabend bist! Sag gern im Discord in #vorstellungsrunde kurz Hallo: "
+        .. "discord.gg/elternabend - Tipp: Das Addon \"Elternabend\" (CurseForge/Wago) hilft bei Raids, Berufen und Gruppen.",
+    "Willkommen in der Runde, %s! Die Kinder schlafen, die Helden erwachen. Stell dich gern im Discord in "
+        .. "#vorstellungsrunde vor: discord.gg/elternabend - Unser Addon \"Elternabend\" gibt es bei CurseForge/Wago.",
+    "Schön, dass du da bist, %s! Erster Punkt der Tagesordnung: kurz im Discord in #vorstellungsrunde vorstellen - "
+        .. "discord.gg/elternabend. Unser Addon \"Elternabend\" (CurseForge/Wago) zeigt Raids, Berufe und Gruppen.",
+    "Hallo %s und willkommen beim Elternabend! Wir freuen uns auf ein kurzes Hallo im Discord in #vorstellungsrunde: "
+        .. "discord.gg/elternabend - Tipp: Addon \"Elternabend\" bei CurseForge/Wago holen.",
+}
+-- Kurzes Willkommen (alle anderen) – ohne „discord“, sonst hielte man es für die lange Begrüßung
+local SHORT = {
+    "Willkommen, %s!",
+    "Herzlich willkommen, %s :)",
+    "Hallo %s, schön, dass du da bist!",
+    "Willkommen bei uns, %s!",
+    "Hey %s, schön, dich dabeizuhaben!",
+    "Willkommen beim Elternabend, %s – der Kaffee steht bereit!",
+    "Hallo %s! Die Kinder schlafen, die Helden erwachen – willkommen!",
+    "Moin %s, willkommen in der Runde!",
+    "Schön, dass du zu uns gefunden hast, %s!",
+    "Willkommen, %s! Setz dich, der Elternabend hat gerade angefangen.",
+    "Ein herzliches Hallo an %s!",
+    "Willkommen an Bord, %s :)",
+    "Hallo %s, fühl dich wie zu Hause!",
+    "Juhu, Verstärkung! Willkommen, %s!",
+    "Willkommen, %s – Fragen sind hier immer erlaubt!",
+    "Hallo %s! Schnapp dir einen Keks und mach es dir gemütlich.",
+    "Willkommen in der Familie, %s!",
+    "Na, wer ist denn da? Hallo %s, willkommen!",
+    "Willkommen, %s! Die Hausaufgaben sind gemacht, jetzt wird gespielt.",
+    "Grüß dich, %s, schön, dass du da bist!",
+    "Willkommen, %s! Psst, die Kleinen schlafen schon ;)",
+    "Hallo %s, willkommen beim Elternabend – Anwesenheit wird nicht kontrolliert :)",
+}
 local ROLL_WAIT = 3       -- so lange werden die Zufallszahlen gesammelt
 local SHORT_AFTER = 6     -- frühestens so lange nach dem Beitritt kommt ein kurzes Willkommen
 local FALLBACK = 25       -- lange Begrüßung nach so vielen Sekunden nicht gesehen: der Nächste schreibt sie
@@ -32,15 +70,28 @@ local function Display(name)
     return ns.ShortName(name) or name
 end
 
-function Welcome.LongText(name)
-    local text = LONG:format(Display(name))
-    if #text > 255 then text = LONG:format(Display(name):match("^(%S+)") or Display(name)) end
+-- Zufällige Vorlage; was im Gildenchat für diesen Neuen schon stand, nicht noch einmal
+local function Pick(list, name, seen)
+    local free = {}
+    for _, t in ipairs(list) do
+        if not (seen and seen[ns.Lower(t:format(name))]) then table.insert(free, t) end
+    end
+    if #free == 0 then free = list end
+    return free[math.random(1, #free)]
+end
+
+function Welcome.LongText(name, seen)
+    local template = Pick(LONG, Display(name), seen)
+    local text = template:format(Display(name))
+    if #text > 255 then text = template:format(Display(name):match("^(%S+)") or Display(name)) end
     return text
 end
 
-function Welcome.ShortText(name)
-    return SHORT[math.random(1, #SHORT)]:format(Display(name))
+function Welcome.ShortText(name, seen)
+    return Pick(SHORT, Display(name), seen):format(Display(name))
 end
+
+Welcome.LONG, Welcome.SHORT = LONG, SHORT -- für die Tests
 
 -- Beitritt aus der Systemmeldung lesen („%s ist der Gilde beigetreten.“ – Text des Spiels)
 local joinPattern
@@ -109,7 +160,7 @@ function Welcome:Queue(entry, long)
         -- inzwischen hat jemand anderes die lange geschrieben: dann doch nur kurz
         local useLong = long and not entry.seen
         entry.sent = true
-        ns.SendChat(useLong and Welcome.LongText(entry.name) or Welcome.ShortText(entry.name), "GUILD")
+        ns.SendChat(useLong and Welcome.LongText(entry.name, entry.texts) or Welcome.ShortText(entry.name, entry.texts), "GUILD")
     end)
 end
 
@@ -146,6 +197,11 @@ end)
 ns:On("CHAT_MSG_GUILD", function(msg)
     if type(msg) ~= "string" or ns.IsSecret(msg) or not next(Welcome.pending) then return end
     local lower = ns.Lower(msg)
+    -- Was die anderen schon geschrieben haben, merken – dann wählt man selbst einen anderen Text
+    for _, entry in pairs(Welcome.pending) do
+        entry.texts = entry.texts or {}
+        entry.texts[lower] = true
+    end
     if not lower:find("discord", 1, true) then return end
     for _, entry in pairs(Welcome.pending) do
         local first = ns.Lower(Display(entry.name):match("^(%S+)") or "")
