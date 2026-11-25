@@ -1,7 +1,7 @@
 -- Elternabend: Neue Gildenmitglieder im Gildenchat begrüßen
 --
--- Tritt jemand der Gilde bei, schreibt genau einer die lange Begrüßung mit Vorstellungsrunde,
--- Discord und Addon-Tipp – alle anderen danach nur ein kurzes „Willkommen“. Standardmäßig aus,
+-- Tritt jemand der Gilde bei, schreibt genau einer die Begrüßung mit Vorstellungsrunde, Discord und
+-- Addon-Tipp – alle anderen schreiben nichts (ein „Willkommen“ von 15 Leuten war zu viel). Standardmäßig aus,
 -- denn das Addon schreibt hier in deinem Namen (Einstellungen » „Neue Gildenmitglieder begrüßen“).
 --
 -- Wer die lange schreibt, losen die Addons unsichtbar aus: Beim Beitritt schickt jeder mit
@@ -30,33 +30,7 @@ local LONG = {
     "Hallo %s und willkommen beim Elternabend! Wir freuen uns auf ein kurzes Hallo im Discord in #vorstellungsrunde: "
         .. "discord.gg/elternabend - Tipp: Addon \"Elternabend\" bei CurseForge/Wago holen.",
 }
--- Kurzes Willkommen (alle anderen) – ohne „discord“, sonst hielte man es für die lange Begrüßung
-local SHORT = {
-    "Willkommen, %s!",
-    "Herzlich willkommen, %s :)",
-    "Hallo %s, schön, dass du da bist!",
-    "Willkommen bei uns, %s!",
-    "Hey %s, schön, dich dabeizuhaben!",
-    "Willkommen beim Elternabend, %s – der Kaffee steht bereit!",
-    "Hallo %s! Die Kinder schlafen, die Helden erwachen – willkommen!",
-    "Moin %s, willkommen in der Runde!",
-    "Schön, dass du zu uns gefunden hast, %s!",
-    "Willkommen, %s! Setz dich, der Elternabend hat gerade angefangen.",
-    "Ein herzliches Hallo an %s!",
-    "Willkommen an Bord, %s :)",
-    "Hallo %s, fühl dich wie zu Hause!",
-    "Juhu, Verstärkung! Willkommen, %s!",
-    "Willkommen, %s – Fragen sind hier immer erlaubt!",
-    "Hallo %s! Schnapp dir einen Keks und mach es dir gemütlich.",
-    "Willkommen in der Familie, %s!",
-    "Na, wer ist denn da? Hallo %s, willkommen!",
-    "Willkommen, %s! Die Hausaufgaben sind gemacht, jetzt wird gespielt.",
-    "Grüß dich, %s, schön, dass du da bist!",
-    "Willkommen, %s! Psst, die Kleinen schlafen schon ;)",
-    "Hallo %s, willkommen beim Elternabend – Anwesenheit wird nicht kontrolliert :)",
-}
 local ROLL_WAIT = 3       -- so lange werden die Zufallszahlen gesammelt
-local SHORT_AFTER = 6     -- frühestens so lange nach dem Beitritt kommt ein kurzes Willkommen
 local FALLBACK = 25       -- lange Begrüßung nach so vielen Sekunden nicht gesehen: der Nächste schreibt sie
 local GIVE_UP = 180       -- so lange nach dem Beitritt ist es zu spät
 local AWAY = 120          -- so lange ohne Eingabe: nicht an der Tastatur, nicht mitlosen
@@ -70,28 +44,14 @@ local function Display(name)
     return ns.ShortName(name) or name
 end
 
--- Zufällige Vorlage; was im Gildenchat für diesen Neuen schon stand, nicht noch einmal
-local function Pick(list, name, seen)
-    local free = {}
-    for _, t in ipairs(list) do
-        if not (seen and seen[ns.Lower(t:format(name))]) then table.insert(free, t) end
-    end
-    if #free == 0 then free = list end
-    return free[math.random(1, #free)]
-end
-
-function Welcome.LongText(name, seen)
-    local template = Pick(LONG, Display(name), seen)
+function Welcome.LongText(name)
+    local template = LONG[math.random(1, #LONG)]
     local text = template:format(Display(name))
     if #text > 255 then text = template:format(Display(name):match("^(%S+)") or Display(name)) end
     return text
 end
 
-function Welcome.ShortText(name, seen)
-    return Pick(SHORT, Display(name), seen):format(Display(name))
-end
-
-Welcome.LONG, Welcome.SHORT = LONG, SHORT -- für die Tests
+Welcome.LONG = LONG -- für die Tests
 
 -- Beitritt aus der Systemmeldung lesen („%s ist der Gilde beigetreten.“ – Text des Spiels)
 local joinPattern
@@ -135,33 +95,27 @@ function Welcome:Decide(key)
     local entry = self.pending[key]
     if not entry or entry.sent then return end
     entry.decided = true
+    if entry.seen then return end -- steht schon im Chat
     local place = Place(entry)
-    if place == 1 and not entry.seen then
-        self:Queue(entry, true)
-    elseif entry.seen then
-        self:Queue(entry, false)
+    if place == 1 then
+        self:Queue(entry)
     else
-        -- Warten, bis die lange Begrüßung im Chat steht; bleibt sie aus, ist der Nächste dran
+        -- Warten, bis die Begrüßung im Chat steht; bleibt sie aus, ist der Nächste dran
         local wait = place and (FALLBACK * (place - 1)) or (FALLBACK * 3)
-        C_Timer.After(math.max(SHORT_AFTER, wait), function()
+        C_Timer.After(wait, function()
             local e = self.pending[key]
-            if not e or e.sent or e.queued then return end
-            self:Queue(e, not e.seen)
+            if not e or e.sent or e.queued or e.seen then return end
+            self:Queue(e)
         end)
     end
 end
 
-function Welcome:Queue(entry, long)
+function Welcome:Queue(entry)
     if entry.queued then return end
     entry.queued = true
-    local delay = long and 0 or math.max(0, SHORT_AFTER - (GetTime() - entry.joined)) + math.random() * 4
-    C_Timer.After(delay, function()
-        if entry.sent or GetTime() - entry.joined > GIVE_UP then return end
-        -- inzwischen hat jemand anderes die lange geschrieben: dann doch nur kurz
-        local useLong = long and not entry.seen
-        entry.sent = true
-        ns.SendChat(useLong and Welcome.LongText(entry.name, entry.texts) or Welcome.ShortText(entry.name, entry.texts), "GUILD")
-    end)
+    if entry.sent or entry.seen or GetTime() - entry.joined > GIVE_UP then return end
+    entry.sent = true
+    ns.SendChat(Welcome.LongText(entry.name), "GUILD")
 end
 
 ns.Comm.handlers.WELCOME = function(sender, parts)
@@ -193,22 +147,13 @@ ns:On("CHAT_MSG_SYSTEM", function(msg)
     end
 end)
 
--- Steht die lange Begrüßung im Gildenchat? (Name und „discord“ in einer Zeile)
+-- Steht die Begrüßung im Gildenchat? (Name und „discord“ in einer Zeile) Dann schreibt sonst keiner mehr.
 ns:On("CHAT_MSG_GUILD", function(msg)
     if type(msg) ~= "string" or ns.IsSecret(msg) or not next(Welcome.pending) then return end
     local lower = ns.Lower(msg)
-    -- Was die anderen schon geschrieben haben, merken – dann wählt man selbst einen anderen Text
-    for _, entry in pairs(Welcome.pending) do
-        entry.texts = entry.texts or {}
-        entry.texts[lower] = true
-    end
     if not lower:find("discord", 1, true) then return end
     for _, entry in pairs(Welcome.pending) do
         local first = ns.Lower(Display(entry.name):match("^(%S+)") or "")
-        if first ~= "" and lower:find(first, 1, true) then
-            entry.seen = true
-            -- schon ausgelost und nicht dran: jetzt das kurze Willkommen hinterher
-            if entry.decided and not entry.queued then Welcome:Queue(entry, false) end
-        end
+        if first ~= "" and lower:find(first, 1, true) then entry.seen = true end
     end
 end)
