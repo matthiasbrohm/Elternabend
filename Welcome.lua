@@ -11,7 +11,7 @@
 -- Gesendet wird über ns.SendChat (Core.lua): direkt, und falls das Spiel das blockiert, mit der nächsten Eingabe.
 local _, ns = ...
 
-local Welcome = { pending = {} }
+local Welcome = { pending = {}, twinks = {} }
 ns.Welcome = Welcome
 
 -- Lange Begrüßung (einer schreibt sie): immer mit Name, Discord-Link, #vorstellungsrunde und Addon-Tipp.
@@ -63,10 +63,26 @@ local function JoinPattern()
     return joinPattern
 end
 
+-- Twinks bekommen keine Begrüßung für neue Spieler. Bescheid kommt bei der Anfrage vom Einladenden und
+-- nach dem Beitritt vom Twink selbst (Addon-Nachricht TWK), dazu seine Zeile „… ein neuer Twink …“ im Gildenchat.
+local TWINK_TTL = 3600
+function Welcome:MarkTwink(name)
+    local key = ns.NameKey(name)
+    if not key then return end
+    self.twinks[key] = time()
+    local entry = self.pending[key]
+    if entry then entry.seen = true end
+end
+
+function Welcome:IsTwink(key)
+    local t = key and self.twinks[key]
+    return t ~= nil and time() - t < TWINK_TTL
+end
+
 function Welcome:Joined(name)
     if not self:Enabled() or not name or ns.IsSecret(name) or ns.SameName(name, ns.UnitFullName("player")) then return end
     local key = ns.NameKey(name)
-    if not key or self.pending[key] then return end
+    if not key or self.pending[key] or self:IsTwink(key) then return end
     local now = GetTime()
     local entry = { name = name, joined = now, rolls = {} }
     self.pending[key] = entry
@@ -114,8 +130,13 @@ function Welcome:Queue(entry)
     if entry.queued then return end
     entry.queued = true
     if entry.sent or entry.seen or GetTime() - entry.joined > GIVE_UP then return end
+    if self:IsTwink(ns.NameKey(entry.name)) then return end
     entry.sent = true
     ns.SendChat(Welcome.LongText(entry.name), "GUILD")
+end
+
+ns.Comm.handlers.TWK = function(_, parts)
+    if parts[2] and parts[2] ~= "" then Welcome:MarkTwink(parts[2]) end
 end
 
 ns.Comm.handlers.WELCOME = function(sender, parts)
@@ -148,9 +169,14 @@ ns:On("CHAT_MSG_SYSTEM", function(msg)
 end)
 
 -- Steht die Begrüßung im Gildenchat? (Name und „discord“ in einer Zeile) Dann schreibt sonst keiner mehr.
-ns:On("CHAT_MSG_GUILD", function(msg)
+ns:On("CHAT_MSG_GUILD", function(msg, sender)
     if type(msg) ~= "string" or ns.IsSecret(msg) or not next(Welcome.pending) then return end
     local lower = ns.Lower(msg)
+    -- Der Neue schreibt selbst „ich bin ein neuer Twink“: keine Begrüßung
+    if type(sender) == "string" and not ns.IsSecret(sender) and lower:find("twink", 1, true) then
+        local key = ns.NameKey(sender)
+        if key and Welcome.pending[key] then Welcome:MarkTwink(sender) end
+    end
     if not lower:find("discord", 1, true) then return end
     for _, entry in pairs(Welcome.pending) do
         local first = ns.Lower(Display(entry.name):match("^(%S+)") or "")

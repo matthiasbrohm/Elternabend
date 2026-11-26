@@ -14,6 +14,11 @@
 -- Wer gerade offline ist, bekommt nichts; die Meldung „Kein Spieler namens …“ wird
 -- ausgeblendet und gezählt.
 --
+-- Twinks: Nach dem ersten Klick wählt man „Ich bin neu“ oder „Ich bin ein Twink“ (Idee von Phillipp).
+-- Ein Twink schickt „ginv twink <Main>“ statt „ginv“. Den Main kennt das Addon aus den eigenen Charakteren
+-- (accountweit gespeichert: wer schon in der Gilde ist). Nach dem Beitritt meldet sich der Twink selbst:
+-- Zuordnung zum Main für alle und eine Zeile im Gildenchat – und die Begrüßung für Neue bleibt aus.
+--
 --   JOINREQ            Anfragender → Kanal
 --   JOINACK            Einladender → Anfragender (Flüstern): „Anfrage ist angekommen“
 --   JOINDONE \t Name    Einladender → Kanal: erledigt, bei den anderen entfernen
@@ -155,10 +160,11 @@ end
 -- Versehen eine Anfrage an die ganze Gilde schicken. Erster Klick fragt nach, der zweite sendet.
 local CONFIRM_SECONDS = 15
 
-function Join:Click()
+-- twink: beim zweiten Klick „Ich bin ein Twink“ (true) oder „Ich bin neu“ (false)
+function Join:Click(twink)
     if self.confirmAt and GetTime() - self.confirmAt < CONFIRM_SECONDS then
         self.confirmAt = nil
-        self:Request()
+        self:Request(twink)
         return
     end
     self.confirmAt = GetTime()
@@ -174,11 +180,37 @@ function Join:Click()
     end)
 end
 
-function Join:Request()
+-- Main für einen Twink: eigene Charaktere (accountweit), die schon in der Gilde sind.
+-- Vorrang hat der als Main gewählte, sonst der mit der höchsten Stufe.
+function Join:GuessMain()
+    local me = ns.PlayerKey()
+    local best
+    for key, c in pairs(ns.db.myChars or {}) do
+        if key ~= me and c.guild and ns.Info.GUILD_NAMES[c.guild] then
+            if key == ns.db.myMain then return c.name end
+            if not best or (c.level or 0) > (best.level or 0) then best = c end
+        end
+    end
+    return best and best.name or nil
+end
+
+-- Was geflüstert und in den Kanal geschrieben wird
+function Join:RequestText()
+    local want = ns.db.joinAs and ns.db.joinAs[ns.PlayerKey()]
+    if want and want.twink then
+        return self.KEYWORD .. " twink" .. (want.main and (" " .. want.main) or "")
+    end
+    return self.KEYWORD
+end
+
+function Join:Request(twink)
     if IsInGuild() then
         ns.Print("Du bist schon in einer Gilde.")
         return
     end
+    -- Merken (auch über einen Neustart hinweg): nach dem Beitritt meldet sich ein Twink selbst
+    ns.db.joinAs = ns.db.joinAs or {}
+    ns.db.joinAs[ns.PlayerKey()] = { twink = twink and true or false, main = twink and self:GuessMain() or nil, t = time() }
     wipe(self.acks)
     self.state = "sending"
     self:StayFor(REQUEST_STAY)
@@ -192,7 +224,7 @@ function Join:Request()
     self.posted = false
     local id = self:ChannelId()
     if id then
-        local ok = pcall(C_ChatInfo.SendChatMessage, Join.CHANNEL_TEXT, "CHANNEL", nil, id)
+        local ok = pcall(C_ChatInfo.SendChatMessage, self:RequestText(), "CHANNEL", nil, id)
         self.posted = ok
         -- Alter Weg als Addon-Nachricht (für ältere Addon-Versionen)
         ns.Comm:Send("JOINREQ", ns.UnitFullName("player"), "CHANNEL", id)
@@ -219,11 +251,12 @@ end
 function Join:WhisperInviters()
     self.whispered, self.offline = {}, {}
     local me = ns.PlayerKey()
+    local text = self:RequestText()
     for _, name in ipairs(self.INVITERS) do
         local key = ns.NameKey(name)
         if key and key ~= me then
             self.whispered[key] = name
-            ns.WhenChatFree(function() C_ChatInfo.SendChatMessage(self.KEYWORD, "WHISPER", nil, name) end)
+            ns.WhenChatFree(function() C_ChatInfo.SendChatMessage(text, "WHISPER", nil, name) end)
         end
     end
 end
@@ -266,7 +299,8 @@ end
 function Join:StatusText()
     local n = math.max(self:AckCount(), self:ReachedCount())
     if self.state == "confirm" then
-        return "Möchtest du der Gilde Elternabend beitreten? Dann klick nochmal auf den Knopf."
+        local main = self:GuessMain()
+        return "Bist du neu bei uns oder ein Twink" .. (main and (" (z. B. von " .. ns.ShortName(main) .. ")") or "") .. "?"
     elseif self.state == "sending" then
         return "Anfrage wird gesendet …"
     elseif self.state == "sent" then
@@ -297,9 +331,13 @@ ns:On("CHAT_MSG_CHANNEL", function(text, sender, _, channelName, _, _, _, _, cha
     if ns.IsSecret(text) or ns.IsSecret(sender) or type(text) ~= "string" or not sender then return end
     local inChannel = channelBaseName == CHANNEL
         or (type(channelName) == "string" and not ns.IsSecret(channelName) and channelName:find(CHANNEL, 1, true))
-    if not inChannel or ns.Lower(strtrim(text)) ~= Join.CHANNEL_TEXT then return end
+    if not inChannel then return end
+    local lower = ns.Lower(strtrim(text))
+    local twink = lower:sub(1, #Join.CHANNEL_TEXT + 6) == Join.CHANNEL_TEXT .. " twink"
+    if lower ~= Join.CHANNEL_TEXT and not twink then return end
     if ns.SameName(sender, ns.PlayerKey()) or not Join:CanReceive() then return end
-    ns.Recruit:Request(sender, "Addon")
+    local main = twink and strtrim(strtrim(text):sub(#Join.CHANNEL_TEXT + 7)) or ""
+    ns.Recruit:Request(sender, "Addon", twink, main ~= "" and main or nil)
 end)
 
 -- Ein anderer Einladender war schneller: Anfrage hier entfernen
@@ -313,14 +351,43 @@ function Join:Done(name)
     if id then ns.Comm:Send("JOINDONE", name, "CHANNEL", id) end
 end
 
+-- Nach dem Beitritt: Als Twink selbst melden – Zuordnung zum Main für alle (wie „Das sind meine
+-- Charaktere“) und eine kurze Zeile im Gildenchat. Neue Spieler: nichts, die Begrüßung kommt von der Gilde.
+local JOIN_AS_TTL = 7 * 24 * 3600
+function Join:AfterJoin()
+    local me = ns.PlayerKey()
+    local want = ns.db.joinAs and me and ns.db.joinAs[me]
+    if not want then return end
+    if not GetGuildInfo("player") then
+        -- Gildenname ist direkt nach dem Beitritt manchmal noch nicht da: gleich nochmal
+        self.retries = (self.retries or 0) + 1
+        if self.retries <= 5 then C_Timer.After(3, function() Join:AfterJoin() end) end
+        return
+    end
+    if not ns.Info:IsOurGuild() then return end
+    ns.db.joinAs[me] = nil
+    if not want.twink or time() - (want.t or 0) > JOIN_AS_TTL then return end
+    local name = ns.UnitFullName("player")
+    ns.Comm:Send("TWK", name .. "\t" .. (want.main or ""), "GUILD")
+    if want.main then ns.Members:LinkMeAsTwink(want.main) end
+    ns.SendChat(want.main and ("Hallo zusammen, ich bin ein neuer Twink von " .. ns.ShortName(want.main) .. ".")
+        or "Hallo zusammen, ich bin ein neuer Twink.", "GUILD")
+end
+
 -- Events -----------------------------------------------------------------------
-ns:On("PLAYER_LOGIN", function() C_Timer.After(10, function() Join:UpdateMembership() end) end)
+ns:On("PLAYER_LOGIN", function()
+    C_Timer.After(10, function()
+        Join:UpdateMembership()
+        if IsInGuild() then Join:AfterJoin() end -- Einladung angenommen, aber gleich ausgeloggt
+    end)
+end)
 ns:On("PLAYER_GUILD_UPDATE", function()
     C_Timer.After(2, function()
         if IsInGuild() and Join.state then
             Join.state = nil -- Beitritt geklappt
             ns:Fire("JOIN_UPDATE")
         end
+        if IsInGuild() then Join:AfterJoin() end
         Join:UpdateMembership()
     end)
 end)

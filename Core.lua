@@ -39,6 +39,7 @@ local defaults = {
     welcomeSeen = {}, -- Begrüßung schon gezeigt (pro Charakter)
     professions = {}, -- Berufe und Rezepte der Gilde (eigene und empfangene)
     myChars = {},     -- eigene Charaktere auf diesem Account
+    joinAs = {},      -- [Charakter] = { twink, main, t }: so beim Knopf „Der Gilde beitreten“ angefragt
     myMain = nil,     -- Schlüssel des eigenen Mains
     memberSuggestions = {}, -- alt (bis 4.5): Twink-Vorschläge für Offiziere
     guildlog = {},    -- Gildenchronik für die Leitung: Gildenname -> { snapshot, events, since }
@@ -405,8 +406,6 @@ ns.OPTIONS = {
         manual = true, -- schreibt in deinem Namen: nur von Hand einschalten, nie über „Alles an“
         get = function() return ns.db.settings.welcome == true end,
         set = function(on) ns.db.settings.welcome = on end },
-    { key = "inviteTwink", label = "Nach einer Gildeneinladung fragen: neuer Spieler oder Twink?",
-        hint = "dann muss die Leitung nicht nachfragen" },
     { key = "awayChat", label = "„Kind wach“ zusätzlich in den Gruppenchat schreiben",
         hint = "für Mitspieler ohne Addon",
         get = function() return ns.db.away.announce end,
@@ -717,10 +716,6 @@ SlashCmdList.ELTERNABENDRAID = function(input)
         ns.DKP:Bid(rest)
     elseif cmd == "dkp" then
         ns.DKP:PrintAll()
-    elseif cmd == "neu" or cmd == "twink" then
-        -- Neues Mitglied nachträglich als neuen Spieler oder Twink markieren: /ea twink Clemens Dunkelklinge
-        if rest and strtrim(rest) ~= "" then ns.UI:ShowInviteTwink(strtrim(rest))
-        else ns.Print("So geht's: /ea twink <Name> – fragt „neuer Spieler oder Twink?“ wie nach einer Einladung.") end
     elseif cmd == "größe" or cmd == "groesse" or cmd == "grösse" or cmd == "size" then
         if tonumber(rest) then ns.UI:SetWindowScale(tonumber(rest)) end
         ns.Print("Fenstergröße: " .. ns.UI:WindowScale() .. " % (ändern mit /ea größe 80, Strg + Mausrad über dem Kopf des Fensters oder unter „Einstellungen“)")

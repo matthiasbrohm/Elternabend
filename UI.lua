@@ -670,7 +670,12 @@ function UI:CreateStartPanel()
     -- Noch nicht in der Gilde: ein Klick schickt die Beitrittsanfrage an alle Einladenden
     p.joinBtn = T.Button(motd, "Der Gilde beitreten", 170, "primary")
     p.joinBtn:SetPoint("RIGHT", -16, -6)
-    p.joinBtn:SetScript("OnClick", function() ns.Join:Click() end)
+    p.joinBtn:SetScript("OnClick", function() ns.Join:Click(false) end)
+    -- Nach dem ersten Klick: „Ich bin neu“ (Knopf oben) oder „Ich bin ein Twink“ (dieser Knopf)
+    p.joinTwinkBtn = T.Button(motd, "Ich bin ein Twink", 170)
+    p.joinTwinkBtn:SetPoint("TOP", p.joinBtn, "BOTTOM", 0, -4)
+    p.joinTwinkBtn:SetScript("OnClick", function() ns.Join:Click(true) end)
+    p.joinTwinkBtn:Hide()
     -- Notlösung zum Kopieren, falls gerade niemand erreichbar ist: „/w Name ginv“
     p.joinCopy = T.EditBox(motd, leftWidth - 32 - 186)
     p.joinCopy:HookScript("OnEditFocusGained", function(self) self:HighlightText() end)
@@ -911,6 +916,7 @@ function UI:CreateStartPanel()
             p.motdEdit:SetShown(ns.Info:IsOurGuild() and UI.CanEditMOTD())
             p.motd:Hide()
             p.joinBtn:Hide()
+            p.joinTwinkBtn:Hide()
             p.joinCopy:Hide()
         else
             p.about:SetBody(G.about)
@@ -930,9 +936,13 @@ function UI:CreateStartPanel()
             end
             p.joinCopy:SetShown(fallback and true or false)
             p.motd:SetHeight(fallback and 16 or 40)
+            local confirm = ns.Join.state == "confirm"
             p.joinBtn:Show()
-            p.joinBtn:SetText(ns.Join.state == "confirm" and "Ja, beitreten" or "Der Gilde beitreten")
+            p.joinBtn:ClearAllPoints()
+            p.joinBtn:SetPoint("RIGHT", -16, confirm and 9 or -6)
+            p.joinBtn:SetText(confirm and "Ich bin neu" or "Der Gilde beitreten")
             p.joinBtn:SetEnabled(ns.Join.state ~= "sending")
+            p.joinTwinkBtn:SetShown(confirm)
         end
 
         local plan = ns.db.plan
@@ -3447,7 +3457,7 @@ end
 
 -- Reiter: Gilde (Flüster-Einladung) -------------------------------------------
 local RECRUIT_COLORS = {
-    angefragt = "goldBright", ["angefragt (Addon)"] = "goldBright", eingeladen = "cream", beigetreten = "green",
+    angefragt = "goldBright", ["angefragt (Addon)"] = "goldBright", ["angefragt (Twink)"] = "goldBright", eingeladen = "cream", beigetreten = "green",
     abgelehnt = "red", verworfen = "dim", ["schon in einer Gilde"] = "orange",
 }
 
@@ -3575,7 +3585,7 @@ function UI:CreateGuildPanel()
         local rows, pending = {}, {}
         for _, q in ipairs(queue) do
             pending[q.key] = true
-            table.insert(rows, { name = q.name, time = q.time, status = "angefragt", pending = true })
+            table.insert(rows, { name = q.name, time = q.time, status = q.twink and "angefragt (Twink)" or "angefragt", pending = true })
         end
         for _, e in ipairs(s.log) do
             if not pending[e.key] then table.insert(rows, e) end
@@ -3687,7 +3697,12 @@ function UI:UpdateRecruitToast(focusName)
     if t.dismissedKey and queue[#queue].key == t.dismissedKey then return end
     t.dismissedKey = nil
     local target = focusName or queue[1].name
-    t.name:SetText(ns.ShortName(target) .. " möchte in die Gilde")
+    local entry
+    for _, q in ipairs(queue) do
+        if ns.SameName(q.name, target) then entry = q break end
+    end
+    t.name:SetText(ns.ShortName(target) .. (entry and entry.twink
+        and (" (Twink" .. (entry.main and (" von " .. ns.ShortName(entry.main)) or "") .. ")") or "") .. " möchte in die Gilde")
     local cmd = ns.Recruit:Command(target)
     if t.cmdBox.value ~= cmd then
         t.cmdBox.value = cmd
@@ -6025,7 +6040,7 @@ function UI:ShowMainPicker(e)
         d.more:SetPoint("BOTTOMLEFT", 20, 14)
 
         function d.Pick(main)
-            if d.entry.onPick then d.entry.onPick(main) else M:SetLink(d.entry.name, main.name) end
+            M:SetLink(d.entry.name, main.name)
             d:Hide()
         end
 
@@ -6068,72 +6083,6 @@ function UI:ShowMainPicker(e)
     d:Fill()
     d:Show()
     d.search:SetFocus()
-end
-
--- Nach einer Gildeneinladung: neuer Spieler oder Twink? -----------------------------
-function UI:ShowInviteTwink(name)
-    local d = self.inviteTwink
-    if not d then
-        local c = T.colors
-        d = CreateFrame("Frame", "ElternabendInviteTwink", UIParent, "BackdropTemplate")
-        d:SetSize(460, 132)
-        d:SetPoint("TOP", 0, -140)
-        d:SetFrameStrata("DIALOG")
-        d:SetToplevel(true)
-        d:SetMovable(true)
-        d:EnableMouse(true)
-        d:RegisterForDrag("LeftButton")
-        d:SetScript("OnDragStart", d.StartMoving)
-        d:SetScript("OnDragStop", d.StopMovingOrSizing)
-        T.Backdrop(d, c.navy, 0.98, 0.7)
-        tinsert(UISpecialFrames, "ElternabendInviteTwink")
-        local kicker = T.Text(d, "kicker")
-        kicker:SetPoint("TOPLEFT", 18, -16)
-        kicker:SetText("GILDENEINLADUNG")
-        d.title = T.Text(d, "heading")
-        d.title:SetPoint("TOPLEFT", kicker, "BOTTOMLEFT", 0, -6)
-        d.title:SetPoint("RIGHT", -50, 0)
-        d.title:SetWordWrap(false)
-        local close = T.Button(d, "X", 26)
-        close:SetPoint("TOPRIGHT", -12, -12)
-        close:SetScript("OnClick", function() d:Hide() end)
-        d.neu = T.Button(d, "Neuer Spieler", 130)
-        d.neu:SetPoint("BOTTOMLEFT", 18, 16)
-        d.neu:SetScript("OnClick", function() ns.Recruit:Mark(d.name, "neu") d:Hide() end)
-        d.mein = T.Button(d, "Mein Twink", 130)
-        d.mein:SetPoint("LEFT", d.neu, "RIGHT", 10, 0)
-        d.mein:SetScript("OnClick", function() ns.Recruit:Mark(d.name, "mein") d:Hide() end)
-        d.von = T.Button(d, "Twink von …", 130)
-        d.von:SetPoint("LEFT", d.mein, "RIGHT", 10, 0)
-        d.von:SetScript("OnClick", function()
-            local who = d.name
-            d:Hide()
-            UI:ShowMainPicker({ name = who, display = ns.ShortName(who), key = ns.NameKey(who), twinks = {},
-                onPick = function(main) ns.Recruit:Mark(who, "von", main.name) end })
-        end)
-        d:SetScript("OnUpdate", function(self)
-            if self.until_ and GetTime() > self.until_ then self:Hide() end
-        end)
-        self.inviteTwink = d
-    end
-    d.name = name
-    d.until_ = GetTime() + 120
-    d.title:SetText(T.Hex("goldBright", ns.ShortName(name)) .. T.Hex("muted", " – neuer Spieler oder Twink?"))
-    -- Eigenen Twink melden geht nur vom Main aus; „Twink von …“ nur für die Leitung
-    local officer = ns.Board:AmOfficer()
-    local mine = not ns.Members:IAmTwink()
-    d.mein:SetShown(mine)
-    d.von:SetShown(officer)
-    d.neu:SetShown(officer or mine)
-    if not officer and not mine then return end
-    d.von:ClearAllPoints()
-    d.von:SetPoint("LEFT", mine and d.mein or d.neu, "RIGHT", 10, 0)
-    d:Show()
-end
-
-function UI:HideInviteTwink(name)
-    local d = self.inviteTwink
-    if d and d:IsShown() and ns.SameName(d.name, name) then d:Hide() end
 end
 
 -- Design wählen ------------------------------------------------------------------

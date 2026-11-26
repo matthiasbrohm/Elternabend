@@ -35,16 +35,10 @@ local function Pattern(fmt)
     return "^" .. fmt .. "$"
 end
 
--- Suchmuster erst bei Bedarf bauen (die Texte des Spiels sind dann sicher geladen)
-local JOINED, INVITED, DECLINED, ALREADY
-local function Patterns()
-    if JOINED == nil then
-        JOINED = Pattern(ERR_GUILD_JOIN_S) or false
-        INVITED = Pattern(ERR_GUILD_INVITE_S) or false -- „Ihr habt %s eingeladen …“ – auch über das Gildenfenster
-        DECLINED = Pattern(ERR_GUILD_DECLINE_S) or false
-        ALREADY = Pattern(ERR_ALREADY_IN_GUILD_S) or false
-    end
-end
+local JOINED = Pattern(ERR_GUILD_JOIN_S)
+local INVITED = Pattern(ERR_GUILD_INVITE_S) -- „Ihr habt %s eingeladen …“ – auch bei Einladungen über das Gildenfenster
+local DECLINED = Pattern(ERR_GUILD_DECLINE_S)
+local ALREADY = Pattern(ERR_ALREADY_IN_GUILD_S)
 
 -- Erkennen -------------------------------------------------------------------
 function Recruit:Keywords()
@@ -61,17 +55,35 @@ local FILLER = { bitte = true, pls = true, plz = true, please = true, danke = tr
 
 -- Zählt, wenn die Nachricht ein Stichwort ist, höchstens mit Höflichkeit dahinter („ginv“, „ginv bitte“,
 -- „Ginv!“, „gilde?“). „Gilde heute Abend?“ ist dagegen ein Satz über die Gilde, keine Anfrage.
-function Recruit:Matches(msg)
-    local words = {}
-    for word in ns.Lower(strtrim(msg)):gmatch("%S+") do
-        word = word:gsub("^%p+", ""):gsub("%p+$", "")
-        if word ~= "" then table.insert(words, word) end
+--
+-- Twinks schreiben „ginv twink“, gern mit ihrem Main dahinter („ginv twink Beta Lux“) – so schickt es auch
+-- der Knopf „Der Gilde beitreten“, wenn man „Ich bin ein Twink“ wählt.
+-- Liefert: Anfrage?, Twink?, Main (oder nil)
+function Recruit:Parse(msg)
+    if type(msg) ~= "string" then return false end
+    local words, raw = {}, {}
+    for word in strtrim(msg):gmatch("%S+") do
+        local clean = word:gsub("^%p+", ""):gsub("%p+$", "")
+        if clean ~= "" then
+            table.insert(words, ns.Lower(clean))
+            table.insert(raw, clean)
+        end
     end
     if not words[1] or not self:Keywords()[words[1]] then return false end
+    if words[2] == "twink" then
+        local i = 3
+        if words[i] == "von" then i = i + 1 end
+        local main = table.concat(raw, " ", i)
+        return true, true, main ~= "" and main or nil
+    end
     for i = 2, #words do
         if not FILLER[words[i]] then return false end
     end
-    return true
+    return true, false
+end
+
+function Recruit:Matches(msg)
+    return (self:Parse(msg))
 end
 
 -- Verlauf ----------------------------------------------------------------------
@@ -133,12 +145,20 @@ function Recruit:SetPopup(on)
 end
 
 -- source: nil = per Flüstern, "Addon" = Knopf „Der Gilde beitreten“.
+-- twink/main: Die Person hat „Ich bin ein Twink“ gewählt (oder „ginv twink …“ geflüstert).
 -- Liefert true, wenn die Anfrage in der Warteschlange steht.
-function Recruit:Request(sender, source)
+function Recruit:Request(sender, source, twink, main)
     local key = ns.NameKey(sender)
     if not key then return end
+    if twink then self:Twink(sender, main) end
     for _, q in ipairs(self.queue) do
-        if ns.SameName(q.key, key) then return true end
+        if ns.SameName(q.key, key) then
+            if twink and not q.twink then
+                q.twink, q.main = true, main
+                ns:Fire("RECRUIT_UPDATE")
+            end
+            return true
+        end
     end
     local now = GetTime()
     if self.recent[key] and now - self.recent[key] < REPEAT_SECONDS then return end
@@ -152,10 +172,24 @@ function Recruit:Request(sender, source)
         Whisper(sender, "Du bist schon in der Gilde Elternabend. :)")
         return
     end
-    table.insert(self.queue, { name = sender, key = key, time = time(), source = source })
-    self:Log(sender, source and ("angefragt (" .. source .. ")") or "angefragt")
+    table.insert(self.queue, { name = sender, key = key, time = time(), source = source, twink = twink, main = main })
+    self:Log(sender, twink and "angefragt (Twink)" or source and ("angefragt (" .. source .. ")") or "angefragt")
     if not self:Quiet() then ns.Sound(SOUNDKIT.READY_CHECK) end
     return true
+end
+
+-- Twink-Anfrage: der ganzen Gilde Bescheid geben (Addon-Nachricht, nicht im Chat) – dann begrüßt ihn
+-- beim Beitritt niemand wie einen neuen Spieler. Geht schon bei der Anfrage raus, nicht erst bei der
+-- Einladung: Die Meldung „Ihr habt … eingeladen“ kommt in WoW Forever nicht zuverlässig an.
+function Recruit:Twink(name, main)
+    local key = ns.NameKey(name)
+    if not key or not IsInGuild() then return end
+    if ns.Welcome then ns.Welcome:MarkTwink(name) end
+    local now = GetTime()
+    self.twinkSent = self.twinkSent or {}
+    if self.twinkSent[key] and now - self.twinkSent[key] < REPEAT_SECONDS then return end
+    self.twinkSent[key] = now
+    ns.Comm:Send("TWK", name .. "\t" .. (main or ""), "GUILD")
 end
 
 -- Ein anderer Einladender hat die Person schon eingeladen
@@ -167,72 +201,6 @@ end
 -- Einladung ist raus (Systemmeldung „Ihr habt … eingeladen“): aufräumen und Bescheid geben.
 -- Geflüstert wird an den Namen genau so, wie das Spiel ihn bei der Anfrage geliefert hat –
 -- in WoW Forever mit Vor- und Nachnamen.
--- Twink gleich bei der Einladung markieren (Idee von Phillipp) ------------------
--- Nach „Ihr habt … eingeladen“ fragt das Addon: neuer Spieler, mein Twink oder (Leitung) Twink von …?
--- Die Antwort gilt, sobald die Person beitritt – so muss die Leitung nicht mehr nachfragen.
-Recruit.marks = {}  -- [Schlüssel] = { name, main, kind = "o" (Leitung) | "s" (eigener Twink), t }
-Recruit.offered = {} -- [Schlüssel] = Zeit, zu der der /ginvite-Befehl zum Kopieren angezeigt wurde
-Recruit.asked = {}   -- [Schlüssel] = schon gefragt
-Recruit.joined = {} -- [Schlüssel] = Zeit des Beitritts (für Antworten, die erst danach kommen)
-local MARK_TTL = 15 * 60
-
-function Recruit:ApplyMark(key)
-    local m = self.marks[key]
-    if not m then return end
-    self.marks[key] = nil
-    if m.kind == "s" then
-        ns.Members:LinkMyTwink(m.name)
-    elseif ns.Board:AmOfficer() then
-        ns.Members:SetLink(m.name, m.main)
-    end
-end
-
--- kind: "neu" (neuer Spieler), "mein" (eigener Twink), "von" (Twink von main, nur Leitung)
-function Recruit:Mark(name, kind, main)
-    local key = ns.NameKey(name)
-    if not key then return end
-    if kind == "neu" then
-        if not ns.Board:AmOfficer() then return end -- ohne Leitung gibt es nichts zu merken
-        self.marks[key] = { name = name, main = "", kind = "o", t = time() }
-    elseif kind == "mein" then
-        self.marks[key] = { name = name, kind = "s", t = time() }
-    elseif kind == "von" and main and ns.Board:AmOfficer() then
-        self.marks[key] = { name = name, main = main, kind = "o", t = time() }
-    else
-        return
-    end
-    if self.joined[key] and time() - self.joined[key] < MARK_TTL then
-        self:ApplyMark(key)
-    else
-        ns.Print(ns.ShortName(name) .. ": gemerkt – gilt, sobald die Einladung angenommen ist.")
-    end
-end
-
-function Recruit:Joined(name)
-    local key = ns.NameKey(name)
-    if not key then return end
-    self.joined[key] = time()
-    local m = self.marks[key]
-    if m and time() - m.t < MARK_TTL then
-        self:ApplyMark(key)
-    else
-        self.marks[key] = nil
-        -- Die Meldung „Ihr habt … eingeladen“ kam nicht (oder anders) an – war es aber unsere Anfrage, jetzt fragen
-        local o = self.offered[key]
-        if o and time() - o < MARK_TTL then self:AskTwink(name) end
-    end
-end
-
-function Recruit:AskTwink(name)
-    if not ns.Opt("inviteTwink") or not IsInGuild() then return end
-    local key = ns.NameKey(name)
-    if not key or self.asked[key] then return end
-    -- schon bekannt (zugeordnet oder als Main eingetragen)? Dann nicht fragen
-    if ns.db.links[key] then return end
-    self.asked[key] = true
-    if ns.UI and ns.UI.ShowInviteTwink then ns.UI:ShowInviteTwink(name) end
-end
-
 function Recruit:Invited(name)
     local key = ns.NameKey(name)
     local target
@@ -249,11 +217,6 @@ end
 
 -- Befehl, den man zum Einladen selbst tippen muss
 function Recruit:Command(name)
-    if name then
-        -- merken: Wer hier angeboten wurde und dann beitritt, hat man (wahrscheinlich) selbst eingeladen
-        local key = ns.NameKey(name)
-        if key then self.offered[key] = time() end
-    end
     return name and ("/ginvite " .. name) or nil
 end
 
@@ -314,28 +277,16 @@ end
 ns:On("CHAT_MSG_WHISPER", function(msg, sender)
     if not ns.db or not Settings().enabled then return end
     if ns.IsSecret(msg) or ns.IsSecret(sender) then return end
-    if Recruit:Matches(msg) then Recruit:Request(sender) end
-end)
-
--- Manche Spielversionen zeigen „Ihr habt … eingeladen“ nur oben in der Bildschirmmitte statt im Chat
-ns:On("UI_INFO_MESSAGE", function(_, msg)
-    if not ns.db or type(msg) ~= "string" or ns.IsSecret(msg) then return end
-    Patterns()
-    local invited = CleanName(INVITED and msg:match(INVITED))
-    if invited then
-        if not Recruit:Invited(invited) then Recruit:Log(invited, "eingeladen") end
-        Recruit:AskTwink(invited)
-    end
+    local ok, twink, main = Recruit:Parse(msg)
+    if ok then Recruit:Request(sender, nil, twink, main) end
 end)
 
 ns:On("CHAT_MSG_SYSTEM", function(msg)
     if not ns.db or ns.IsSecret(msg) then return end
     -- Eigene Einladung, egal ob per Addon, Gildenfenster oder /ginvite: merken für die Antwort per Flüstern
-    Patterns()
     local invited = CleanName(INVITED and msg:match(INVITED))
     if invited then
         if not Recruit:Invited(invited) then Recruit:Log(invited, "eingeladen") end
-        Recruit:AskTwink(invited)
         return
     end
 
@@ -345,7 +296,6 @@ ns:On("CHAT_MSG_SYSTEM", function(msg)
         -- Beigetreten (egal wer eingeladen hat): offene Anfrage wegräumen, Verlauf aktualisieren
         Remove(key)
         if Recruit:LastStatus(key) then Recruit:Log(name, "beigetreten") end
-        Recruit:Joined(name)
         ns:Fire("RECRUIT_UPDATE")
         -- Keine automatische Begrüßung im Gildenchat mehr: Mit vielen Addons in der Gilde
         -- kam sie zu oft. Begrüßt wird von Hand.
@@ -353,8 +303,6 @@ ns:On("CHAT_MSG_SYSTEM", function(msg)
     end
     name = CleanName(DECLINED and msg:match(DECLINED))
     if name then
-        Recruit.marks[ns.NameKey(name) or ""] = nil
-        if ns.UI and ns.UI.HideInviteTwink then ns.UI:HideInviteTwink(name) end
         Recruit:Log(name, "abgelehnt")
         return
     end
