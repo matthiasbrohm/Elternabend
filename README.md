@@ -178,6 +178,10 @@ Die festen Texte (Raidzeiten, Links) stehen in `Info.lua` und kommen mit jeder A
 ## Neue Gildenmitglieder begrüßen
 Tritt jemand der Gilde bei, schreibt **genau einer** die Begrüßung mit Vorstellungsrunde, Discord und Addon-Tipp (einer von 6 Texten, zufällig) – alle anderen schreiben nichts. Wer die lange schreibt, losen die Addons unsichtbar aus; wer gerade nicht an der Tastatur ist, macht nicht mit, und bleibt die lange aus, schreibt sie nach einer Weile der Nächste. Standardmäßig **aus**, weil das Addon hier in deinem Namen schreibt: Einstellungen » „Neue Gildenmitglieder begrüßen“. „Alles an“ schaltet es nicht ein.
 
+## Gruß und Abschied im Gildenchat
+
+Zwei Schalter in den Einstellungen, beide standardmäßig aus (sie schreiben in deinem Namen, „Alles an“ schaltet sie deshalb nicht ein): **Beim Einloggen grüßen** und **Beim Ausloggen verabschieden**. Den Text trägst du im Feld daneben ein; leer bleibt die Vorgabe („Hallo zusammen!“ bzw. „Ich bin dann mal weg – bis bald!“). Gegrüßt wird 15 Sekunden nach dem Einloggen, nicht nach /reload und höchstens alle 30 Minuten je Account. Den Abschied schreibt das Addon, sobald du ausloggst – über das Spielmenü, /camp, /logout oder „Spiel beenden“. Selbst ausloggen darf ein Addon nicht; es hängt sich nur an den Knopf des Spiels.
+
 ## Gildenkarte
 Wer Einstellungen » **„Gildenkarte“** einschaltet, teilt seinen Standort mit der Gilde und sieht alle anderen, die ihn auch teilen, als Punkt in Klassenfarbe auf der Weltkarte (Name und Stufe beim Darüberfahren; wer mit in deiner Gruppe oder deinem Raid ist, hat schon den Punkt des Spiels und bekommt keinen zweiten) – praktisch für „wer ist in meiner Gegend und kommt mit?“. Standardmäßig **aus**, „Alles an“ schaltet sie nicht ein. In Dungeons, Raids und Schlachtfeldern wird nichts gesendet; Ausschalten nimmt dich sofort von den Karten der anderen. Gesendet wird nur über den Addon-Kanal der Gilde.
 

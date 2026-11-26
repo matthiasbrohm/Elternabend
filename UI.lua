@@ -7274,6 +7274,18 @@ function UI:ShowOptions()
                 box:SetPoint("TOPLEFT", 20, y)
                 box.onChange = function(checked) ns.SetOpt(o.key, checked) end
                 d.boxes[o.key] = box
+                if o.text then
+                    -- Eigener Text (Gruß, Abschied): leer = Vorgabe
+                    local eb = T.EditBox(d, 330, o.text.default())
+                    eb:SetHeight(20)
+                    eb:SetPoint("TOPLEFT", 290, y + 1)
+                    eb:SetMaxLetters(200)
+                    eb:SetScript("OnTextChanged", function(self, userInput)
+                        if userInput then ns.db.settings[o.text.field] = strtrim(self:GetText()) end
+                    end)
+                    d.texts = d.texts or {}
+                    d.texts[o.text.field] = eb
+                end
                 y = y - 21
             end
         end
@@ -7311,6 +7323,9 @@ function UI:ShowOptions()
 
         function d:Refresh()
             for key, box in pairs(self.boxes) do box:SetChecked(ns.Opt(key)) end
+            for field, eb in pairs(self.texts or {}) do
+                if not eb:HasFocus() then eb:SetText(ns.db.settings[field] or "") end
+            end
             self.sizeSlider:SetValue(UI:WindowScale())
         end
         d:SetScript("OnShow", function(self) self:Refresh() end)

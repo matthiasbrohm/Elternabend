@@ -179,7 +179,7 @@ test("„Ruhig“: genau diese Schalter aus, alle anderen an", function()
     Ruhig(w)
     local off = { minimap = true, sounds = true, chatBoard = true, raidReminderScreen = true, quizOpen = true, voteOpen = true,
         notices = true, awayButtonIdle = true, recruitPopup = true, rollWindow = true,
-        welcome = true, guildMap = true } -- die beiden letzten: standardmäßig aus, „Ruhig“ lässt sie so
+        welcome = true, guildMap = true, hello = true, bye = true } -- die letzten: standardmäßig aus, „Ruhig“ lässt sie so
     for _, o in ipairs(w.ns.OPTIONS) do
         if o.key then equal(w.ns.Opt(o.key), not off[o.key], o.key) end
     end
