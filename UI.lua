@@ -3629,7 +3629,7 @@ function UI:UpdateRecruitToast(focusName)
         local kicker = T.Text(t, "kicker")
         kicker:SetPoint("TOPLEFT", 16, -12)
         kicker:SetText("GILDENANFRAGE · ELTERNABEND")
-        t.name = T.Text(t, "heading")
+        t.name = T.Text(t, "navActive") -- etwas kleiner als eine Überschrift: lange Namen passen besser
         t.name:SetPoint("TOPLEFT", kicker, "BOTTOMLEFT", 0, -4)
         -- Befehl zum Kopieren: Addons dürfen weder einladen noch in die Eingabezeile schreiben
         -- noch in die Zwischenablage. Hier steht er markiert – Cmd/Strg+C, dann im Chat
@@ -3703,6 +3703,8 @@ function UI:UpdateRecruitToast(focusName)
     end
     t.name:SetText(ns.ShortName(target) .. (entry and entry.twink
         and (" (Twink" .. (entry.main and (" von " .. ns.ShortName(entry.main)) or "") .. ")") or "") .. " möchte in die Gilde")
+    -- Langer Name (z. B. „… (Twink von …)“): Fenster breiter statt Text unter dem X
+    t:SetWidth(math.min(720, math.max(420, (t.name:GetStringWidth() or 0) + 16 + 48)))
     local cmd = ns.Recruit:Command(target)
     if t.cmdBox.value ~= cmd then
         t.cmdBox.value = cmd
