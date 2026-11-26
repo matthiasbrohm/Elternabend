@@ -6025,7 +6025,7 @@ function UI:ShowMainPicker(e)
         d.more:SetPoint("BOTTOMLEFT", 20, 14)
 
         function d.Pick(main)
-            M:SetLink(d.entry.name, main.name)
+            if d.entry.onPick then d.entry.onPick(main) else M:SetLink(d.entry.name, main.name) end
             d:Hide()
         end
 
@@ -6068,6 +6068,72 @@ function UI:ShowMainPicker(e)
     d:Fill()
     d:Show()
     d.search:SetFocus()
+end
+
+-- Nach einer Gildeneinladung: neuer Spieler oder Twink? -----------------------------
+function UI:ShowInviteTwink(name)
+    local d = self.inviteTwink
+    if not d then
+        local c = T.colors
+        d = CreateFrame("Frame", "ElternabendInviteTwink", UIParent, "BackdropTemplate")
+        d:SetSize(460, 132)
+        d:SetPoint("TOP", 0, -140)
+        d:SetFrameStrata("DIALOG")
+        d:SetToplevel(true)
+        d:SetMovable(true)
+        d:EnableMouse(true)
+        d:RegisterForDrag("LeftButton")
+        d:SetScript("OnDragStart", d.StartMoving)
+        d:SetScript("OnDragStop", d.StopMovingOrSizing)
+        T.Backdrop(d, c.navy, 0.98, 0.7)
+        tinsert(UISpecialFrames, "ElternabendInviteTwink")
+        local kicker = T.Text(d, "kicker")
+        kicker:SetPoint("TOPLEFT", 18, -16)
+        kicker:SetText("GILDENEINLADUNG")
+        d.title = T.Text(d, "heading")
+        d.title:SetPoint("TOPLEFT", kicker, "BOTTOMLEFT", 0, -6)
+        d.title:SetPoint("RIGHT", -50, 0)
+        d.title:SetWordWrap(false)
+        local close = T.Button(d, "X", 26)
+        close:SetPoint("TOPRIGHT", -12, -12)
+        close:SetScript("OnClick", function() d:Hide() end)
+        d.neu = T.Button(d, "Neuer Spieler", 130)
+        d.neu:SetPoint("BOTTOMLEFT", 18, 16)
+        d.neu:SetScript("OnClick", function() ns.Recruit:Mark(d.name, "neu") d:Hide() end)
+        d.mein = T.Button(d, "Mein Twink", 130)
+        d.mein:SetPoint("LEFT", d.neu, "RIGHT", 10, 0)
+        d.mein:SetScript("OnClick", function() ns.Recruit:Mark(d.name, "mein") d:Hide() end)
+        d.von = T.Button(d, "Twink von …", 130)
+        d.von:SetPoint("LEFT", d.mein, "RIGHT", 10, 0)
+        d.von:SetScript("OnClick", function()
+            local who = d.name
+            d:Hide()
+            UI:ShowMainPicker({ name = who, display = ns.ShortName(who), key = ns.NameKey(who), twinks = {},
+                onPick = function(main) ns.Recruit:Mark(who, "von", main.name) end })
+        end)
+        d:SetScript("OnUpdate", function(self)
+            if self.until_ and GetTime() > self.until_ then self:Hide() end
+        end)
+        self.inviteTwink = d
+    end
+    d.name = name
+    d.until_ = GetTime() + 120
+    d.title:SetText(T.Hex("goldBright", ns.ShortName(name)) .. T.Hex("muted", " – neuer Spieler oder Twink?"))
+    -- Eigenen Twink melden geht nur vom Main aus; „Twink von …“ nur für die Leitung
+    local officer = ns.Board:AmOfficer()
+    local mine = not ns.Members:IAmTwink()
+    d.mein:SetShown(mine)
+    d.von:SetShown(officer)
+    d.neu:SetShown(officer or mine)
+    if not officer and not mine then return end
+    d.von:ClearAllPoints()
+    d.von:SetPoint("LEFT", mine and d.mein or d.neu, "RIGHT", 10, 0)
+    d:Show()
+end
+
+function UI:HideInviteTwink(name)
+    local d = self.inviteTwink
+    if d and d:IsShown() and ns.SameName(d.name, name) then d:Hide() end
 end
 
 -- Design wählen ------------------------------------------------------------------

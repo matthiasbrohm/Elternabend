@@ -405,6 +405,8 @@ ns.OPTIONS = {
         manual = true, -- schreibt in deinem Namen: nur von Hand einschalten, nie über „Alles an“
         get = function() return ns.db.settings.welcome == true end,
         set = function(on) ns.db.settings.welcome = on end },
+    { key = "inviteTwink", label = "Nach einer Gildeneinladung fragen: neuer Spieler oder Twink?",
+        hint = "dann muss die Leitung nicht nachfragen" },
     { key = "awayChat", label = "„Kind wach“ zusätzlich in den Gruppenchat schreiben",
         hint = "für Mitspieler ohne Addon",
         get = function() return ns.db.away.announce end,

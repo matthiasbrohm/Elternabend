@@ -361,6 +361,28 @@ function Members:SetLink(twinkName, mainName)
         or (" ist jetzt ein Twink von " .. ns.ShortName(r.main) .. ".")))
 end
 
+-- Eigenen Twink melden (z. B. gleich nach der Gildeneinladung): wie „Das sind meine Charaktere“,
+-- nur für einen. Geht nur vom Main aus – sonst stimmt der Absender nicht mit dem Main überein.
+function Members:LinkMyTwink(twinkName)
+    local me = ns.UnitFullName("player")
+    local key = ns.NameKey(twinkName)
+    if not key or not me or ns.SameName(twinkName, me) then return false end
+    local old = ns.db.links[key]
+    if old and old.k == "o" then return false end -- von der Leitung gesetzt: bleibt
+    local r = { twink = twinkName, main = me, by = me, k = "s", t = math.max(time(), old and old.t + 1 or 0) }
+    ns.db.links[key] = r
+    ns.Comm:Send("LNK", Encode(r), "GUILD")
+    Changed()
+    ns.Print(ns.ShortName(twinkName) .. " ist als dein Twink gemeldet.")
+    return true
+end
+
+-- Bin ich gerade auf einem Twink? (dann kann ich keinen eigenen Twink melden – das geht nur vom Main)
+function Members:IAmTwink()
+    local e = self:Find(ns.UnitFullName("player"))
+    return e ~= nil and e.main ~= nil
+end
+
 function Members:Links()
     local list = {}
     for _, r in pairs(ns.db.links) do table.insert(list, r) end
