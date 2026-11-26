@@ -203,6 +203,8 @@ Unter **Eigene Gruppe** wählst du mit **„Ich gehe mit als“**, in welcher Ro
 
 Mit dem Häkchen **„Auch im Gildenchat posten“** (standardmäßig an) schreibt das Addon beim Start einmal eine Zeile in den Gildenchat, z. B. „Suche Gruppe für DM: 1 Tank, 2 DD – gemütlich. Mit Addon über /ea gruppen melden, sonst anflüstern!“ So sehen auch Mitglieder ohne Addon das Gesuch und melden sich per Flüstern. Addon-Nutzer bekommen dann keine zweite Meldung. Lädst du danach jemanden über das Addon ein oder änderst die Zahl der Plätze, kommt eine kurze Zeile hinterher, z. B. „Halle der Thanen: noch 1 Tank und 1 DD gesucht – anflüstern oder /ea gruppen“. Ist die Gruppe voll, heißt es „Halle der Thanen: Gruppe ist voll, danke!“. Mehrere Einladungen kurz hintereinander ergeben nur eine Zeile; beendest du das Gesuch selbst, kommt nichts mehr.
 
+Mit dem Häkchen **„Bei Anmeldung anflüstern lassen“** daneben (standardmäßig aus, auch in den Einstellungen; Idee von Saleos Garthran) flüstert dich jeder, der sich über das Addon für deine Gruppe meldet, zusätzlich an: „[Elternabend] Ich möchte als Tank mit zu Halle der Thanen“. So verpasst du keine Anmeldung, auch wenn das Fenster zu ist; läuft das Spiel im Hintergrund, blinkt außerdem die Taskleiste. Die Flüsternachricht kommt von allen mit Addon ab 4.38.0.
+
 ## Ruhmeshalle
 Fällt ein Raidboss zum ersten Mal in einer Gildengruppe (mindestens die Hälfte aus der Gilde), hält das Addon fest: Boss, Schwierigkeit, Raid, Datum und wer dabei war. Die Einträge werden an die ganze Gilde verteilt und beim Einloggen abgeglichen. Zu sehen unter **Raid » Ruhmeshalle** oder mit `/ea ruhm`.
 

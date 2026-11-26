@@ -60,6 +60,7 @@ local defaults = {
     groups = {       -- Gruppensuche in der Gilde
         notify = true,     -- neue Gesuche im Chat melden
         chat = true,       -- eigene Gesuche auch im Gildenchat posten (für Mitglieder ohne Addon)
+        whisper = false,   -- bei Anmeldungen zur eigenen Gruppe anflüstern lassen (Idee von Saleos Garthran)
         seen = {},         -- Gesuche, die man im Reiter „Gruppen“ schon gesehen hat (für die Plakette)
     },
     orders = {       -- Handwerksaufträge
@@ -401,6 +402,11 @@ ns.OPTIONS = {
     { key = "chatGroups", label = "Neue Gruppengesuche melden",
         get = function() return ns.db.groups.notify end,
         set = function(on) ns.db.groups.notify = on end },
+    { key = "groupWhisper", label = "Bei Anmeldungen zu deiner Gruppe anflüstern lassen",
+        hint = "damit du keine verpasst",
+        manual = true, -- standardmäßig aus, auch „Alles an“ schaltet es nicht ein
+        get = function() return ns.db.groups.whisper == true end,
+        set = function(on) ns.Groups:SetWhisper(on) end },
     { key = "welcome", label = "Neue Gildenmitglieder begrüßen",
         hint = "einer schreibt die Begrüßung mit Discord",
         manual = true, -- schreibt in deinem Namen: nur von Hand einschalten, nie über „Alles an“

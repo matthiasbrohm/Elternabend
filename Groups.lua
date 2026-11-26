@@ -3,7 +3,8 @@
 -- „Suche 2 für Barrow Deeps“: Wer eine Gruppe sucht, trägt ein, was und wen er
 -- braucht. Alle mit Addon sehen es im Reiter „Gruppen“ und melden sich mit einem
 -- Klick als Tank, Heiler oder DD. Der Suchende sieht die Meldungen und lädt ein.
---   LFG      id Was Tank Heiler DD Notiz Alter Gepostet   (Gilde; Gepostet = "1": steht schon im Gildenchat)
+--   LFG      id Was Tank Heiler DD Notiz Alter Gepostet Flüstern   (Gilde; Gepostet = "1": steht schon im Gildenchat;
+--            Flüstern = "w": Wer sich meldet, flüstert den Suchenden zusätzlich an – Schalter beim Suchenden)
 --   LFGEND   id                                  (Gilde)
 --   LFGQ                                         (Gilde, beim Einloggen)
 --   LFGJOIN  id Rolle Klasse [Twink]             (Flüstern an den Suchenden; Twink: mit diesem Charakter, loggt dafür um)
@@ -193,7 +194,16 @@ function Groups:Broadcast(channel, target)
     local m = self.mine
     if not m then return end
     ns.Comm:Send("LFG", table.concat({ m.id, Clean(m.what), m.need.tank, m.need.heal, m.need.dd, Clean(m.note),
-        math.floor(GetTime() - m.started), m.posted and "1" or "" }, "\t"), channel or "GUILD", target)
+        math.floor(GetTime() - m.started), m.posted and "1" or "", ns.db.groups.whisper and "w" or "" }, "\t"), channel or "GUILD", target)
+end
+
+-- Schalter „Bei Anmeldungen anflüstern lassen“: Läuft ein Gesuch, gleich allen Bescheid geben
+function Groups:SetWhisper(on)
+    on = on and true or false
+    if ns.db.groups.whisper == on then return end
+    ns.db.groups.whisper = on
+    if self.mine and IsInGuild() then self:Broadcast() end
+    ns:Fire("GROUPS_UPDATE")
 end
 
 function Groups:Close()
@@ -397,6 +407,11 @@ function Groups:Join(id, role, alt)
     end
     ns.Comm:Send("LFGJOIN", table.concat({ id, role, classFile or "", alt and Clean(alt) or "" }, "\t"), "WHISPER", g.leader)
     self.sent[id] = { role = role, state = "sent", alt = alt }
+    -- Der Suchende möchte angeflüstert werden: echte Flüsternachricht, die man nicht übersieht
+    if g.whisper then
+        ns.SendChat(string.format("[Elternabend] Ich möchte als %s mit zu %s%s – Reiter „Gruppen“ » „Eigene Gruppe“",
+            self.ROLES[role], Clean(g.what), alt and (" (mit " .. ns.ShortName(alt) .. ", logge dafür um)") or ""), "WHISPER", g.leader)
+    end
     ns.Print("Du hast dich bei " .. ns.ShortName(g.leader) .. " als " .. self.ROLES[role] .. " gemeldet"
         .. (alt and (" – mit " .. ns.ShortName(alt) .. ". Zum Einladen loggst du dann um.") or "."))
     ns:Fire("GROUPS_UPDATE")
@@ -469,6 +484,7 @@ ns.Comm.handlers.LFG = function(sender, parts)
         id = id, leader = sender, what = parts[3], who = old and old.who or (Groups.whoEarly and Groups.whoEarly[id]),
         need = { tank = tonumber(parts[4]) or 0, heal = tonumber(parts[5]) or 0, dd = tonumber(parts[6]) or 0 },
         note = parts[7] or "", started = GetTime() - (tonumber(parts[8]) or 0),
+        whisper = parts[10] == "w",
     }
     -- Steht das Gesuch schon im Gildenchat, nicht noch einmal melden
     if isNew and (tonumber(parts[8]) or 0) < 60 and ns.db.groups.notify and parts[9] ~= "1" then
@@ -527,6 +543,7 @@ ns.Comm.handlers.LFGJOIN = function(sender, parts)
     Groups.applicants[key] = { name = sender, role = parts[3], classFile = parts[4], alt = alt, time = GetTime(), state = "new" }
     Groups:QueueWho()
     ns.Sound(SOUNDKIT and SOUNDKIT.READY_CHECK or 8960, "Master", true)
+    if ns.db.groups.whisper and FlashClientIcon then FlashClientIcon() end -- Spiel im Hintergrund: Taskleiste blinkt
     ns.Print(string.format("%s möchte als %s mit%s – Reiter „Gruppen“ » „Eigene Gruppe“", ns.ShortName(sender), Groups.ROLES[parts[3]],
         alt and (" (mit " .. ns.ShortName(alt) .. ", loggt dafür um)") or ""))
     ns:Fire("GROUPS_UPDATE")

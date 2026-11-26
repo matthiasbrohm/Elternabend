@@ -4012,6 +4012,18 @@ function UI:CreateGroupsPanel()
         GameTooltip:Show()
     end)
     p.toChat:SetScript("OnLeave", GameTooltip_Hide)
+    -- Idee von Saleos Garthran: Anmeldungen zusätzlich als Flüsternachricht (gleicher Schalter wie in den Einstellungen)
+    p.whisperMe = T.Checkbox(own, "Bei Anmeldung anflüstern lassen")
+    p.whisperMe:SetPoint("LEFT", p.toChat, "RIGHT", 24, 0)
+    p.whisperMe.onChange = function(checked) ns.Groups:SetWhisper(checked) end
+    p.whisperMe:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_BOTTOM")
+        GameTooltip:AddLine("Bei Anmeldung anflüstern lassen")
+        GameTooltip:AddLine("Meldet sich jemand für deine Gruppe, flüstert er dich zusätzlich an – so verpasst du keine Anmeldung, auch wenn das Fenster zu ist.", 1, 1, 1, true)
+        GameTooltip:AddLine("Klappt bei allen mit Addon ab Version 4.38.0.", 0.84, 0.69, 0.35, true)
+        GameTooltip:Show()
+    end)
+    p.whisperMe:SetScript("OnLeave", GameTooltip_Hide)
     p.post = T.Button(own, "Gruppe suchen", 170, "primary")
     p.post:SetPoint("TOPLEFT", p.toChat, "BOTTOMLEFT", 0, -8)
     p.post:SetScript("OnClick", function()
@@ -4199,6 +4211,7 @@ function UI:CreateGroupsPanel()
             p.syncedKey = nil
         end
         for role, b in pairs(p.needButtons) do b:SetText(G.ROLES[role] .. ": " .. p.need[role]) end
+        p.whisperMe:SetChecked(ns.db.groups.whisper == true)
         local myRole = ns.db.groups.myRole
         p.myRole:SetText("Ich gehe mit als: " .. (myRole and T.Hex("goldBright", G.ROLES[myRole]) or T.Hex("muted", "– (wählen)")))
         p.post:SetText(mine and "Aktualisieren" or "Gruppe suchen")
