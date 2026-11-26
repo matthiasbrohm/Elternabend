@@ -76,3 +76,24 @@ test("Einladung: Frage lässt sich abschalten", function()
     check(not (w.ns.UI.inviteTwink and w.ns.UI.inviteTwink:IsShown()), "trotz Schalter gefragt")
     noErrors(w)
 end)
+
+test("Einladung: kommt „Ihr habt … eingeladen“ nicht im Chat an, fragt das Addon beim Beitritt (eigene Anfrage)", function()
+    local w = Gilde(true)
+    local ns = w.ns
+    ns.Board.AmOfficer = function() return true end
+    -- Anfrage per Flüstern, Befehl zum Kopieren angezeigt – Einladung von Hand, Meldung fehlt
+    ns.Recruit:Command("Clemens Dunkelklinge")
+    Beigetreten(w, "Clemens Dunkelklinge")
+    local d = ns.UI.inviteTwink
+    check(d and d:IsShown(), "beim Beitritt nicht gefragt")
+    ns.Recruit:Mark("Clemens Dunkelklinge", "von", "Beta Lux")
+    equal(ns.db.links[ns.NameKey("Clemens Dunkelklinge")].main, "Beta Lux")
+    noErrors(w)
+end)
+
+test("Einladung: Meldung oben in der Bildschirmmitte (UI_INFO_MESSAGE) zählt auch", function()
+    local w = Gilde(true)
+    w:fire("UI_INFO_MESSAGE", 0, string.format(w.env.ERR_GUILD_INVITE_S, "Mira Mondschein"))
+    check(w.ns.UI.inviteTwink and w.ns.UI.inviteTwink:IsShown(), "nicht gefragt")
+    noErrors(w)
+end)

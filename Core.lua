@@ -717,6 +717,10 @@ SlashCmdList.ELTERNABENDRAID = function(input)
         ns.DKP:Bid(rest)
     elseif cmd == "dkp" then
         ns.DKP:PrintAll()
+    elseif cmd == "neu" or cmd == "twink" then
+        -- Neues Mitglied nachträglich als neuen Spieler oder Twink markieren: /ea twink Clemens Dunkelklinge
+        if rest and strtrim(rest) ~= "" then ns.UI:ShowInviteTwink(strtrim(rest))
+        else ns.Print("So geht's: /ea twink <Name> – fragt „neuer Spieler oder Twink?“ wie nach einer Einladung.") end
     elseif cmd == "größe" or cmd == "groesse" or cmd == "grösse" or cmd == "size" then
         if tonumber(rest) then ns.UI:SetWindowScale(tonumber(rest)) end
         ns.Print("Fenstergröße: " .. ns.UI:WindowScale() .. " % (ändern mit /ea größe 80, Strg + Mausrad über dem Kopf des Fensters oder unter „Einstellungen“)")

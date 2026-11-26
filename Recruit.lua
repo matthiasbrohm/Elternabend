@@ -171,6 +171,8 @@ end
 -- Nach „Ihr habt … eingeladen“ fragt das Addon: neuer Spieler, mein Twink oder (Leitung) Twink von …?
 -- Die Antwort gilt, sobald die Person beitritt – so muss die Leitung nicht mehr nachfragen.
 Recruit.marks = {}  -- [Schlüssel] = { name, main, kind = "o" (Leitung) | "s" (eigener Twink), t }
+Recruit.offered = {} -- [Schlüssel] = Zeit, zu der der /ginvite-Befehl zum Kopieren angezeigt wurde
+Recruit.asked = {}   -- [Schlüssel] = schon gefragt
 Recruit.joined = {} -- [Schlüssel] = Zeit des Beitritts (für Antworten, die erst danach kommen)
 local MARK_TTL = 15 * 60
 
@@ -211,14 +213,23 @@ function Recruit:Joined(name)
     if not key then return end
     self.joined[key] = time()
     local m = self.marks[key]
-    if m and time() - m.t < MARK_TTL then self:ApplyMark(key) else self.marks[key] = nil end
+    if m and time() - m.t < MARK_TTL then
+        self:ApplyMark(key)
+    else
+        self.marks[key] = nil
+        -- Die Meldung „Ihr habt … eingeladen“ kam nicht (oder anders) an – war es aber unsere Anfrage, jetzt fragen
+        local o = self.offered[key]
+        if o and time() - o < MARK_TTL then self:AskTwink(name) end
+    end
 end
 
 function Recruit:AskTwink(name)
     if not ns.Opt("inviteTwink") or not IsInGuild() then return end
     local key = ns.NameKey(name)
+    if not key or self.asked[key] then return end
     -- schon bekannt (zugeordnet oder als Main eingetragen)? Dann nicht fragen
-    if key and ns.db.links[key] then return end
+    if ns.db.links[key] then return end
+    self.asked[key] = true
     if ns.UI and ns.UI.ShowInviteTwink then ns.UI:ShowInviteTwink(name) end
 end
 
@@ -238,6 +249,11 @@ end
 
 -- Befehl, den man zum Einladen selbst tippen muss
 function Recruit:Command(name)
+    if name then
+        -- merken: Wer hier angeboten wurde und dann beitritt, hat man (wahrscheinlich) selbst eingeladen
+        local key = ns.NameKey(name)
+        if key then self.offered[key] = time() end
+    end
     return name and ("/ginvite " .. name) or nil
 end
 
@@ -299,6 +315,17 @@ ns:On("CHAT_MSG_WHISPER", function(msg, sender)
     if not ns.db or not Settings().enabled then return end
     if ns.IsSecret(msg) or ns.IsSecret(sender) then return end
     if Recruit:Matches(msg) then Recruit:Request(sender) end
+end)
+
+-- Manche Spielversionen zeigen „Ihr habt … eingeladen“ nur oben in der Bildschirmmitte statt im Chat
+ns:On("UI_INFO_MESSAGE", function(_, msg)
+    if not ns.db or type(msg) ~= "string" or ns.IsSecret(msg) then return end
+    Patterns()
+    local invited = CleanName(INVITED and msg:match(INVITED))
+    if invited then
+        if not Recruit:Invited(invited) then Recruit:Log(invited, "eingeladen") end
+        Recruit:AskTwink(invited)
+    end
 end)
 
 ns:On("CHAT_MSG_SYSTEM", function(msg)
