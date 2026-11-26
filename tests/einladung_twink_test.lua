@@ -43,8 +43,10 @@ test("Twink-Anfrage beim Einladenden: steht als Twink in der Liste, Gilde bekomm
     seen(w, "comm", "TWK Clemens Dunkelklinge Greta Glutherz")
     check(w.ns.UI.recruitToast and w.ns.UI.recruitToast.name:GetText():find("Twink von Greta Glutherz", 1, true),
         "Fenster nennt den Twink nicht")
-    local width = w.ns.UI.recruitToast:GetWidth()
-    check(width >= 420 and width <= 720, "Fensterbreite " .. tostring(width))
+    local width
+    w.ns.UI.recruitToast.SetWidth = function(_, v) width = v end
+    w.ns.UI:UpdateRecruitToast("Clemens Dunkelklinge")
+    check(width and width >= 420 and width <= 720, "Fensterbreite " .. tostring(width))
     equal(w.ns.db.recruit.log[1].status, "angefragt (Twink)")
     noErrors(w)
 end)
