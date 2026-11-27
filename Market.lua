@@ -21,6 +21,7 @@
 --     price: immer pro Stück. tiers: Mengenrabatt „ab:Preis,ab:Preis“ (z. B. „10:4500,20:4000“).
 --     whole: „1“ = Einzelangebot nur komplett; sonst darf man auch einen Teil kaufen.
 --     count: Einzelangebot – noch zu haben (sinkt mit jedem verschickten Kauf).
+--     price 0: Geschenk (nur Einzelangebot, Haken „verschenken“) – Brief ohne Nachnahme.
 --   K^buyer^menge^zeit^stand        Kaufwunsch (stand: neu / zurueck / versandt / abgelehnt)
 local _, ns = ...
 
@@ -269,6 +270,8 @@ function Market:HasOpenRequest(o)
     return false
 end
 
+function Market:IsGift(o) return (o.price or 0) == 0 end
+
 -- Einzelangebot: Darf man auch einen Teil kaufen?
 function Market:Partial(o)
     return o.kind == "s" or (o.count > 1 and o.whole ~= "1")
@@ -340,14 +343,15 @@ local function NewId()
 end
 
 -- Angebot einstellen. opts: link, kind ("s"/"e"), count, price (Kupfer pro Stück), hours, note,
--- tiers ({ { min, price }, … } Mengenrabatt), whole (Einzelangebot nur komplett)
+-- tiers ({ { min, price }, … } Mengenrabatt), whole (Einzelangebot nur komplett), gift (Einzelangebot verschenken)
 function Market:Post(opts)
     if not self:Open() then return false, "Den Gildenmarkt gibt es nur für Charaktere in der Gilde." end
     local item = Market.ItemString(opts.link)
     if not item then return false, "Bitte zuerst einen Gegenstand in das Feld ziehen." end
     local kind = opts.kind == "s" and "s" or "e"
-    local price = math.floor(tonumber(opts.price) or 0)
-    if price <= 0 then return false, "Bitte einen Preis eingeben." end
+    local gift = kind == "e" and opts.gift and true or false
+    local price = gift and 0 or math.floor(tonumber(opts.price) or 0)
+    if price <= 0 and not gift then return false, "Bitte einen Preis eingeben." end
     if price > MAX_PRICE then return false, "Der Preis ist zu hoch." end
     local me = ns.UnitFullName("player")
     if CountOpen(me) >= MAX_OPEN then return false, "Du hast schon " .. MAX_OPEN .. " Angebote. Nimm erst eines heraus." end
@@ -384,7 +388,7 @@ function Market:Post(opts)
         whole = (kind == "e" and opts.whole and count > 1) and "1" or "",
     }
     local tiers = {}
-    if kind == "s" or (count > 1 and not opts.whole) then
+    if not gift and (kind == "s" or (count > 1 and not opts.whole)) then
         for _, t in ipairs(opts.tiers or {}) do
             local min, tp = math.floor(tonumber(t.min) or 0), math.floor(tonumber(t.price) or 0)
             if min >= 2 and tp > 0 then
@@ -539,12 +543,17 @@ function Market:CheckNews(o)
             local link = self:Link(o)
             if mineOffer and r.st == "neu" and not self:IsMine(r.buyer) then
                 ns.Sound(SOUNDKIT and SOUNDKIT.READY_CHECK or 8960, "Master", true)
-                ns.Print(string.format("|cfff3dc9aGildenmarkt:|r %s möchte %s%s für %s kaufen – /ea markt",
-                    ns.ShortName(r.buyer), r.qty > 1 and (r.qty .. "x ") or "", link,
-                    Market.Money(self:Total(o, r.qty))))
+                if self:IsGift(o) then
+                    ns.Print(string.format("|cfff3dc9aGildenmarkt:|r %s hätte gern %s%s, das du verschenkst – /ea markt",
+                        ns.ShortName(r.buyer), r.qty > 1 and (r.qty .. "x ") or "", link))
+                else
+                    ns.Print(string.format("|cfff3dc9aGildenmarkt:|r %s möchte %s%s für %s kaufen – /ea markt",
+                        ns.ShortName(r.buyer), r.qty > 1 and (r.qty .. "x ") or "", link,
+                        Market.Money(self:Total(o, r.qty))))
+                end
             elseif not mineOffer and self:IsMine(r.buyer) and r.st == "versandt" then
-                ns.Print(string.format("|cfff3dc9aGildenmarkt:|r %s hat dir %s per Nachnahme geschickt – schau in deinen Briefkasten.",
-                    ns.ShortName(o.seller), link))
+                ns.Print(string.format("|cfff3dc9aGildenmarkt:|r %s hat dir %s %s – schau in deinen Briefkasten.",
+                    ns.ShortName(o.seller), link, self:IsGift(o) and "geschenkt und geschickt" or "per Nachnahme geschickt"))
             elseif not mineOffer and self:IsMine(r.buyer) and r.st == "abgelehnt" then
                 ns.Print(string.format("|cfff3dc9aGildenmarkt:|r %s kann dir %s leider nicht verkaufen.", ns.ShortName(o.seller), link))
             end
@@ -681,10 +690,17 @@ function Market:PrepareMail(id, buyerKey)
     if MailFrameTab_OnClick then pcall(MailFrameTab_OnClick, nil, 2) end
     if SendMailNameEditBox then SendMailNameEditBox:SetText(r.buyer) end
     if SendMailSubjectEditBox then
-        SendMailSubjectEditBox:SetText("Gildenmarkt: " .. (qty > 1 and (qty .. "x ") or "") .. (o.name or ""))
+        SendMailSubjectEditBox:SetText((total > 0 and "Gildenmarkt: " or "Geschenk aus dem Gildenmarkt: ")
+            .. (qty > 1 and (qty .. "x ") or "") .. (o.name or ""))
     end
-    if SendMailRadioButton_OnClick then pcall(SendMailRadioButton_OnClick, 2) end -- 2 = Nachnahme
-    if MoneyInputFrame_SetCopper and SendMailMoney then pcall(MoneyInputFrame_SetCopper, SendMailMoney, total) end
+    if total > 0 then
+        if SendMailRadioButton_OnClick then pcall(SendMailRadioButton_OnClick, 2) end -- 2 = Nachnahme
+        if MoneyInputFrame_SetCopper and SendMailMoney then pcall(MoneyInputFrame_SetCopper, SendMailMoney, total) end
+    else
+        -- Geschenk: ohne Nachnahme, kein Geld
+        if SendMailRadioButton_OnClick then pcall(SendMailRadioButton_OnClick, 1) end
+        if MoneyInputFrame_SetCopper and SendMailMoney then pcall(MoneyInputFrame_SetCopper, SendMailMoney, 0) end
+    end
     local attached = self:AttachItem(o, qty)
     self.pendingMail = { id = id, key = buyerKey, buyer = r.buyer, at = GetTime() }
     return true, attached

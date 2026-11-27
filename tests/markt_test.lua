@@ -365,3 +365,46 @@ test("Reiter Gildenmarkt: Filter „Schaufenster“ wählt beim Einstellen gleic
     equal(p.formKind, "e")
     noErrors(w)
 end)
+
+test("Markt: Einzelangebot verschenken – ohne Preis, Brief ohne Nachnahme", function()
+    local seller = Welt("Anna Sturmwind", 5)
+    local buyer = Welt("Beta Lux")
+    check(not seller.ns.Market:Post({ link = POTION, kind = "s", gift = true }), "Schaufenster verschenken erlaubt")
+    local ok, o = seller.ns.Market:Post({ link = SWORD, kind = "e", hours = 24, gift = true })
+    check(ok, o)
+    equal(o.price, 0)
+    Send(seller, buyer, o.id)
+    check(buyer.ns.Market:Buy(o.id), "Geschenk nicht wählbar")
+    Send(buyer, seller, o.id)
+    seen(seller, "print", "Beta Lux hätte gern .*Klinge des Bären.*, das du verschenkst")
+    local filled = {}
+    seller.env.SendMailNameEditBox = { SetText = function(_, t) filled.name = t end }
+    seller.env.SendMailSubjectEditBox = { SetText = function(_, t) filled.subject = t end }
+    seller.env.SendMailMoney = {}
+    seller.env.MoneyInputFrame_SetCopper = function(_, c) filled.cod = c end
+    seller.env.SendMailRadioButton_OnClick = function(i) filled.radio = i end
+    seller:fire("MAIL_SHOW")
+    check(seller.ns.Market:PrepareMail(o.id, seller.ns.NameKey("Beta Lux")), "Brief nicht vorbereitet")
+    equal(filled.radio, 1)
+    equal(filled.cod, 0)
+    check(filled.subject:find("Geschenk", 1, true), filled.subject)
+    noErrors(seller)
+end)
+
+test("Reiter Gildenmarkt: Haken „verschenken“ blendet den Preis aus", function()
+    local w = Welt(nil, 5)
+    w.ns.UI:Show("markt")
+    local p = w.ns.UI.panels.markt
+    w:call(p.newBtn:GetScript("OnClick"))
+    w.env.GetCursorInfo = function() return "item", 12345, SWORD end
+    w:call(p.formFrame.TakeCursor)
+    check(p.formFrame.gift:IsShown(), "Haken fehlt")
+    p.formFrame.gift:SetChecked(true)
+    w:call(p.formFrame.gift.onChange, true)
+    check(not p.formFrame.gold:IsShown(), "Preis trotz Geschenk sichtbar")
+    w:call(p.formFrame.post:GetScript("OnClick"))
+    local o = w.ns.db.market.offers[p.selected]
+    check(o and o.price == 0, "nicht als Geschenk eingestellt")
+    check(p.list.rows[1].cols.price:GetText():find("Geschenk", 1, true), "Liste zeigt kein Geschenk")
+    noErrors(w)
+end)

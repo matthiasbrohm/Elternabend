@@ -270,6 +270,8 @@ Ein Auktionshaus nur für die Gilde (Reiter „Berufe“ » „Gildenmarkt“, `
 
 **Mengenrabatt:** Bis zu zwei Staffeln, z. B. „ab 10 Stück: 45s, ab 20 Stück: 40s“. Der Käufer sieht beim Eingeben der Menge gleich Stückpreis und Summe, die Nachnahme rechnet mit dem Rabatt.
 
+**Verschenken:** Beim Einzelangebot gibt es den Haken „verschenken“ – dann ohne Preis. Wer es haben möchte, klickt „Haben wollen“; der Brief geht ohne Nachnahme raus.
+
 **Teilkauf:** Ein Einzelangebot mit mehreren Stück (z. B. 20 Leder) darf man auch teilweise kaufen, der Rest bleibt im Angebot. Wer nur komplett verkaufen will, setzt den Haken „nur komplett“.
 
 **Kaufen:** Angebot anklicken, „Kaufen“ (beim Schaufenster mit Stückzahl). Der Kaufwunsch erreicht den Verkäufer auch, wenn er gerade offline ist – Angebote und Kaufwünsche wandern wie die Zettel der Pinnwand von Addon zu Addon. Der Verkäufer bekommt einen Hinweis und eine grüne Plakette.
