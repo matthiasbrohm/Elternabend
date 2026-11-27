@@ -324,6 +324,7 @@ function T.Checkbox(parent, label)
         self:SetChecked(not self.checked)
         if self.onChange then self.onChange(self.checked) end
     end)
+    b:SetChecked(false) -- sonst zeigt ein neuer Haken das Häkchen, obwohl er aus ist
     return b
 end
 

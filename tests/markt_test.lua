@@ -456,3 +456,13 @@ test("Gildenmarkt: Kaufwunsch überholt wartende Abgleichspakete", function()
     seen(buyer, "comm", "MKTN .*K%^Beta Lux")
     noErrors(buyer)
 end)
+
+test("Reiter Gildenmarkt: „verschenken“ und „nur komplett“ sind anfangs aus – auch sichtbar", function()
+    local w = Welt(nil, 5)
+    w.ns.UI:Show("markt")
+    local p = w.ns.UI.panels.markt
+    w:call(p.newBtn:GetScript("OnClick"))
+    check(not p.formFrame.gift:GetChecked() and not p.formFrame.gift.mark:IsShown(), "verschenken ist an")
+    check(not p.formFrame.whole:GetChecked() and not p.formFrame.whole.mark:IsShown(), "nur komplett ist an")
+    noErrors(w)
+end)
