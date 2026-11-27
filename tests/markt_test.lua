@@ -408,3 +408,37 @@ test("Reiter Gildenmarkt: Haken „verschenken“ blendet den Preis aus", functi
     check(p.list.rows[1].cols.price:GetText():find("Geschenk", 1, true), "Liste zeigt kein Geschenk")
     noErrors(w)
 end)
+
+test("Gildenmarkt: Ware über mehrere Stapel in den Brief legen", function()
+    local seller = Welt("Anna Sturmwind", 33)
+    local buyer = Welt("Beta Lux")
+    local _, o = seller.ns.Market:Post({ link = POTION, kind = "s", price = 1800 })
+    Send(seller, buyer, o.id)
+    buyer.ns.Market:Buy(o.id, 25)
+    Send(buyer, seller, o.id)
+    local bags = { [0] = { [1] = 20, [2] = 13 } }
+    local calls, attached = {}, {}
+    seller.env.C_Container = {
+        GetContainerNumSlots = function(bag) return bag == 0 and 2 or 0 end,
+        GetContainerItemInfo = function(bag, slot)
+            local n = bags[bag] and bags[bag][slot]
+            if n then return { itemID = 13446, stackCount = n, isLocked = false, hyperlink = POTION } end
+        end,
+        PickupContainerItem = function(bag, slot) table.insert(calls, "pick " .. slot) end,
+        SplitContainerItem = function(bag, slot, n) table.insert(calls, "split " .. slot .. " " .. n) end,
+    }
+    seller.env.ClickSendMailItemButton = function(i) attached[i] = true end
+    seller.env.GetSendMailItem = function(i) return attached[i] and "x" or nil end
+    seller.env.CursorHasItem = function() return false end
+    seller:fire("MAIL_SHOW")
+    local ok, res = seller.ns.Market:PrepareMail(o.id, seller.ns.NameKey("Beta Lux"))
+    check(ok and res, "nicht angelegt")
+    equal(table.concat(calls, ","), "pick 1,split 2 5")
+    check(attached[1] and attached[2], "Anhänge fehlen")
+    -- zu wenig in den Taschen
+    bags[0] = { [1] = 3 }
+    attached = {}
+    local _, res2, why = seller.ns.Market:PrepareMail(o.id, seller.ns.NameKey("Beta Lux"))
+    check(not res2 and why == "bank", "Bank-Hinweis fehlt")
+    noErrors(seller)
+end)

@@ -154,19 +154,22 @@ function UI:CreateMarketPanel()
     det.status:SetPoint("RIGHT", -14, 0)
     det.status:SetWordWrap(true)
     det.cancel = T.Button(det, "Kaufwunsch zurückziehen", 200)
-    det.remove = T.Button(det, "Angebot herausnehmen", 200)
-    det.reqHead = T.Text(det, "kicker")
-    det.reqHead:SetText("KAUFWÜNSCHE")
+    -- Eigenes Angebot herausnehmen: klein oben rechts, damit unten Platz für Kaufwünsche bleibt
+    det.remove = T.Button(det, "Herausnehmen", 110)
+    det.remove:SetHeight(22)
+    det.remove:SetPoint("TOPRIGHT", -10, -8)
+    det.reqHead = T.Text(det, "heading")
+    -- Kaufwünsche als hervorgehobene Kästen (grün = wartet auf dich), je einer pro Käufer
     det.reqRows = {}
-    for i = 1, 4 do
-        local r = CreateFrame("Frame", nil, det)
-        r:SetSize(DETAIL_W - 28, 46)
-        r.text = T.Text(r, "small")
-        r.text:SetPoint("TOPLEFT", 0, 0)
-        r.text:SetPoint("RIGHT", 0, 0)
+    for i = 1, 6 do
+        local r = CreateFrame("Frame", nil, det, "BackdropTemplate")
+        r:SetSize(DETAIL_W - 28, 56)
+        r.text = T.Text(r, "navActive")
+        r.text:SetPoint("TOPLEFT", 8, -7)
+        r.text:SetPoint("RIGHT", -8, 0)
         r.text:SetWordWrap(false)
         r.mail = T.Button(r, "Brief vorbereiten", 130)
-        r.mail:SetPoint("TOPLEFT", 0, -16)
+        r.mail:SetPoint("TOPLEFT", 8, -26)
         r.mail:SetHeight(24)
         r.done = T.Button(r, "Erledigt", 82)
         r.done:SetPoint("LEFT", r.mail, "RIGHT", 6, 0)
@@ -176,6 +179,7 @@ function UI:CreateMarketPanel()
         r.no:SetHeight(24)
         det.reqRows[i] = r
     end
+    det.reqMore = T.Text(det, "muted")
     det.msg = T.Text(det, "muted")
     det.msg:SetPoint("BOTTOMLEFT", 14, 12)
     det.msg:SetPoint("RIGHT", -14, 0)
@@ -530,33 +534,60 @@ function UI:CreateMarketPanel()
                 if r.st ~= "zurueck" then table.insert(reqs, r) end
             end
         end
+        -- Offene zuerst (sie warten auf dich), danach Erledigtes
+        table.sort(reqs, function(a, b)
+            local oa, ob = a.st == "neu", b.st == "neu"
+            if oa ~= ob then return oa end
+            return a.t < b.t
+        end)
+        local openCount = 0
+        for _, r in ipairs(reqs) do if r.st == "neu" then openCount = openCount + 1 end end
         det.reqHead:SetShown(#reqs > 0)
         if #reqs > 0 then
             det.reqHead:ClearAllPoints()
-            det.reqHead:SetPoint("TOPLEFT", 14, anchorY)
-            anchorY = anchorY - 18
+            det.reqHead:SetPoint("TOPLEFT", 14, anchorY - 4)
+            det.reqHead:SetText(openCount > 0
+                and T.Hex("green", openCount == 1 and "1 Kaufwunsch wartet auf dich" or (openCount .. " Kaufwünsche warten auf dich"))
+                or "Kaufwünsche")
+            anchorY = anchorY - 28
         end
+        -- So viele Kästen, wie ins Fenster passen; der Rest als „+ N weitere“
+        -- Höhe der rechten Seite (vor dem ersten Zeichnen kennt das Spiel sie noch nicht: Fensterhöhe abzüglich Kopf)
+        local height = det:GetHeight() or 0
+        if height < 200 then height = 414 end
+        local room = math.floor((height + anchorY - 44) / 30)
         local here = ns.SameName(o.seller, ns.UnitFullName("player"))
+        local shown = 0
         for i, row in ipairs(det.reqRows) do
             local r = reqs[i]
+            local need = r and (r.st == "neu" and 2 or 1) or 0
+            if r and need > room then r = nil end
             row:SetShown(r ~= nil)
             if r then
+                room = room - need
+                shown = shown + 1
                 row:ClearAllPoints()
                 row:SetPoint("TOPLEFT", 14, anchorY)
+                local open = r.st == "neu"
+                row:SetHeight(open and 56 or 28)
+                T.Backdrop(row, open and { 0.16, 0.38, 0.18 } or nil, open and 0.55 or 0.4, open and 0.9 or 0.3)
+                if open then row:SetBackdropBorderColor(0.55, 0.85, 0.5, 0.9) end
                 local st = M.STATES[r.st]
                 local total = M:Total(o, r.qty)
                 row.text:SetText(T.Hex("goldBright", ns.ShortName(r.buyer)) .. "  " .. (PerPiece(o) and (r.qty .. " Stück, ") or "")
                     .. (M:IsGift(o) and T.Hex("green", "Geschenk") or Coins(total)) .. "  ·  " .. T.Hex(st[2], st[1]))
-                local open = r.st == "neu"
                 row.mail:SetShown(open)
                 row.done:SetShown(open)
                 row.no:SetShown(open)
                 row.mail:SetEnabled(here and M.mailOpen == true)
                 row.mail:SetScript("OnClick", function()
-                    local ok, res = M:PrepareMail(o.id, r.key)
+                    local ok, res, why = M:PrepareMail(o.id, r.key)
                     if not ok then Say(T.Hex("red", res)) return end
+                    local what = (r.qty > 1 and (r.qty .. "x ") or "") .. (o.name or "")
                     Say(res and "Brief ist fertig – nur noch abschicken. Danach steht der Kauf auf „verschickt“."
-                        or ("Brief ist vorbereitet. Zieh noch " .. (r.qty > 1 and (r.qty .. "x ") or "") .. (o.name or "") .. " in den Brief und schick ihn ab."))
+                        or why == "bank" and ("Brief ist vorbereitet, aber " .. what .. " liegt nicht komplett in deinen Taschen. "
+                            .. "Hol es von der Bank und zieh es in den Brief – oder klick danach nochmal „Brief vorbereiten“.")
+                        or ("Brief ist vorbereitet. Zieh noch " .. what .. " in den Brief und schick ihn ab."))
                 end)
                 row.mail:SetScript("OnEnter", function(self)
                     GameTooltip:SetOwner(self, "ANCHOR_LEFT")
@@ -575,12 +606,14 @@ function UI:CreateMarketPanel()
                     M:Answer(o.id, r.key, "abgelehnt")
                     Say("Kaufwunsch abgelehnt.")
                 end)
-                anchorY = anchorY - (open and 46 or 20)
+                anchorY = anchorY - (open and 60 or 32)
             end
         end
-        if det.remove:IsShown() then
-            det.remove:ClearAllPoints()
-            det.remove:SetPoint("TOPLEFT", 14, anchorY - 6)
+        det.reqMore:SetShown(#reqs > shown)
+        if #reqs > shown then
+            det.reqMore:ClearAllPoints()
+            det.reqMore:SetPoint("TOPLEFT", 14, anchorY - 2)
+            det.reqMore:SetText("+ " .. (#reqs - shown) .. " weitere – erscheinen, sobald du die oberen erledigt hast")
         end
     end
 
@@ -592,12 +625,17 @@ function UI:CreateMarketPanel()
         local data = M:List(f)
         list:SetData(data, function(row, o)
             row.cols.icon:SetTexture(M:Icon(o))
-            row.cols.name:SetText(M:Link(o) .. (o.id == self.selected and T.Hex("goldBright", "  ◂") or ""))
+            row.cols.name:SetText(M:Link(o) .. (o.id == self.selected and T.Hex("goldBright", "  «") or ""))
             row.cols.qty:SetText(QtyText(o))
             row.cols.price:SetText(M:IsGift(o) and T.Hex("green", "Geschenk")
                 or (Coins(o.price) .. (PerPiece(o) and T.Hex("muted", " /St.") or "") .. (o.tiers ~= "" and T.Hex("green", " %") or "")))
             row.cols.seller:SetText(ns.ShortName(o.seller))
-            row.cols.kind:SetText(StateText(o))
+            -- Eigenes Angebot mit offenen Kaufwünschen: deutlich in Grün
+            local open = 0
+            if M:CanManage(o) then
+                for _, r in pairs(o.reqs) do if r.st == "neu" then open = open + 1 end end
+            end
+            row.cols.kind:SetText(open > 0 and T.Hex("green", open == 1 and "1 Kaufwunsch!" or (open .. " Kaufwünsche!")) or StateText(o))
         end)
         self.empty:SetShown(#data == 0)
         self.empty:SetText(self.filter == "meine" and "Du hast noch nichts eingestellt und nichts angefragt."
@@ -624,7 +662,7 @@ function UI:CreateMarketPanel()
                 .. "auch wenn er gerade offline ist. Die Ware kommt per Brief mit Nachnahme, du zahlst beim Öffnen.\n\n"
                 .. "Selbst verkaufen: „Angebot einstellen“. Schaufenster bleiben dauerhaft stehen (z. B. Tränke), "
                 .. "Einzelangebote laufen nach 6 bis 48 Stunden ab (z. B. Ausrüstung)."))
-            for _, w in ipairs({ det.qty, det.qtyLabel, det.buy, det.sum, det.status, det.cancel, det.remove, det.reqHead }) do w:Hide() end
+            for _, w in ipairs({ det.qty, det.qtyLabel, det.buy, det.sum, det.status, det.cancel, det.remove, det.reqHead, det.reqMore }) do w:Hide() end
             for _, r in ipairs(det.reqRows) do r:Hide() end
         end
     end

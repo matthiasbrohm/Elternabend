@@ -59,6 +59,10 @@ local PROF_NAMES = {
 -- Fertigkeiten, die nicht unter den Berufen stehen, sondern nur in der Fertigkeitenliste (Idee von cbz64:
 -- Schlossknacken der Schurken – wer kann mir die Kassette öffnen?)
 local SKILL_LINES = { schlossknacken = true, lockpicking = true }
+function Prof.IsLockpicking(name)
+    local lower = ns.Lower(name or "")
+    return SKILL_LINES[lower] or lower:find("schloss", 1, true) ~= nil or lower:find("lockpick", 1, true) ~= nil
+end
 local localNames
 function Prof.LocalName(profName)
     if not profName then return profName end
@@ -178,7 +182,7 @@ function Prof:ReadSkillLines()
         for i = 1, ok and n or 0 do
             local info = S.GetSkillLineInfo(i)
             if type(info) == "table" and not info.isHeader and info.name and not ns.IsSecret(info.name)
-                and (info.skillID == LOCKPICKING_ID or SKILL_LINES[ns.Lower(info.name)]) and (info.rank or 0) > 0 then
+                and (info.skillID == LOCKPICKING_ID or Prof.IsLockpicking(info.name)) and (info.rank or 0) > 0 then
                 self:StoreOwn(Prof.LocalName(info.name), info.rank, info.maxRank, nil)
                 return
             end
@@ -190,10 +194,32 @@ function Prof:ReadSkillLines()
     if not ok then return end
     for i = 1, n or 0 do
         local name, isHeader, _, rank, _, _, max = GetSkillLineInfo(i)
-        if name and not isHeader and not ns.IsSecret(name) and SKILL_LINES[ns.Lower(name)] and (rank or 0) > 0 then
+        if name and not isHeader and not ns.IsSecret(name) and Prof.IsLockpicking(name) and (rank or 0) > 0 then
             self:StoreOwn(Prof.LocalName(name), rank, max, nil)
         end
     end
+end
+
+-- /ea fertigkeiten: Was liefert das Spiel? (Fehlersuche Schlossknacken)
+function Prof:DebugSkills()
+    local S = C_SkillInfo
+    ns.Print("Fertigkeiten: C_SkillInfo " .. (S and "da" or "fehlt") .. ", GetSkillLineInfo " .. (GetSkillLineInfo and "da" or "fehlt"))
+    if S and S.GetSkillLineInfoByID then
+        local ok, info = pcall(S.GetSkillLineInfoByID, LOCKPICKING_ID)
+        ns.Print("  Nr. 633: " .. (ok and type(info) == "table" and (tostring(info.name) .. " " .. tostring(info.rank) .. "/" .. tostring(info.maxRank)) or (ok and "nichts" or ("Fehler: " .. tostring(info)))))
+    end
+    if S and S.GetNumSkillLines and S.GetSkillLineInfo then
+        local ok, n = pcall(S.GetNumSkillLines)
+        ns.Print("  Zeilen: " .. tostring(ok and n or ("Fehler: " .. tostring(n))))
+        for i = 1, ok and tonumber(n) or 0 do
+            local info = S.GetSkillLineInfo(i)
+            if type(info) == "table" then
+                ns.Print(string.format("  %d. %s%s %s/%s (Nr. %s)", i, info.isHeader and "== " or "", tostring(info.name),
+                    tostring(info.rank), tostring(info.maxRank), tostring(info.skillID)))
+            end
+        end
+    end
+    self:ReadSkillLines()
 end
 
 -- In den eigenen Eintrag übernehmen; ids = nil heißt: nur Stufe aktualisieren

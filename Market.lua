@@ -512,7 +512,14 @@ function Market:List(filter)
             and not ns.Lower(ns.ShortName(o.seller)):find(search, 1, true) then show = false end
         if show then table.insert(list, o) end
     end
+    local function Waiting(o)
+        if not self:IsMine(o.seller) then return false end
+        for _, r in pairs(o.reqs) do if r.st == "neu" then return true end end
+        return false
+    end
     table.sort(list, function(a, b)
+        local wa, wb = Waiting(a), Waiting(b)
+        if wa ~= wb then return wa end -- eigene Angebote mit offenen Kaufwünschen ganz oben
         if a.kind ~= b.kind then return a.kind == "e" end -- Einzelangebote zuerst, sie laufen ab
         if a.kind == "e" and a.expires ~= b.expires then return a.expires < b.expires end
         if a.name ~= b.name then return (a.name or "") < (b.name or "") end
@@ -701,34 +708,57 @@ function Market:PrepareMail(id, buyerKey)
         if SendMailRadioButton_OnClick then pcall(SendMailRadioButton_OnClick, 1) end
         if MoneyInputFrame_SetCopper and SendMailMoney then pcall(MoneyInputFrame_SetCopper, SendMailMoney, 0) end
     end
-    local attached = self:AttachItem(o, qty)
+    local attached, why = self:AttachItem(o, qty)
     self.pendingMail = { id = id, key = buyerKey, buyer = r.buyer, at = GetTime() }
-    return true, attached
+    return true, attached, why
 end
 
--- Ware aus der Tasche anlegen (Stapel teilen, wenn nötig). Liefert true, wenn es geklappt hat.
+-- Ware aus den Taschen anlegen – auch über mehrere Stapel, der letzte wird geteilt.
+-- Liefert true, wenn alles im Brief liegt; sonst false und "bank" (nicht genug in den Taschen) oder "fehler".
 function Market:AttachItem(o, qty)
     local C = C_Container
-    if not (C and C.GetContainerNumSlots and C.GetContainerItemInfo and ClickSendMailItemButton) then return false end
+    if not (C and C.GetContainerNumSlots and C.GetContainerItemInfo and ClickSendMailItemButton) then return false, "fehler" end
     local wantID = Market.ItemID(o.item)
+    local slots, have = {}, 0
     for bag = 0, 4 do
         for slot = 1, C.GetContainerNumSlots(bag) or 0 do
             local info = C.GetContainerItemInfo(bag, slot)
             if info and info.itemID == wantID and not info.isLocked
-                and (o.kind == "s" or Market.ItemString(info.hyperlink) == o.item) and (info.stackCount or 1) >= qty then
-                local ok
-                if (info.stackCount or 1) > qty and C.SplitContainerItem then
-                    ok = pcall(C.SplitContainerItem, bag, slot, qty)
-                else
-                    ok = pcall(C.PickupContainerItem, bag, slot)
-                end
-                if ok then ok = pcall(ClickSendMailItemButton) end
-                if CursorHasItem and CursorHasItem() then ClearCursor() return false end
-                return ok and true or false
+                and (o.kind == "s" or o.count > 1 or Market.ItemString(info.hyperlink) == o.item) then
+                table.insert(slots, { bag = bag, slot = slot, n = info.stackCount or 1 })
+                have = have + (info.stackCount or 1)
             end
         end
     end
-    return false
+    if have < qty then return false, "bank" end
+    table.sort(slots, function(a, b) return a.n > b.n end)
+    local maxSlots = tonumber(ATTACHMENTS_MAX_SEND) or 12
+    local function FreeSlot()
+        for i = 1, maxSlots do
+            if not (GetSendMailItem and GetSendMailItem(i)) then return i end
+        end
+    end
+    local rest = qty
+    for _, s in ipairs(slots) do
+        if rest <= 0 then break end
+        local index = FreeSlot()
+        if not index then return false, "fehler" end
+        local ok
+        if s.n > rest and C.SplitContainerItem then
+            ok = pcall(C.SplitContainerItem, s.bag, s.slot, rest)
+            rest = 0
+        else
+            ok = pcall(C.PickupContainerItem, s.bag, s.slot)
+            rest = rest - s.n
+        end
+        if ok then ok = pcall(ClickSendMailItemButton, index) end
+        if CursorHasItem and CursorHasItem() then
+            ClearCursor()
+            return false, "fehler"
+        end
+        if not ok then return false, "fehler" end
+    end
+    return rest <= 0, rest > 0 and "fehler" or nil
 end
 
 -- Events ------------------------------------------------------------------------------------------------
