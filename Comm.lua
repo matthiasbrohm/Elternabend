@@ -167,11 +167,13 @@ function Comm.Split(data)
     return chunks
 end
 
-function Comm:SendLarge(msgType, data, channel, target)
+-- urgent: vor die großen Datenpakete (z. B. ein Kaufwunsch, den jemand gerade angeklickt hat),
+-- sonst wartet es hinter dem Abgleich nach dem Einloggen.
+function Comm:SendLarge(msgType, data, channel, target, urgent)
     local id = tostring(math.random(100000, 999999))
     local chunks = Comm.Split(data)
     for i, chunk in ipairs(chunks) do
-        self:Send(msgType, table.concat({ id, #chunks, i, chunk }, SEP), channel, target, true)
+        self:Send(msgType, table.concat({ id, #chunks, i, chunk }, SEP), channel, target, not urgent)
     end
 end
 

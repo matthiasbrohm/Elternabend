@@ -327,11 +327,12 @@ function Market:Merge(incoming, fromNetwork)
 end
 
 -- Senden -----------------------------------------------------------------------------------------
-function Market:Broadcast(o)
+-- urgent: Klick von Käufer oder Verkäufer (Kaufwunsch, Antwort) – geht vor allen Abgleichspaketen raus
+function Market:Broadcast(o, urgent)
     if not self:Open() then return end
     local data = self:Serialize(o)
     self.recent[o.id] = { digest = Hash(data), at = GetTime() }
-    ns.WhenChatFree(function() ns.Comm:SendLarge("MKTN", data, "GUILD") end)
+    ns.WhenChatFree(function() ns.Comm:SendLarge("MKTN", data, "GUILD", nil, urgent) end)
 end
 
 local function Touch(o)
@@ -400,7 +401,7 @@ function Market:Post(opts)
     o.tiers = Market.TiersString(Market.ParseTiers(Market.TiersString(tiers)))
     DB().offers[o.id] = o
     DB().seen[o.id] = true
-    self:Broadcast(o)
+    self:Broadcast(o, true)
     ns:Fire("MARKET_UPDATE")
     return true, o
 end
@@ -416,7 +417,7 @@ function Market:Remove(id)
     o.state = "entfernt"
     o.expires = math.min(o.expires, Now() + GONE_DAYS * 86400)
     Touch(o)
-    self:Broadcast(o)
+    self:Broadcast(o, true)
     ns:Fire("MARKET_UPDATE")
 end
 
@@ -427,7 +428,7 @@ function Market:SetPrice(id, price)
     if not o or not self:CanManage(o) or o.state ~= "offen" or price <= 0 or price > MAX_PRICE then return false end
     o.price = price
     Touch(o)
-    self:Broadcast(o)
+    self:Broadcast(o, true)
     ns:Fire("MARKET_UPDATE")
     return true
 end
@@ -453,7 +454,7 @@ function Market:Buy(id, qty)
     end
     if qty > available then return false, "Es sind nur noch " .. available .. " da." end
     SetRequest(o, ns.UnitFullName("player"), qty, "neu")
-    self:Broadcast(o)
+    self:Broadcast(o, true)
     ns:Fire("MARKET_UPDATE")
     return true
 end
@@ -464,7 +465,7 @@ function Market:Cancel(id)
     local r = o and self:MyRequest(o)
     if not r or r.st ~= "neu" then return end
     SetRequest(o, r.buyer, r.qty, "zurueck")
-    self:Broadcast(o)
+    self:Broadcast(o, true)
     ns:Fire("MARKET_UPDATE")
 end
 
@@ -488,7 +489,7 @@ function Market:Answer(id, buyerKey, st)
         end
         Touch(o)
     end
-    self:Broadcast(o)
+    self:Broadcast(o, true)
     ns:Fire("MARKET_UPDATE")
 end
 
