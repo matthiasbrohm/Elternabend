@@ -351,3 +351,17 @@ test("Reiter Gildenmarkt: Rabattfelder im Formular, Summe mit Rabatt beim Kaufen
     noErrors(seller)
     noErrors(buyer)
 end)
+
+test("Reiter Gildenmarkt: Filter „Schaufenster“ wählt beim Einstellen gleich Schaufenster", function()
+    local w = Welt()
+    w.ns.UI:Show("markt")
+    local p = w.ns.UI.panels.markt
+    w:call(p.filterButtons.s:GetScript("OnClick"))
+    w:call(p.newBtn:GetScript("OnClick"))
+    equal(p.formKind, "s")
+    check(not p.formFrame.hourButtons[24]:IsShown(), "Laufzeit beim Schaufenster sichtbar")
+    w:call(p.filterButtons.e:GetScript("OnClick"))
+    w:call(p.newBtn:GetScript("OnClick"))
+    equal(p.formKind, "e")
+    noErrors(w)
+end)

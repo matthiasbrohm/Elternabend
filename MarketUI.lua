@@ -58,6 +58,8 @@ function UI:CreateMarketPanel()
     p.newBtn:SetScript("OnClick", function()
         p.selected = nil
         p.form = true
+        -- Filter „Schaufenster“ oder „Einzelangebote“ gewählt: gleich diese Art vorauswählen
+        if p.filter == "s" or p.filter == "e" then p.formKind = p.filter end
         p:Refresh()
     end)
 
