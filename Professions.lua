@@ -54,7 +54,11 @@ local PROF_NAMES = {
     { de = "Kochkunst", en = "Cooking" },
     { de = "Erste Hilfe", en = "First Aid" },
     { de = "Archäologie", en = "Archaeology" },
+    { de = "Schlossknacken", en = "Lockpicking" },
 }
+-- Fertigkeiten, die nicht unter den Berufen stehen, sondern nur in der Fertigkeitenliste (Idee von cbz64:
+-- Schlossknacken der Schurken – wer kann mir die Kassette öffnen?)
+local SKILL_LINES = { schlossknacken = true, lockpicking = true }
 local localNames
 function Prof.LocalName(profName)
     if not profName then return profName end
@@ -146,11 +150,26 @@ end
 
 -- Stufen ohne Berufsfenster (z. B. Kochkunst); Sammelberufe fallen in StoreOwn raus
 function Prof:ReadProfessionLevels()
-    if not GetProfessions then return end
-    for _, index in ipairs({ GetProfessions() }) do
-        if index then
-            local name, _, level, max = GetProfessionInfo(index)
-            if name and not ns.IsSecret(name) then self:StoreOwn(name, level, max, nil) end
+    if GetProfessions then
+        for _, index in ipairs({ GetProfessions() }) do
+            if index then
+                local name, _, level, max = GetProfessionInfo(index)
+                if name and not ns.IsSecret(name) then self:StoreOwn(name, level, max, nil) end
+            end
+        end
+    end
+    self:ReadSkillLines()
+end
+
+-- Schlossknacken steht nur in der Fertigkeitenliste (Charakterfenster » Fertigkeiten)
+function Prof:ReadSkillLines()
+    if not GetNumSkillLines or not GetSkillLineInfo then return end
+    local ok, n = pcall(GetNumSkillLines)
+    if not ok then return end
+    for i = 1, n or 0 do
+        local name, isHeader, _, rank, _, _, max = GetSkillLineInfo(i)
+        if name and not isHeader and not ns.IsSecret(name) and SKILL_LINES[ns.Lower(name)] and (rank or 0) > 0 then
+            self:StoreOwn(Prof.LocalName(name), rank, max, nil)
         end
     end
 end

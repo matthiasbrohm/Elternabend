@@ -257,6 +257,8 @@ Im Reiter **Berufe** siehst du, wer in der Gilde welche Berufe hat – und suchs
 ### Aufträge
 Klick auf ein Rezept (in der Suche oder in der Rezeptliste eines Charakters) schickt dem Hersteller einen Auftrag mit kurzer Notiz. Ist der Charakter nicht online, geht der Auftrag an einen anderen Charakter desselben Spielers – oder wartet, bis einer online kommt. Der Hersteller sieht seine Aufträge in der Karte „Aufträge“, nimmt sie an, lehnt ab oder meldet „fertig“. Erledigte Aufträge verschwinden nach 14 Tagen.
 
+
+**Schlossknacken** (Idee von cbz64): Schurken erscheinen mit ihrer Stufe im Schlossknacken unter den Berufen – im Filter „Schlossknacken“ siehst du, wer dir eine Kassette öffnen kann. Das Addon liest die Stufe aus der Fertigkeitenliste.
 ## Gildenmarkt
 
 Ein Auktionshaus nur für die Gilde (Reiter „Berufe“ » „Gildenmarkt“, `/ea markt`; Idee von Philipp Wobakoff). Alles zum Festpreis, ohne Gebühren:
