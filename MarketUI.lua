@@ -132,6 +132,17 @@ function UI:CreateMarketPanel()
     det.buy = T.Button(det, "Kaufen", 150, "primary")
     det.qtyLabel = T.Text(det, "muted")
     det.qtyLabel:SetText("Stück:")
+    -- Summe zur eingegebenen Menge (mit Mengenrabatt)
+    det.sum = T.Text(det, "muted")
+    function det.UpdateSum()
+        local o = p.current
+        if not o then return end
+        local qty = M:Partial(o) and math.max(1, tonumber(det.qty:GetText()) or 1) or o.count
+        local unit = M:UnitPrice(o, qty)
+        det.sum:SetText(qty .. " Stück = " .. T.Hex("goldBright", Coins(M:Total(o, qty)))
+            .. (unit < o.price and T.Hex("green", "  (Mengenrabatt: " .. Coins(unit) .. " pro Stück)") or ""))
+    end
+    det.qty:HookScript("OnTextChanged", function() det.UpdateSum() end)
     det.status = T.Text(det, "body")
     det.status:SetPoint("LEFT", 14, 0)
     det.status:SetPoint("RIGHT", -14, 0)
@@ -269,6 +280,11 @@ function UI:CreateMarketPanel()
     form.count:SetPoint("TOPLEFT", 96, y)
     form.haveText = T.Text(form, "muted")
     form.haveText:SetPoint("LEFT", form.count, "RIGHT", 8, 0)
+    -- Einzelangebot mit mehreren Stück: standardmäßig darf man auch einen Teil kaufen
+    form.whole = T.Checkbox(form, "nur komplett")
+    form.whole:SetPoint("TOPLEFT", 236, y + 2)
+    form.whole.onChange = function() p:Refresh() end
+    form.count:HookScript("OnTextChanged", function(_, user) if user then p:Refresh() end end)
     y = y - 34
     form.priceLabel = Label("Preis")
     form.gold = NumberBox(form, 64, "Gold")
@@ -282,6 +298,32 @@ function UI:CreateMarketPanel()
     form.perPiece = T.Text(form, "muted")
     form.perPiece:SetPoint("LEFT", form.copper, "RIGHT", 8, 0)
     y = y - 34
+    -- Mengenrabatt: bis zu zwei Staffeln „ab … Stück: Preis pro Stück“
+    form.tierLabel = Label("Rabatt")
+    form.tiers = {}
+    for i = 1, 2 do
+        local t = {}
+        t.ab = T.Text(form, "muted")
+        t.ab:SetPoint("TOPLEFT", 96, y - 6)
+        t.ab:SetText("ab")
+        t.min = NumberBox(form, 40, "")
+        t.min:SetPoint("TOPLEFT", 116, y)
+        t.min:SetMaxLetters(4)
+        t.st = T.Text(form, "muted")
+        t.st:SetPoint("LEFT", t.min, "RIGHT", 4, 0)
+        t.st:SetText("St.")
+        t.gold = NumberBox(form, 52, "Gold")
+        t.gold:SetPoint("LEFT", t.st, "RIGHT", 6, 0)
+        t.silver = NumberBox(form, 44, "Silber")
+        t.silver:SetPoint("LEFT", t.gold, "RIGHT", 4, 0)
+        t.silver:SetMaxLetters(2)
+        t.copper = NumberBox(form, 44, "Kupfer")
+        t.copper:SetPoint("LEFT", t.silver, "RIGHT", 4, 0)
+        t.copper:SetMaxLetters(2)
+        form.tiers[i] = t
+        y = y - 30
+    end
+    y = y - 4
     Label("Notiz")
     form.note = T.EditBox(form, DETAIL_W - 110, "optional, z. B. „auch Tausch“")
     form.note:SetPoint("TOPLEFT", 96, y)
@@ -305,6 +347,14 @@ function UI:CreateMarketPanel()
             link = p.formLink, kind = p.formKind, hours = p.formHours,
             count = tonumber(form.count:GetText()) or 1,
             price = ReadPrice(form.gold, form.silver, form.copper), note = form.note:GetText(),
+            whole = form.whole:GetChecked(), tiers = (function()
+                local list = {}
+                for _, t in ipairs(form.tiers) do
+                    local min = tonumber(t.min:GetText())
+                    if min then table.insert(list, { min = min, price = ReadPrice(t.gold, t.silver, t.copper) }) end
+                end
+                return list
+            end)(),
         })
         if not ok then
             form.msg:SetText(T.Hex("red", res))
@@ -312,6 +362,10 @@ function UI:CreateMarketPanel()
         end
         p.formLink = nil
         for _, eb in ipairs({ form.gold, form.silver, form.copper, form.note }) do eb:SetText("") end
+        for _, t in ipairs(form.tiers) do
+            for _, eb in ipairs({ t.min, t.gold, t.silver, t.copper }) do eb:SetText("") end
+        end
+        form.whole:SetChecked(false)
         form.msg:SetText("")
         p.form = false
         p.selected = res.id
@@ -331,7 +385,22 @@ function UI:CreateMarketPanel()
             local a = M:Available(o)
             return a > 0 and (a .. " da") or T.Hex("muted", "ausverkauft")
         end
+        if o.count > 1 and M:Partial(o) and o.state == "offen" then
+            local a = M:Available(o)
+            return a < o.count and (a .. " von " .. o.count) or (o.count .. "x")
+        end
         return o.count > 1 and (o.count .. "x") or "1"
+    end
+
+    local function PerPiece(o) return o.kind == "s" or o.count > 1 end
+
+    -- „50s pro Stück, ab 10 Stück 45s, ab 20 Stück 40s“
+    local function TierLines(o)
+        local lines = {}
+        for _, t in ipairs(M.ParseTiers(o.tiers)) do
+            table.insert(lines, "  ab " .. t.min .. " Stück: " .. T.Hex("green", Coins(t.price)) .. " pro Stück")
+        end
+        return lines
     end
 
     local function StateText(o)
@@ -356,7 +425,15 @@ function UI:CreateMarketPanel()
         form.count:SetShown(single)
         form.haveText:SetShown(single and link ~= nil)
         form.haveText:SetText(link and ("du hast " .. (form.have or 0)) or "")
-        form.perPiece:SetText(single and "" or "pro Stück")
+        local count = tonumber(form.count:GetText()) or 1
+        local many = not single or count > 1
+        form.whole:SetShown(single and count > 1)
+        local tiers = many and not (single and form.whole:GetChecked())
+        form.tierLabel:SetShown(tiers)
+        for _, t in ipairs(form.tiers) do
+            for _, wdg in ipairs({ t.ab, t.min, t.st, t.gold, t.silver, t.copper }) do wdg:SetShown(tiers) end
+        end
+        form.perPiece:SetText(many and "pro Stück" or "")
         form.post:SetEnabled(link ~= nil)
     end
 
@@ -368,9 +445,17 @@ function UI:CreateMarketPanel()
         det.name:SetText(M:Link(o))
         local lines = {
             "Verkäufer: " .. T.Hex("goldBright", ns.ShortName(o.seller)),
-            "Preis: " .. T.Hex("goldBright", Coins(o.price)) .. (o.kind == "s" and " pro Stück" or (o.count > 1 and (" für " .. o.count .. " Stück") or "")),
-            o.kind == "s" and ("Vorrat: " .. QtyText(o)) or ("Läuft noch " .. M.Left(o.expires - M.Now())),
+            "Preis: " .. T.Hex("goldBright", Coins(o.price)) .. (PerPiece(o) and " pro Stück" or ""),
         }
+        for _, l in ipairs(TierLines(o)) do table.insert(lines, l) end
+        if o.kind == "s" then
+            table.insert(lines, "Vorrat: " .. QtyText(o))
+        else
+            if o.count > 1 then
+                table.insert(lines, "Menge: " .. QtyText(o) .. (o.whole == "1" and T.Hex("muted", " (nur komplett)") or ""))
+            end
+            table.insert(lines, "Läuft noch " .. M.Left(o.expires - M.Now()))
+        end
         if o.state ~= "offen" then table.insert(lines, StateText(o)) end
         if o.note ~= "" then table.insert(lines, T.Hex("muted", "„" .. o.note .. "“")) end
         det.info:SetText(table.concat(lines, "\n"))
@@ -378,12 +463,14 @@ function UI:CreateMarketPanel()
 
         local myReq = M:MyRequest(o)
         local canBuy = not mine and o.state == "offen" and not (myReq and myReq.st == "neu")
-        det.qty:SetShown(canBuy and o.kind == "s")
-        det.qtyLabel:SetShown(canBuy and o.kind == "s")
+        local partial = M:Partial(o)
+        det.qty:SetShown(canBuy and partial)
+        det.qtyLabel:SetShown(canBuy and partial)
         det.buy:SetShown(canBuy)
+        det.sum:SetShown(canBuy)
         if canBuy then
             local x = 14
-            if o.kind == "s" then
+            if partial then
                 det.qtyLabel:ClearAllPoints()
                 det.qtyLabel:SetPoint("TOPLEFT", 14, anchorY - 6)
                 det.qty:ClearAllPoints()
@@ -395,7 +482,10 @@ function UI:CreateMarketPanel()
             local available = M:Available(o)
             det.buy:SetEnabled(available > 0)
             det.buy:SetText(available > 0 and ("Kaufen") or (o.kind == "e" and "Reserviert" or "Ausverkauft"))
-            anchorY = anchorY - 36
+            det.sum:ClearAllPoints()
+            det.sum:SetPoint("TOPLEFT", 14, anchorY - 34)
+            det.UpdateSum()
+            anchorY = anchorY - 56
         end
         -- Eigener Kaufwunsch
         det.status:SetShown(myReq ~= nil)
@@ -436,8 +526,8 @@ function UI:CreateMarketPanel()
                 row:ClearAllPoints()
                 row:SetPoint("TOPLEFT", 14, anchorY)
                 local st = M.STATES[r.st]
-                local total = o.kind == "s" and o.price * r.qty or o.price
-                row.text:SetText(T.Hex("goldBright", ns.ShortName(r.buyer)) .. "  " .. (o.kind == "s" and (r.qty .. " Stück, ") or "")
+                local total = M:Total(o, r.qty)
+                row.text:SetText(T.Hex("goldBright", ns.ShortName(r.buyer)) .. "  " .. (PerPiece(o) and (r.qty .. " Stück, ") or "")
                     .. Coins(total) .. "  ·  " .. T.Hex(st[2], st[1]))
                 local open = r.st == "neu"
                 row.mail:SetShown(open)
@@ -448,7 +538,7 @@ function UI:CreateMarketPanel()
                     local ok, res = M:PrepareMail(o.id, r.key)
                     if not ok then Say(T.Hex("red", res)) return end
                     Say(res and "Brief ist fertig – nur noch abschicken. Danach steht der Kauf auf „verschickt“."
-                        or ("Brief ist vorbereitet. Zieh noch " .. (o.kind == "s" and (r.qty .. "x ") or "") .. (o.name or "") .. " in den Brief und schick ihn ab."))
+                        or ("Brief ist vorbereitet. Zieh noch " .. (r.qty > 1 and (r.qty .. "x ") or "") .. (o.name or "") .. " in den Brief und schick ihn ab."))
                 end)
                 row.mail:SetScript("OnEnter", function(self)
                     GameTooltip:SetOwner(self, "ANCHOR_LEFT")
@@ -486,7 +576,8 @@ function UI:CreateMarketPanel()
             row.cols.icon:SetTexture(M:Icon(o))
             row.cols.name:SetText(M:Link(o) .. (o.id == self.selected and T.Hex("goldBright", "  ◂") or ""))
             row.cols.qty:SetText(QtyText(o))
-            row.cols.price:SetText(Coins(o.price) .. (o.kind == "s" and T.Hex("muted", " /St.") or ""))
+            row.cols.price:SetText(Coins(o.price) .. (PerPiece(o) and T.Hex("muted", " /St.") or "")
+                .. (o.tiers ~= "" and T.Hex("green", " %") or ""))
             row.cols.seller:SetText(ns.ShortName(o.seller))
             row.cols.kind:SetText(StateText(o))
         end)
@@ -515,7 +606,7 @@ function UI:CreateMarketPanel()
                 .. "auch wenn er gerade offline ist. Die Ware kommt per Brief mit Nachnahme, du zahlst beim Öffnen.\n\n"
                 .. "Selbst verkaufen: „Angebot einstellen“. Schaufenster bleiben dauerhaft stehen (z. B. Tränke), "
                 .. "Einzelangebote laufen nach 6 bis 48 Stunden ab (z. B. Ausrüstung)."))
-            for _, w in ipairs({ det.qty, det.qtyLabel, det.buy, det.status, det.cancel, det.remove, det.reqHead }) do w:Hide() end
+            for _, w in ipairs({ det.qty, det.qtyLabel, det.buy, det.sum, det.status, det.cancel, det.remove, det.reqHead }) do w:Hide() end
             for _, r in ipairs(det.reqRows) do r:Hide() end
         end
     end

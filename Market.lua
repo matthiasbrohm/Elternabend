@@ -17,7 +17,10 @@
 --   MKTW  id;id;…                    „Diese kenne ich nicht, schick sie bitte“ (WHISPER)
 --
 -- Format: Datensätze mit „~“, Felder mit „^“.
---   O^id^seller^created^updated^expires^kind^item^name^quality^count^price^stock^state^note
+--   O^id^seller^created^updated^expires^kind^item^name^quality^count^price^stock^state^note^tiers^whole
+--     price: immer pro Stück. tiers: Mengenrabatt „ab:Preis,ab:Preis“ (z. B. „10:4500,20:4000“).
+--     whole: „1“ = Einzelangebot nur komplett; sonst darf man auch einen Teil kaufen.
+--     count: Einzelangebot – noch zu haben (sinkt mit jedem verschickten Kauf).
 --   K^buyer^menge^zeit^stand        Kaufwunsch (stand: neu / zurueck / versandt / abgelehnt)
 local _, ns = ...
 
@@ -92,6 +95,37 @@ function Market.Left(seconds)
     return math.max(1, math.floor(seconds / 60)) .. " Min."
 end
 
+-- Mengenrabatt: „10:4500,20:4000“ ↔ { { min = 10, price = 4500 }, … } (aufsteigend, höchstens 3 Staffeln)
+function Market.ParseTiers(s)
+    local list = {}
+    for min, price in tostring(s or ""):gmatch("(%d+):(%d+)") do
+        min, price = tonumber(min), tonumber(price)
+        if min >= 2 and price > 0 and price <= MAX_PRICE and #list < 3 then table.insert(list, { min = min, price = price }) end
+    end
+    table.sort(list, function(a, b) return a.min < b.min end)
+    return list
+end
+
+function Market.TiersString(list)
+    local parts = {}
+    for _, t in ipairs(list or {}) do table.insert(parts, t.min .. ":" .. t.price) end
+    return table.concat(parts, ",")
+end
+
+-- Stückpreis bei dieser Menge (größte erreichte Staffel)
+function Market:UnitPrice(o, qty)
+    local price = o.price
+    for _, t in ipairs(Market.ParseTiers(o.tiers)) do
+        if (qty or 1) >= t.min then price = t.price end
+    end
+    return price
+end
+
+function Market:Total(o, qty)
+    qty = qty or 1
+    return self:UnitPrice(o, qty) * qty
+end
+
 -- Gegenstände -------------------------------------------------------------------------------
 -- Aus einem Link den Gegenstandstext („item:…“), aus dem sich der Link überall neu bauen lässt
 function Market.ItemString(link)
@@ -130,7 +164,7 @@ end
 Market.CountItem = CountItem
 
 -- Serialisieren -------------------------------------------------------------------------------
-local BODY = { "id", "seller", "created", "updated", "expires", "kind", "item", "name", "quality", "count", "price", "stock", "state", "note" }
+local BODY = { "id", "seller", "created", "updated", "expires", "kind", "item", "name", "quality", "count", "price", "stock", "state", "note", "tiers", "whole" }
 local NUM = { created = true, updated = true, expires = true, quality = true, count = true, price = true, stock = true }
 
 local function BodyString(o)
@@ -170,6 +204,8 @@ function Market:Parse(data)
     o.price = math.max(0, math.min(MAX_PRICE, math.floor(o.price or 0)))
     o.stock = math.max(0, math.floor(o.stock or 0))
     o.name, o.note = Clean(o.name, 120), Clean(o.note, NOTE_MAX)
+    o.tiers = Market.TiersString(Market.ParseTiers(o.tiers))
+    o.whole = o.whole == "1" and "1" or ""
     for i = 2, #records do
         local r = Split(records[i], "^")
         if r[1] == "K" and r[2] and r[2] ~= "" and Market.STATES[r[5] or ""] then
@@ -200,9 +236,9 @@ end
 
 -- Einzelangebot: wer hat es reserviert (erster offener Kaufwunsch)?
 function Market:ReservedBy(o)
-    if o.kind ~= "e" then return nil end
+    if o.kind ~= "e" or o.state ~= "offen" or self:Available(o) > 0 then return nil end
     for _, r in ipairs(self:Requests(o)) do
-        if r.st == "neu" or r.st == "versandt" then return r end
+        if r.st == "neu" then return r end
     end
 end
 
@@ -215,12 +251,27 @@ end
 -- Noch zu haben? Schaufenster: Vorrat abzüglich offener Kaufwünsche
 function Market:Available(o)
     if o.state ~= "offen" or o.expires <= Now() then return 0 end
-    if o.kind == "e" then return self:ReservedBy(o) and 0 or o.count end
     local wanted = 0
     for _, r in pairs(o.reqs) do
         if r.st == "neu" then wanted = wanted + r.qty end
     end
+    if o.kind == "e" then
+        if o.whole == "1" then return wanted > 0 and 0 or o.count end
+        return math.max(0, o.count - wanted)
+    end
     return math.max(0, o.stock - wanted)
+end
+
+function Market:HasOpenRequest(o)
+    for _, r in pairs(o.reqs) do
+        if r.st == "neu" then return true end
+    end
+    return false
+end
+
+-- Einzelangebot: Darf man auch einen Teil kaufen?
+function Market:Partial(o)
+    return o.kind == "s" or (o.count > 1 and o.whole ~= "1")
 end
 
 local function CountOpen(seller)
@@ -288,7 +339,8 @@ local function NewId()
     return string.format("%x%04x", Now(), math.random(0, 65535))
 end
 
--- Angebot einstellen. opts: link, kind ("s"/"e"), count, price (Kupfer, Schaufenster: pro Stück), hours, note
+-- Angebot einstellen. opts: link, kind ("s"/"e"), count, price (Kupfer pro Stück), hours, note,
+-- tiers ({ { min, price }, … } Mengenrabatt), whole (Einzelangebot nur komplett)
 function Market:Post(opts)
     if not self:Open() then return false, "Den Gildenmarkt gibt es nur für Charaktere in der Gilde." end
     local item = Market.ItemString(opts.link)
@@ -329,7 +381,19 @@ function Market:Post(opts)
         kind = kind, item = item, name = Clean(name or "?", 120), quality = quality or 1,
         count = kind == "s" and 1 or count, price = price, stock = kind == "s" and have or count,
         state = "offen", note = Clean(opts.note, NOTE_MAX), reqs = {},
+        whole = (kind == "e" and opts.whole and count > 1) and "1" or "",
     }
+    local tiers = {}
+    if kind == "s" or (count > 1 and not opts.whole) then
+        for _, t in ipairs(opts.tiers or {}) do
+            local min, tp = math.floor(tonumber(t.min) or 0), math.floor(tonumber(t.price) or 0)
+            if min >= 2 and tp > 0 then
+                if tp >= price then return false, "Der Mengenrabatt ab " .. min .. " Stück muss günstiger sein als der Grundpreis." end
+                table.insert(tiers, { min = min, price = tp })
+            end
+        end
+    end
+    o.tiers = Market.TiersString(Market.ParseTiers(Market.TiersString(tiers)))
     DB().offers[o.id] = o
     DB().seen[o.id] = true
     self:Broadcast(o)
@@ -378,12 +442,12 @@ function Market:Buy(id, qty)
     if o.state ~= "offen" or o.expires <= Now() then return false, "Das Angebot ist nicht mehr da." end
     local mineReq = self:MyRequest(o)
     if mineReq and mineReq.st == "neu" then return false, "Du hast schon einen Kaufwunsch abgeschickt." end
-    qty = o.kind == "e" and o.count or math.max(1, math.floor(tonumber(qty) or 1))
     local available = self:Available(o)
-    if o.kind == "e" and available == 0 then return false, "Das ist schon reserviert." end
-    if o.kind == "s" and qty > available then
-        return false, available == 0 and "Gerade nichts mehr vorrätig." or ("Es sind nur noch " .. available .. " da.")
+    qty = self:Partial(o) and math.max(1, math.floor(tonumber(qty) or 1)) or o.count
+    if available == 0 then
+        return false, o.kind == "e" and "Das ist schon reserviert." or "Gerade nichts mehr vorrätig."
     end
+    if qty > available then return false, "Es sind nur noch " .. available .. " da." end
     SetRequest(o, ns.UnitFullName("player"), qty, "neu")
     self:Broadcast(o)
     ns:Fire("MARKET_UPDATE")
@@ -409,8 +473,12 @@ function Market:Answer(id, buyerKey, st)
     SetRequest(o, r.buyer, r.qty, st)
     if st == "versandt" then
         if o.kind == "e" then
-            o.state = "verkauft"
-            o.expires = math.min(o.expires, Now() + GONE_DAYS * 86400)
+            o.count = math.max(0, o.count - r.qty)
+            if o.count == 0 then
+                o.count = r.qty -- für die Anzeige „verkauft“
+                o.state = "verkauft"
+                o.expires = math.min(o.expires, Now() + GONE_DAYS * 86400)
+            end
         else
             o.stock = math.max(0, o.stock - r.qty)
         end
@@ -473,7 +541,7 @@ function Market:CheckNews(o)
                 ns.Sound(SOUNDKIT and SOUNDKIT.READY_CHECK or 8960, "Master", true)
                 ns.Print(string.format("|cfff3dc9aGildenmarkt:|r %s möchte %s%s für %s kaufen – /ea markt",
                     ns.ShortName(r.buyer), r.qty > 1 and (r.qty .. "x ") or "", link,
-                    Market.Money(o.kind == "s" and o.price * r.qty or o.price)))
+                    Market.Money(self:Total(o, r.qty))))
             elseif not mineOffer and self:IsMine(r.buyer) and r.st == "versandt" then
                 ns.Print(string.format("|cfff3dc9aGildenmarkt:|r %s hat dir %s per Nachnahme geschickt – schau in deinen Briefkasten.",
                     ns.ShortName(o.seller), link))
@@ -585,7 +653,7 @@ function Market:CheckStock()
             if o.kind == "s" then
                 if have ~= o.stock then o.stock, changed = have, true end
                 if o.expires - now < (SHOP_DAYS - 5) * 86400 then o.expires, changed = now + SHOP_DAYS * 86400, true end
-            elseif self.bankSeen and have == 0 and not self:ReservedBy(o) then
+            elseif self.bankSeen and have == 0 and not self:HasOpenRequest(o) then
                 o.state = "entfernt"
                 changed = true
             end
@@ -608,8 +676,8 @@ function Market:PrepareMail(id, buyerKey)
         return false, "Die Ware liegt bei " .. ns.ShortName(o.seller) .. " – bitte dorthin umloggen."
     end
     if not self.mailOpen then return false, "Öffne zuerst einen Briefkasten." end
-    local qty = o.kind == "e" and o.count or r.qty
-    local total = o.kind == "s" and o.price * r.qty or o.price
+    local qty = r.qty
+    local total = self:Total(o, qty)
     if MailFrameTab_OnClick then pcall(MailFrameTab_OnClick, nil, 2) end
     if SendMailNameEditBox then SendMailNameEditBox:SetText(r.buyer) end
     if SendMailSubjectEditBox then

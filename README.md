@@ -266,7 +266,11 @@ Ein Auktionshaus nur für die Gilde (Reiter „Berufe“ » „Gildenmarkt“, `
 - **Schaufenster** – bleibt dauerhaft stehen, Preis pro Stück (z. B. Tränke, Bufffood, Materialien). Den Vorrat zählt das Addon in deinen Taschen und deiner Bank und zeigt ihn an („12 da“, „ausverkauft“). Bist du 30 Tage nicht online, verschwindet es.
 - **Einzelangebot** – ein Gegenstand oder Stapel mit Laufzeit 6, 12, 24 oder 48 Stunden (z. B. Ausrüstung). Der erste Kaufwunsch reserviert es.
 
-**Einstellen:** „Angebot einstellen“, den Gegenstand aus der Tasche in das Feld ziehen, Art, Laufzeit, Menge und Preis wählen. Das Angebot gehört dem Charakter, der die Ware hat.
+**Einstellen:** „Angebot einstellen“, den Gegenstand aus der Tasche in das Feld ziehen, Art, Laufzeit, Menge und Preis wählen. Bei mehr als einem Stück gilt der Preis pro Stück. Das Angebot gehört dem Charakter, der die Ware hat.
+
+**Mengenrabatt:** Bis zu zwei Staffeln, z. B. „ab 10 Stück: 45s, ab 20 Stück: 40s“. Der Käufer sieht beim Eingeben der Menge gleich Stückpreis und Summe, die Nachnahme rechnet mit dem Rabatt.
+
+**Teilkauf:** Ein Einzelangebot mit mehreren Stück (z. B. 20 Leder) darf man auch teilweise kaufen, der Rest bleibt im Angebot. Wer nur komplett verkaufen will, setzt den Haken „nur komplett“.
 
 **Kaufen:** Angebot anklicken, „Kaufen“ (beim Schaufenster mit Stückzahl). Der Kaufwunsch erreicht den Verkäufer auch, wenn er gerade offline ist – Angebote und Kaufwünsche wandern wie die Zettel der Pinnwand von Addon zu Addon. Der Verkäufer bekommt einen Hinweis und eine grüne Plakette.
 
