@@ -283,43 +283,13 @@ test("Gildenkarte: Standort anderer wird gemerkt und nach einer Weile vergessen"
 end)
 
 -- Nachricht des Tages ---------------------------------------------------------------------------
-test("Nachricht des Tages: „Ändern“ nur für wen es darf, Speichern läuft über /gmotd", function()
+test("Nachricht des Tages: kein „Ändern“ mehr (WoW Forever verbietet das Setzen per Addon-Makro)", function()
     local w = Gilde()
-    local set
-    w.env.C_GuildInfo.CanEditMOTD = function() return false end
-    w.env.C_GuildInfo.SetMOTD = function(text) set = text end -- gesperrt: darf nie aufgerufen werden
+    w.env.C_GuildInfo.CanEditMOTD = function() return true end
     w.ns.UI:Show("start")
     local p = w.ns.UI.panels.start
     w:call(p.Refresh, p)
-    check(not p.motdEdit:IsShown(), "Knopf für alle sichtbar")
-    w.env.C_GuildInfo.CanEditMOTD = function() return true end
-    w:call(p.Refresh, p)
-    check(p.motdEdit:IsShown(), "Knopf fehlt für die Leitung")
-    -- Attribute der Knöpfe merken (die Testwelt kennt sie sonst nicht)
-    local attrs = {}
-    w.env.SecureAttr = attrs
-    local create = w.env.CreateFrame
-    w.env.CreateFrame = function(kind, name, parent, template, ...)
-        local f = create(kind, name, parent, template, ...)
-        if template == "SecureActionButtonTemplate" then
-            rawset(f, "SetAttribute", function(self, k, v) attrs[k] = v end)
-            rawset(f, "GetAttribute", function(self, k) return attrs[k] end)
-        end
-        return f
-    end
-    w.env.SLASH_GUILD_MOTD1 = "/gndt"
-    w:call(w.ns.UI.EditMOTD, w.ns.UI)
-    local d = w.ns.UI.motdDialog
-    check(d:IsShown() and d.secure:IsShown(), "Fenster oder sicherer Knopf fehlt")
-    d.edit:SetText(string.rep("ä", 100) .. "\n/run print(1)")
-    d.Update()
-    local macro = d.secure:GetAttribute("macrotext")
-    check(macro:find("^/gndt ") and not macro:find("\n"), macro) -- der Befehl des deutschen Spiels
-    check(#macro <= 6 + 128 and not macro:find("[\192-\255]$"), "nicht sauber gekürzt")
-    equal(set, nil)
-    -- Kampf: Fenster und sicherer Knopf verschwinden
-    w:fire("PLAYER_REGEN_DISABLED")
-    check(not d:IsShown() and not d.secure:IsShown(), "im Kampf noch offen")
+    check(p.motdEdit == nil and w.ns.UI.EditMOTD == nil, "Knopf noch da")
     noErrors(w)
 end)
 
@@ -353,15 +323,6 @@ test("Chat: ohne Blockade direkt gesendet", function()
     w:call(w.ns.SendChat, "Direkt", "GUILD")
     equal(w.ns.PendingInput(), 0)
     seen(w, "chat", "^GUILD Direkt$")
-    noErrors(w)
-end)
-
-test("Nachricht des Tages: ohne Befehl im Spiel /gmotd", function()
-    local w = Gilde()
-    w.env.SLASH_GUILD_MOTD1 = false
-    equal(w.ns.UI.MOTDCommand(), "/gmotd")
-    w.env.SLASH_GUILD_MOTD1 = "/gmotd"
-    equal(w.ns.UI.MOTDCommand(), "/gmotd")
     noErrors(w)
 end)
 

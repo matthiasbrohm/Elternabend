@@ -166,7 +166,7 @@ Wer dich mit `ginv` anflüstert (Stichwörter im Reiter **Invite** einstellbar, 
 ## Start: Begrüßung und Gildeninfos
 Der Reiter **Start** ist der erste beim Öffnen. Beim allerersten Start in der Gilde öffnet sich das Fenster damit von selbst – einmal pro Account, nicht auf jedem Twink. Er zeigt:
 - eine Begrüßung mit dem Vornamen, darunter deine **Stufe-60-Prognose** („Stufe 60 bei deinem Tempo etwa am 14.12.2026“ – nur für dich, ohne Rangliste: gemessen wird, wie viel Erfahrung du pro Spielstunde sammelst und wie lange du im Schnitt pro Tag spielst; AFK zählt nicht, die erste Prognose kommt nach etwa einer Stunde Spielzeit) und die **Gildeninformation** aus dem Spiel (der Text, den die Gildenleitung im Gildenfenster unter „Gildeninformation“ pflegt). Ist sie leer oder gibt das Spiel sie nicht heraus, steht dort kurz, wer die Gilde ist,
-- die **Nachricht des Tages** live aus dem Spiel. Wer sie ändern darf, hat daneben den Knopf **„Ändern“** (höchstens 128 Zeichen, eine Zeile; gesetzt wird sie über den Chatbefehl des Spiels – deutsch /gndt, englisch /gmotd –, denn das direkte Setzen ist für Addons gesperrt – im Kampf geht es nicht),
+- die **Nachricht des Tages** live aus dem Spiel (ändern über das Gildenfenster oder /gndt – WoW Forever lässt das Addon sie nicht setzen),
 - beide Felder bekommen rechts einen Rollbalken, sobald der Text nicht hineinpasst (Mausrad oder Regler ziehen),
 - die **Raidzeiten** und – falls geladen – den nächsten Raid aus dem Raidplaner,
 - **Discord** und **Webseite** zum Kopieren (WoW kann keine Links öffnen: ins Feld klicken, Strg+C),
