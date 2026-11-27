@@ -161,8 +161,30 @@ function Prof:ReadProfessionLevels()
     self:ReadSkillLines()
 end
 
--- Schlossknacken steht nur in der Fertigkeitenliste (Charakterfenster » Fertigkeiten)
+-- Schlossknacken steht nur in der Fertigkeitenliste (Charakterfenster » Fertigkeiten).
+-- WoW Forever: C_SkillInfo (Tabellen); ältere Clients: GetSkillLineInfo. Fertigkeit 633 = Schlossknacken.
+local LOCKPICKING_ID = 633
 function Prof:ReadSkillLines()
+    local S = C_SkillInfo
+    if S and S.GetSkillLineInfoByID then
+        local ok, info = pcall(S.GetSkillLineInfoByID, LOCKPICKING_ID)
+        if ok and type(info) == "table" and (info.rank or 0) > 0 and info.name and not ns.IsSecret(info.name) then
+            self:StoreOwn(Prof.LocalName(info.name), info.rank, info.maxRank, nil)
+            return
+        end
+    end
+    if S and S.GetNumSkillLines and S.GetSkillLineInfo then
+        local ok, n = pcall(S.GetNumSkillLines)
+        for i = 1, ok and n or 0 do
+            local info = S.GetSkillLineInfo(i)
+            if type(info) == "table" and not info.isHeader and info.name and not ns.IsSecret(info.name)
+                and (info.skillID == LOCKPICKING_ID or SKILL_LINES[ns.Lower(info.name)]) and (info.rank or 0) > 0 then
+                self:StoreOwn(Prof.LocalName(info.name), info.rank, info.maxRank, nil)
+                return
+            end
+        end
+        return
+    end
     if not GetNumSkillLines or not GetSkillLineInfo then return end
     local ok, n = pcall(GetNumSkillLines)
     if not ok then return end
