@@ -257,6 +257,19 @@ Im Reiter **Berufe** siehst du, wer in der Gilde welche Berufe hat – und suchs
 ### Aufträge
 Klick auf ein Rezept (in der Suche oder in der Rezeptliste eines Charakters) schickt dem Hersteller einen Auftrag mit kurzer Notiz. Ist der Charakter nicht online, geht der Auftrag an einen anderen Charakter desselben Spielers – oder wartet, bis einer online kommt. Der Hersteller sieht seine Aufträge in der Karte „Aufträge“, nimmt sie an, lehnt ab oder meldet „fertig“. Erledigte Aufträge verschwinden nach 14 Tagen.
 
+## Gildenmarkt
+
+Ein Auktionshaus nur für die Gilde (Reiter „Berufe“ » „Gildenmarkt“, `/ea markt`; Idee von Philipp Wobakoff). Alles zum Festpreis, ohne Gebühren:
+
+- **Schaufenster** – bleibt dauerhaft stehen, Preis pro Stück (z. B. Tränke, Bufffood, Materialien). Den Vorrat zählt das Addon in deinen Taschen und deiner Bank und zeigt ihn an („12 da“, „ausverkauft“). Bist du 30 Tage nicht online, verschwindet es.
+- **Einzelangebot** – ein Gegenstand oder Stapel mit Laufzeit 6, 12, 24 oder 48 Stunden (z. B. Ausrüstung). Der erste Kaufwunsch reserviert es.
+
+**Einstellen:** „Angebot einstellen“, den Gegenstand aus der Tasche in das Feld ziehen, Art, Laufzeit, Menge und Preis wählen. Das Angebot gehört dem Charakter, der die Ware hat.
+
+**Kaufen:** Angebot anklicken, „Kaufen“ (beim Schaufenster mit Stückzahl). Der Kaufwunsch erreicht den Verkäufer auch, wenn er gerade offline ist – Angebote und Kaufwünsche wandern wie die Zettel der Pinnwand von Addon zu Addon. Der Verkäufer bekommt einen Hinweis und eine grüne Plakette.
+
+**Übergabe:** Ein Addon kann keine Ware und kein Gold bewegen. Der Verkäufer öffnet einen Briefkasten und klickt beim Kaufwunsch auf „Brief vorbereiten“: Empfänger, Betreff und Nachnahme werden ausgefüllt und die Ware angelegt – nur noch abschicken. Der Käufer zahlt beim Öffnen des Briefs. Beim Abschicken steht der Kauf auf „verschickt“, der Käufer bekommt Bescheid. Wer lieber per Handelsfenster übergibt, klickt „Erledigt“. „Ablehnen“ gibt die Ware wieder frei.
+
 ## Pinnwand
 Das schwarze Brett der Gilde (`/ea pinnwand`). Jedes Mitglied heftet Zettel an – als **Info**, **Aktion** (mit Termin), **Suche**, **Biete**, **Hilfe gesucht** oder **Danke** – und wählt, an wen er geht: alle, Offiziere, einen Rang, eine Klasse oder eine einzelne Person. Ein Zettel hat eine Überschrift (bis 80 Zeichen) und eine mehrzeilige Beschreibung (bis 2000 Zeichen); Antworten dürfen bis 400 Zeichen lang sein. Zettel hängen 1 Tag bis 2 Wochen (Aktionen bis kurz nach dem Termin) und verschwinden dann von selbst.
 

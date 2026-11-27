@@ -44,11 +44,18 @@ local GUILD_TABS = {
     { key = "raidwunsch", label = "Raidwünsche" },
 }
 local IN_GUILD = { mitglieder = true, spielzeiten = true, raidwunsch = true }
+-- Unterreiter von „Berufe“: Berufe und Rezepte (Standard) und der Gildenmarkt
+local PROF_TABS = {
+    { key = "berufe", label = "Berufe" },
+    { key = "markt", label = "Gildenmarkt" },
+}
+local IN_PROF = { berufe = true, markt = true }
 -- Welche Unterleiste zu welchem Hauptreiter gehört
 local SUB_SETS = {
     { tabs = RAID_TABS, keys = IN_RAID_GROUP, parent = "raid" },
     { tabs = GROUP_TABS, keys = IN_GROUPS, parent = "gruppen" },
     { tabs = GUILD_TABS, keys = IN_GUILD, parent = "mitglieder" },
+    { tabs = PROF_TABS, keys = IN_PROF, parent = "berufe" },
 }
 local function SubSet(key)
     for _, set in ipairs(SUB_SETS) do
@@ -192,6 +199,8 @@ local function CreateList(parent, columns, setup)
 end
 
 -- Knöpfe nebeneinander anordnen
+UI.CreateList = CreateList
+
 local function Row(parent, x, y, buttons)
     local prev
     for _, b in ipairs(buttons) do
@@ -204,6 +213,7 @@ end
 -- Fensterbreite; Inhalt = Breite minus 2 × 18 Rand
 local WIN_W = 1120
 local CONTENT_W = WIN_W - 36
+UI.CONTENT_W, UI.ROW_H = CONTENT_W, ROW_H
 local SCALE_MIN, SCALE_MAX = 60, 120 -- Fenstergröße in Prozent (darunter wird die Schrift unlesbar)
 
 -- Fenstergröße in Prozent (Einstellung, /ea größe, Strg + Mausrad)
@@ -320,6 +330,9 @@ function UI:Create()
     -- Rote Plakette an „Eigene Gruppe“: neue Meldungen auf dein Gesuch
     self.subTabs.gruppe.badge = T.Badge(self.subTabs.gruppe, "rot")
     self.subTabs.gruppe.badge:SetPoint("TOPRIGHT", 4, 2)
+    -- Grüne Plakette an „Gildenmarkt“: offene Kaufwünsche an meine Angebote
+    self.subTabs.markt.badge = T.Badge(self.subTabs.markt, "gruen")
+    self.subTabs.markt.badge:SetPoint("TOPRIGHT", 4, 2)
     local subline = T.GoldLine(subnav, 0.35)
     subline:SetPoint("BOTTOMLEFT", 10, -2)
     subline:SetPoint("BOTTOMRIGHT", -10, -2)
@@ -356,6 +369,7 @@ function UI:Create()
     self.panels.leitung = self:CreateLeadPanel()
     self.panels.spielzeiten = self:CreatePlayTimesPanel()
     self.panels.raidwunsch = self:CreateRaidWishPanel()
+    self.panels.markt = self:CreateMarketPanel()
     self.panels.gruppe = self.panels.gruppen.own
     -- Die Reiter mit Unterleiste (Raid, Gruppen, Gilde) beginnen unter ihr
     local below = {}
@@ -410,6 +424,7 @@ function UI:CanSee(key)
     end
     if not tab and IN_GROUPS[key] then return ns.Info:AtHome() end
     if not tab and IN_GUILD[key] then return true end
+    if not tab and IN_PROF[key] then return ns.Info:AtHome() end
     if not tab then return true end
     if tab.invite then return IsInGuild() and CanGuildInvite() and true or false end
     if tab.leaders then return self:IsLeader() end
@@ -456,7 +471,7 @@ function UI:Show(key)
     if key and not self:CanSee(key) then
         ns.Print(key == "gilde" and "Den Reiter „Invite“ sieht nur, wer in die Gilde einladen darf."
             or IN_RAID_GROUP[key] and "Den Reiter „Raid“ sehen Charaktere außerhalb der Gilde nur, solange sie in einer Gruppe oder einem Schlachtzug sind."
-            or (key == "pinnwand" or key == "berufe" or IN_GROUPS[key]) and "Pinnwand, Berufe und Gruppensuche gibt es nur für Charaktere in der Gilde."
+            or (key == "pinnwand" or IN_PROF[key] or IN_GROUPS[key]) and "Pinnwand, Berufe, Gildenmarkt und Gruppensuche gibt es nur für Charaktere in der Gilde."
             or "Dieser Reiter ist nur für Offiziere und Gildenleitung.")
         key = nil
     end
@@ -521,7 +536,7 @@ function UI:QueueRefresh()
 end
 
 for _, msg in ipairs({ "ROSTER_UPDATE", "SR_UPDATE", "LOOT_UPDATE", "ROLL_UPDATE", "HISTORY_UPDATE", "SESSION_UPDATE", "NOTES_UPDATE", "INFO_UPDATE", "MEMBERS_UPDATE", "JOIN_UPDATE", "PROF_UPDATE",
-    "GROUPS_UPDATE", "VOTE_UPDATE", "WISHLIST_UPDATE", "DKP_UPDATE", "ORDERS_UPDATE", "FAME_UPDATE", "LEVELUP_UPDATE", "READY_UPDATE", "BOARD_UPDATE", "CALENDAR_UPDATE", "GUILDLOG_UPDATE", "PROFILE_UPDATE" }) do
+    "GROUPS_UPDATE", "VOTE_UPDATE", "WISHLIST_UPDATE", "DKP_UPDATE", "ORDERS_UPDATE", "MARKET_UPDATE", "FAME_UPDATE", "LEVELUP_UPDATE", "READY_UPDATE", "BOARD_UPDATE", "CALENDAR_UPDATE", "GUILDLOG_UPDATE", "PROFILE_UPDATE" }) do
     ns:Listen(msg, function() UI:QueueRefresh() end)
 end
 
@@ -539,11 +554,13 @@ function UI:UpdateBadges()
     local notes = (open and self.currentTab == "pinnwand") and 0 or ns.Board:UnreadCount()
     -- Aufträge bleiben markiert, bis man sie annimmt oder ablehnt; nur im Reiter selbst ist die Plakette weg
     local orders = ns.Orders:NewCount()
+    -- Gildenmarkt: offene Kaufwünsche an meine Angebote (grün wie die Aufträge)
+    local market = (open and self.currentTab == "markt") and 0 or ns.Market:OpenRequestCount()
     local mm = self.minimapButton
     if mm and mm.badge then
         mm.badge:SetCount(groups + waiting)
         mm.badgeBoard:SetCount(notes)
-        mm.badgeOrders:SetCount(orders)
+        mm.badgeOrders:SetCount(orders + market)
     end
     -- Neue Meldungen auf das eigene Gesuch: rot am Unterreiter „Eigene Gruppe“ und am Reiter „Gruppen“
     local applied = (open and self.currentTab == "gruppe") and 0 or ns.Groups:NewApplicants()
@@ -551,14 +568,15 @@ function UI:UpdateBadges()
     if self.subTabs.gruppe and self.subTabs.gruppe.badge then self.subTabs.gruppe.badge:SetCount(applied) end
     if self.tabs.pinnwand and self.tabs.pinnwand.badge then self.tabs.pinnwand.badge:SetCount(notes) end
     if self.tabs.berufe and self.tabs.berufe.badge then
-        self.tabs.berufe.badge:SetCount((open and self.currentTab == "berufe") and 0 or orders)
+        self.tabs.berufe.badge:SetCount(((open and self.currentTab == "berufe") and 0 or orders) + market)
     end
+    if self.subTabs.markt and self.subTabs.markt.badge then self.subTabs.markt.badge:SetCount(market) end
     -- Wartende Gildenanfragen (vor allem, wenn das Fenster stumm geschaltet ist)
     if self.tabs.gilde and self.tabs.gilde.badge then
         self.tabs.gilde.badge:SetCount(self.currentTab ~= "gilde" and #ns.Recruit.queue or 0)
     end
 end
-for _, msg in ipairs({ "GROUPS_UPDATE", "BOARD_UPDATE", "MEMBERS_UPDATE", "RECRUIT_UPDATE", "ORDERS_UPDATE" }) do
+for _, msg in ipairs({ "GROUPS_UPDATE", "BOARD_UPDATE", "MEMBERS_UPDATE", "RECRUIT_UPDATE", "ORDERS_UPDATE", "MARKET_UPDATE" }) do
     ns:Listen(msg, function() UI:UpdateBadges() end)
 end
 ns:Listen("INIT", function()
@@ -7400,7 +7418,11 @@ function UI:CreateMinimapButton()
         local groups = ns.Groups:OpenCount()
         local notes = ns.Board:UnreadCount()
         local orders = ns.Orders:NewCount()
-        if groups + notes + orders > 0 then GameTooltip:AddLine(" ") end
+        local market = ns.Market:OpenRequestCount()
+        if groups + notes + orders + market > 0 then GameTooltip:AddLine(" ") end
+        if market > 0 then
+            GameTooltip:AddLine(market == 1 and "1 Kaufwunsch im Gildenmarkt" or (market .. " Kaufwünsche im Gildenmarkt"), 0.55, 0.85, 0.50)
+        end
         if groups > 0 then
             GameTooltip:AddLine(groups == 1 and "1 offene Gruppensuche in der Gilde" or (groups .. " offene Gruppensuchen in der Gilde"), 0.95, 0.45, 0.40)
         end

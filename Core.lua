@@ -73,6 +73,10 @@ local defaults = {
         notes = {},        -- alle bekannten Zettel
         seen = {},         -- gelesen (Prüfsumme beim Lesen)
     },
+    market = {       -- Gildenmarkt: Angebote der Gilde (accountweit)
+        offers = {},       -- alle bekannten Angebote mit Kaufwünschen
+        seen = {},         -- schon angesehen
+    },
     calendar = {     -- Kalender
         raids = { version = 0, list = {} }, -- Raidtermine aus dem Raidplaner (in der Gilde verteilt)
         show = {},         -- Filter: Art -> false = ausgeblendet
@@ -565,6 +569,7 @@ local function Help()
     print("  /ea – Fenster öffnen/schließen")
     print("  /ea start | raid | sr | loot | beute | taktik | gruppen | gilde | kalender | pinnwand | berufe | notizen | invite – Bestimmten Reiter öffnen")
     print("  /ea ruhm – Ruhmeshalle: die Erstkills der Gilde")
+    print("  /ea markt – Gildenmarkt: Angebote der Gilde ansehen, kaufen und selbst etwas einstellen")
     print("  /ea einstellungen – Chat-Zusätze, Knöpfe auf dem Bildschirm, Meldungen und Töne einzeln an- und abschalten")
     print("  /ea design – Design des Addons wählen (Elternabend, Allianz, Horde, Klassisch)")
     print("  /ea pause [Minuten] – Pause für den ganzen Raid (Leitung), /ea weiter beendet sie")
@@ -696,6 +701,8 @@ SlashCmdList.ELTERNABENDRAID = function(input)
         ns.UI:Show("kalender")
     elseif cmd == "pinnwand" or cmd == "zettel" or cmd == "brett" then
         ns.UI:Show("pinnwand")
+    elseif cmd == "markt" or cmd == "gildenmarkt" or cmd == "ah" then
+        ns.UI:Show("markt")
     elseif cmd == "gilde" or cmd == "mitglieder" or cmd == "twinks" then
         ns.UI:Show("mitglieder")
     elseif cmd == "main" then
