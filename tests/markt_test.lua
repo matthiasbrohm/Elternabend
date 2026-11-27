@@ -466,3 +466,24 @@ test("Reiter Gildenmarkt: „verschenken“ und „nur komplett“ sind anfangs 
     check(not p.formFrame.whole:GetChecked() and not p.formFrame.whole.mark:IsShown(), "nur komplett ist an")
     noErrors(w)
 end)
+
+test("Gildenmarkt: Herausgenommenes Angebot – Kaufwunsch zählt nicht mehr, Käufer bekommt Bescheid", function()
+    local seller = Welt("Anna Sturmwind", 10)
+    local buyer = Welt("Beta Lux")
+    local _, o = seller.ns.Market:Post({ link = POTION, kind = "s", price = 1000 })
+    Send(seller, buyer, o.id)
+    buyer.ns.Market:Buy(o.id, 2)
+    Send(buyer, seller, o.id)
+    equal(seller.ns.Market:OpenRequestCount(), 1)
+    seller.ns.Market:Remove(o.id)
+    equal(seller.ns.Market:OpenRequestCount(), 0)
+    buyer:clear()
+    Send(seller, buyer, o.id)
+    seen(buyer, "print", "kann dir .*leider nicht verkaufen")
+    -- alte Daten: herausgenommen, Kaufwunsch noch „neu“ – zählt trotzdem nicht
+    local so = seller.ns.db.market.offers[o.id]
+    so.reqs[seller.ns.NameKey("Beta Lux")].st = "neu"
+    equal(seller.ns.Market:OpenRequestCount(), 0)
+    noErrors(seller)
+    noErrors(buyer)
+end)

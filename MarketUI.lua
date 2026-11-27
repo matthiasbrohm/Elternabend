@@ -560,7 +560,7 @@ function UI:CreateMarketPanel()
         local shown = 0
         for i, row in ipairs(det.reqRows) do
             local r = reqs[i]
-            local need = r and (r.st == "neu" and 2 or 1) or 0
+            local need = r and ((r.st == "neu" and o.state == "offen") and 2 or 1) or 0
             if r and need > room then r = nil end
             row:SetShown(r ~= nil)
             if r then
@@ -568,7 +568,7 @@ function UI:CreateMarketPanel()
                 shown = shown + 1
                 row:ClearAllPoints()
                 row:SetPoint("TOPLEFT", 14, anchorY)
-                local open = r.st == "neu"
+                local open = r.st == "neu" and o.state == "offen"
                 row:SetHeight(open and 56 or 28)
                 T.Backdrop(row, open and { 0.16, 0.38, 0.18 } or nil, open and 0.55 or 0.4, open and 0.9 or 0.3)
                 if open then row:SetBackdropBorderColor(0.55, 0.85, 0.5, 0.9) end
@@ -632,7 +632,7 @@ function UI:CreateMarketPanel()
             row.cols.seller:SetText(ns.ShortName(o.seller))
             -- Eigenes Angebot mit offenen Kaufwünschen: deutlich in Grün
             local open = 0
-            if M:CanManage(o) then
+            if M:CanManage(o) and o.state == "offen" then
                 for _, r in pairs(o.reqs) do if r.st == "neu" then open = open + 1 end end
             end
             row.cols.kind:SetText(open > 0 and T.Hex("green", open == 1 and "1 Kaufwunsch!" or (open .. " Kaufwünsche!")) or StateText(o))

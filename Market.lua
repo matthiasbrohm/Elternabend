@@ -410,11 +410,21 @@ function Market:CanManage(o)
     return self:IsMine(o.seller)
 end
 
+local function SetRequest(o, buyer, qty, st)
+    local key = ns.NameKey(buyer)
+    local old = o.reqs[key]
+    o.reqs[key] = { buyer = buyer, qty = qty or (old and old.qty) or 1, t = math.max(Now(), old and (old.t + 1) or 0), st = st }
+end
+
 -- Zurückziehen (Verkäufer)
 function Market:Remove(id)
     local o = DB().offers[id]
     if not o or not self:CanManage(o) or o.state ~= "offen" then return end
     o.state = "entfernt"
+    -- Offene Kaufwünsche dazu: als abgelehnt markieren, damit die Käufer Bescheid bekommen
+    for _, r in pairs(o.reqs) do
+        if r.st == "neu" then SetRequest(o, r.buyer, r.qty, "abgelehnt") end
+    end
     o.expires = math.min(o.expires, Now() + GONE_DAYS * 86400)
     Touch(o)
     self:Broadcast(o, true)
@@ -433,11 +443,6 @@ function Market:SetPrice(id, price)
     return true
 end
 
-local function SetRequest(o, buyer, qty, st)
-    local key = ns.NameKey(buyer)
-    local old = o.reqs[key]
-    o.reqs[key] = { buyer = buyer, qty = qty or (old and old.qty) or 1, t = math.max(Now(), old and (old.t + 1) or 0), st = st }
-end
 
 -- Kaufen (Käufer): Kaufwunsch an den Verkäufer
 function Market:Buy(id, qty)
@@ -514,7 +519,7 @@ function Market:List(filter)
         if show then table.insert(list, o) end
     end
     local function Waiting(o)
-        if not self:IsMine(o.seller) then return false end
+        if o.state ~= "offen" or not self:IsMine(o.seller) then return false end
         for _, r in pairs(o.reqs) do if r.st == "neu" then return true end end
         return false
     end
@@ -533,8 +538,11 @@ end
 function Market:OpenRequestCount()
     local n = 0
     for _, o in pairs(DB().offers) do
-        if o.expires > Now() and self:IsMine(o.seller) then
-            for _, r in pairs(o.reqs) do if r.st == "neu" then n = n + 1 end end
+        -- nur Angebote, die noch im Markt stehen (herausgenommene oder verkaufte zählen nicht mehr)
+        if o.state == "offen" and o.expires > Now() and self:IsMine(o.seller) then
+            for _, r in pairs(o.reqs) do
+                if r.st == "neu" and not self:IsMine(r.buyer) then n = n + 1 end -- eigene Twinks zählen nicht
+            end
         end
     end
     return n
