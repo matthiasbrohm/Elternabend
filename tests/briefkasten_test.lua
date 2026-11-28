@@ -67,3 +67,23 @@ test("Briefkasten: kein Fenster, wenn nichts zu verschicken ist", function()
     check(not (w.ns.UI.mailHelper and w.ns.UI.mailHelper:IsShown()), "Fenster ohne Briefe")
     noErrors(w)
 end)
+
+test("Briefkasten: Fenster bekommt eine Position (neue Frames sind im Spiel sofort sichtbar)", function()
+    local w = Welt("Anna Sturmwind", 20)
+    local create = w.env.CreateFrame
+    w.env.CreateFrame = function(kind, name, ...)
+        local f = create(kind, name, ...)
+        if name == "ElternabendBriefkasten" then
+            f:Show() -- wie im Spiel
+            local set = f.SetPoint
+            f.SetPoint = function(self, ...) self.placed = true return set(self, ...) end
+        end
+        return f
+    end
+    w.ns.Post.List = function() return { { kind = "bank", id = "x", who = "Beta Lux", t = 1, text = "1x Leder" } } end
+    w.ns.Market.mailOpen = true
+    w:call(w.ns.UI.ShowMailHelper, w.ns.UI)
+    local f = w.ns.UI.mailHelper
+    check(f:IsShown() and f.placed, "Fenster ohne Position")
+    noErrors(w)
+end)

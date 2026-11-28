@@ -108,6 +108,7 @@ function UI:ShowMailHelper()
             f.status:SetText("")
             UI:ShowMailHelper()
         end)
+        f:Hide() -- neue Fenster sind sofort „sichtbar“ – ohne das bekäme es unten nie eine Position
         self.mailHelper = f
     end
     f.list = list
