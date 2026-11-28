@@ -173,3 +173,21 @@ pcall(ns.On, ns, "MAIL_SEND_SUCCESS", function()
         end
     end)
 end)
+
+-- /ea briefe: Fenster von Hand öffnen und sagen, warum es (nicht) kommt
+function Post:Debug()
+    local list = self:List()
+    local M, B = ns.Market, ns.GuildBank
+    local mine, open = 0, 0
+    for _, o in pairs(ns.db.market.offers) do
+        if M:IsMine(o.seller) and o.state == "offen" then
+            mine = mine + 1
+            for _, r in pairs(o.reqs) do if r.st == "neu" then open = open + 1 end end
+        end
+    end
+    local frei = #B:Requests(function(r) return r.st == "frei" end)
+    ns.Print(string.format("Briefkasten: %s · %d zu verschicken · Gildenmarkt: %d eigene Angebote, %d offene Kaufwünsche"
+        .. " (nur die auf diesem Charakter zählen) · Gildenbank: %d freigegeben, Offizier: %s",
+        M.mailOpen and "offen" or "zu", #list, mine, open, frei, B:AmOfficer() and "ja" or "nein"))
+    if #list > 0 then UI:ShowMailHelper() end
+end

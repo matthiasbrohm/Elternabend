@@ -705,6 +705,8 @@ SlashCmdList.ELTERNABENDRAID = function(input)
         ns.UI:Show("kalender")
     elseif cmd == "pinnwand" or cmd == "zettel" or cmd == "brett" then
         ns.UI:Show("pinnwand")
+    elseif cmd == "briefe" or cmd == "post" then
+        ns.Post:Debug()
     elseif cmd == "bank" or cmd == "gildenbank" then
         ns.UI:Show("gildenbank")
     elseif cmd == "fertigkeiten" then
