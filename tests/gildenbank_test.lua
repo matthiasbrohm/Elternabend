@@ -197,3 +197,45 @@ test("Plaketten: Anfragen an die Gildenbank nur an „Gildenbank“, nicht am Gi
     check(not UI.tabs.berufe.badge:IsShown(), "Plakette an Berufe")
     noErrors(officer)
 end)
+
+test("Gildenbank: Beim Öffnen bietet ein Fenster die freigegebenen Anfragen an – „Alles holen“", function()
+    local officer = Welt("Anna Sturmwind")
+    Tresor(officer, { { name = "Mats", slots = { [1] = { LEATHER, 20 }, [2] = { FLASK, 5 } } } })
+    officer:fire("GUILDBANKFRAME_OPENED")
+    officer:advance(5)
+    check(not (officer.ns.UI.bankPickup and officer.ns.UI.bankPickup:IsShown()), "Fenster ohne Freigaben")
+    officer:fire("GUILDBANKFRAME_CLOSED")
+    local member = Welt("Beta Lux")
+    Send(officer, member, "t1")
+    local stock = member.ns.GuildBank:Stock()
+    local _, r1 = member.ns.GuildBank:Ask(stock[1].item, 2)
+    local _, r2 = member.ns.GuildBank:Ask(stock[2].item, 20)
+    Send(member, officer, r1.id)
+    Send(member, officer, r2.id)
+    officer.ns.GuildBank:Decide(r1.id, "frei")
+    officer.ns.GuildBank:Decide(r2.id, "frei")
+    local calls = {}
+    officer.env.AutoStoreGuildBankItem = function(tab, slot) table.insert(calls, "auto " .. slot) end
+    officer.env.SplitGuildBankItem = function(tab, slot, n) table.insert(calls, "split " .. slot .. " " .. n) end
+    officer.env.C_Container = {
+        GetContainerNumSlots = function(bag) return bag == 0 and 4 or 0 end,
+        GetContainerItemInfo = function() return nil end,
+        PickupContainerItem = function(bag, slot) table.insert(calls, "ablegen") end,
+    }
+    officer.env.CursorHasItem = function() return false end
+    officer:fire("GUILDBANKFRAME_OPENED")
+    officer:advance(5)
+    local f = officer.ns.UI.bankPickup
+    check(f and f:IsShown(), "Fenster fehlt")
+    equal(f.title:GetText(), "2 freigegebene Anfragen")
+    officer:call(f.go:GetScript("OnClick"))
+    officer:advance(6)
+    equal(#calls, 3)
+    check(f.status:GetText():find("Alles in deinen Taschen", 1, true), f.status:GetText())
+    -- beim nächsten Öffnen nicht noch einmal
+    officer:fire("GUILDBANKFRAME_CLOSED")
+    officer:fire("GUILDBANKFRAME_OPENED")
+    officer:advance(5)
+    check(not f:IsShown(), "schon Geholtes wird wieder angeboten")
+    noErrors(officer)
+end)

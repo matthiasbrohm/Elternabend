@@ -302,6 +302,49 @@ function Bank:BankOpened()
     end
     ScanSoon(3)
     ns:Fire("GUILDBANK_UPDATE")
+    -- Nach dem Auslesen: freigegebene Anfragen zum Holen anbieten (Fenster neben der Bank)
+    C_Timer.After(3.5, function() if Bank.bankOpen then ns:Fire("GUILDBANK_READY") end end)
+end
+
+-- Freigegebene Anfragen, die noch nicht in dieser Sitzung geholt wurden
+function Bank:ToTake()
+    local list = {}
+    if not self:AmOfficer() then return list end
+    self.taken = self.taken or {}
+    for _, r in ipairs(self:Requests(function(r) return r.st == "frei" end)) do
+        if not self.taken[r.id] then table.insert(list, r) end
+    end
+    return list
+end
+
+-- Alles nacheinander holen; progress(i, r, ok) nach jeder Anfrage, done(geholt, fehlgeschlagen) am Ende
+function Bank:TakeAll(list, progress, done)
+    local i, got, failed = 0, 0, 0
+    local function Next()
+        i = i + 1
+        local r = list[i]
+        if not r then
+            if done then done(got, failed) end
+            return
+        end
+        local started = self:Take(r.id, function(ok)
+            if ok then
+                got = got + 1
+                self.taken[r.id] = true
+            else
+                failed = failed + 1
+            end
+            if progress then progress(i, r, ok) end
+            C_Timer.After(0.8, Next)
+        end)
+        if not started then
+            failed = failed + 1
+            if progress then progress(i, r, false) end
+            C_Timer.After(0.1, Next)
+        end
+    end
+    self.taken = self.taken or {}
+    Next()
 end
 
 function Bank:BankClosed()
@@ -440,16 +483,23 @@ function Bank:Take(id, done)
         end
     end
     -- Nacheinander mit kurzer Pause: Die Gildenbank sperrt Plätze, bis der Server bestätigt
+    local function Finish(ok)
+        if ok then
+            self.taken = self.taken or {}
+            self.taken[id] = true
+        end
+        if done then done(ok) end
+    end
     local i = 0
     local function Next()
         i = i + 1
         local step = steps[i]
         if not step then
-            if done then done(true) end
+            Finish(true)
             return
         end
         if not step() then
-            if done then done(false) end
+            Finish(false)
             return
         end
         C_Timer.After(0.8, Next)

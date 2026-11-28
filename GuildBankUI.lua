@@ -317,3 +317,91 @@ function UI:CreateGuildBankPanel()
 
     return p
 end
+
+-- Fenster neben der Gildenbank: freigegebene Anfragen mit einem Klick holen (Offiziere) ---------------------------
+function UI:ShowBankPickup()
+    local B = ns.GuildBank
+    local list = B:ToTake()
+    local f = self.bankPickup
+    if #list == 0 then
+        if f then f:Hide() end
+        return
+    end
+    if not f then
+        f = CreateFrame("Frame", "ElternabendGildenbankHolen", UIParent, "BackdropTemplate")
+        f:SetSize(340, 200)
+        f:SetFrameStrata("DIALOG")
+        f:SetToplevel(true)
+        f:SetMovable(true)
+        f:EnableMouse(true)
+        f:RegisterForDrag("LeftButton")
+        f:SetScript("OnDragStart", f.StartMoving)
+        f:SetScript("OnDragStop", f.StopMovingOrSizing)
+        T.Backdrop(f, T.colors.navy, 0.97, 0.8)
+        f.kicker = T.Text(f, "kicker")
+        f.kicker:SetPoint("TOPLEFT", 16, -14)
+        f.kicker:SetText("ELTERNABEND · GILDENBANK")
+        f.title = T.Text(f, "navActive")
+        f.title:SetPoint("TOPLEFT", f.kicker, "BOTTOMLEFT", 0, -6)
+        f.lines = T.Text(f, "body")
+        f.lines:SetPoint("TOPLEFT", f.title, "BOTTOMLEFT", 0, -8)
+        f.lines:SetPoint("RIGHT", -16, 0)
+        f.lines:SetSpacing(2)
+        f.status = T.Text(f, "muted")
+        f.status:SetPoint("BOTTOMLEFT", 16, 46)
+        f.status:SetPoint("RIGHT", -16, 0)
+        f.status:SetWordWrap(true)
+        f.go = T.Button(f, "Alles holen", 150, "primary")
+        f.go:SetPoint("BOTTOMLEFT", 16, 14)
+        f.close = T.Button(f, "Später", 100)
+        f.close:SetPoint("LEFT", f.go, "RIGHT", 8, 0)
+        f.close:SetScript("OnClick", function() f:Hide() end)
+        f.go:SetScript("OnClick", function()
+            f.go:SetEnabled(false)
+            f.status:SetText("Hole …")
+            B:TakeAll(f.list, function(i, r, ok)
+                f.status:SetText(string.format("%d von %d: %s%s", i, #f.list, r.name or "?", ok and "" or T.Hex("red", " – ging nicht")))
+            end, function(got, failed)
+                f.go:SetEnabled(true)
+                if failed == 0 then
+                    f.status:SetText(T.Hex("green", "Alles in deinen Taschen.") .. " Weiter am Briefkasten: Gilde » Gildenbank » Anfragen » „Brief vorbereiten“.")
+                    f.go:Hide()
+                    f.close:SetText("Schließen")
+                else
+                    f.status:SetText(got .. " geholt, " .. T.Hex("red", failed .. " ging nicht")
+                        .. " – bitte selbst aus der Gildenbank nehmen (Platz in den Taschen? Tageslimit?).")
+                end
+            end)
+        end)
+        self.bankPickup = f
+    end
+    f.list = list
+    f.title:SetText(#list == 1 and "1 freigegebene Anfrage" or (#list .. " freigegebene Anfragen"))
+    local lines = {}
+    for i, r in ipairs(list) do
+        if i > 6 then
+            table.insert(lines, T.Hex("muted", "… und " .. (#list - 6) .. " weitere"))
+            break
+        end
+        table.insert(lines, (r.qty > 1 and (r.qty .. "x ") or "") .. (r.name or "?") .. T.Hex("muted", " für " .. ns.ShortName(r.who)))
+    end
+    f.lines:SetText(table.concat(lines, "\n"))
+    f:SetHeight(130 + math.min(#list, 7) * 17)
+    f.status:SetText("")
+    f.go:Show()
+    f.go:SetEnabled(true)
+    f.close:SetText("Später")
+    f:ClearAllPoints()
+    if GuildBankFrame and GuildBankFrame:IsShown() then
+        f:SetPoint("TOPLEFT", GuildBankFrame, "TOPRIGHT", 8, 0)
+    else
+        f:SetPoint("CENTER", 300, 100)
+    end
+    f:Show()
+end
+
+ns:Listen("GUILDBANK_READY", function() UI:ShowBankPickup() end)
+pcall(ns.On, ns, "GUILDBANKFRAME_CLOSED", function() if UI.bankPickup then UI.bankPickup:Hide() end end)
+pcall(ns.On, ns, "PLAYER_INTERACTION_MANAGER_FRAME_HIDE", function()
+    if UI.bankPickup and not ns.GuildBank.bankOpen then UI.bankPickup:Hide() end
+end)

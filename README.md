@@ -266,6 +266,7 @@ Reiter „Gilde“ » „Gildenbank“ (`/ea bank`): Was liegt in der Gildenbank
 - **Bestand:** Öffnet jemand mit Addon die Gildenbank, liest das Addon die Fächer, die er sehen darf, und verteilt sie an alle (je Fach mit Datum; der neueste Stand gilt). Auslesen geht nur bei offener Bank.
 - **Anfragen:** Gegenstand anklicken, Menge und optional „wofür“ eintragen, „Bei der Leitung anfragen“. Das dürfen alle ab dem Rang „Mitglied“ (Twinks mit dem Rang ihres Mains). Die Anfrage kommt auch an, wenn gerade niemand von der Leitung online ist; höchstens 10 offene Anfragen pro Person.
 - **Freigeben:** Offiziere und Gildenleitung sehen unter „Anfragen“ alles Offene (grüne Plakette) und klicken „Freigeben“ oder „Ablehnen“. Der Anfragende bekommt Bescheid.
+- **Alles auf einmal holen:** Öffnet ein Offizier die Gildenbank und es gibt freigegebene Anfragen, erscheint daneben ein kleines Fenster mit der Liste und dem Knopf „Alles holen“ – ein Klick holt alles nacheinander in die Taschen.
 - **Verschicken:** An der Gildenbank holt „Aus der Bank holen“ die freigegebene Menge in die Taschen (ganze Stapel, der Rest wird geteilt). Am Briefkasten füllt „Brief vorbereiten“ Empfänger und Betreff aus und legt die Ware ein – ohne Nachnahme, nur noch abschicken. Danach steht die Anfrage auf „verschickt“. „Erledigt“ für die Übergabe per Handel.
 
 ## Gildenmarkt
