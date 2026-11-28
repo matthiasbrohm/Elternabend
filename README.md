@@ -259,6 +259,10 @@ Klick auf ein Rezept (in der Suche oder in der Rezeptliste eines Charakters) sch
 
 
 **Schlossknacken** (Idee von cbz64): Schurken erscheinen mit ihrer Stufe im Schlossknacken unter den Berufen – im Filter „Schlossknacken“ siehst du, wer dir eine Kassette öffnen kann. Das Addon liest die Stufe aus der Fertigkeitenliste.
+## Am Briefkasten
+
+Öffnest du einen Briefkasten und es gibt etwas zu verschicken, erscheint daneben ein kleines Fenster – ohne das Addon zu öffnen: Kaufwünsche an deine Angebote im Gildenmarkt (für diesen Charakter) und, für Offiziere, freigegebene Anfragen an die Gildenbank. „Brief vorbereiten“ füllt Empfänger, Betreff und ggf. Nachnahme aus und legt die Ware ein; du klickst nur noch „Senden“. Danach bereitet das Fenster gleich den nächsten Brief vor. „Überspringen“ schiebt einen Brief ans Ende.
+
 ## Gildenbank
 
 Reiter „Gilde“ » „Gildenbank“ (`/ea bank`): Was liegt in der Gildenbank – und etwas davon bei der Leitung anfragen.

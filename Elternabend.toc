@@ -52,4 +52,5 @@ GuildMap.lua
 UI.lua
 MarketUI.lua
 GuildBankUI.lua
+MailUI.lua
 GuildButton.lua
