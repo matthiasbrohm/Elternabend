@@ -73,6 +73,9 @@ local defaults = {
         notes = {},        -- alle bekannten Zettel
         seen = {},         -- gelesen (Prüfsumme beim Lesen)
     },
+    guildbank = {    -- Gildenbank: Bestand je Fach und Anfragen (accountweit)
+        records = {},
+    },
     market = {       -- Gildenmarkt: Angebote der Gilde (accountweit)
         offers = {},       -- alle bekannten Angebote mit Kaufwünschen
         seen = {},         -- schon angesehen
@@ -570,6 +573,7 @@ local function Help()
     print("  /ea start | raid | sr | loot | beute | taktik | gruppen | gilde | kalender | pinnwand | berufe | notizen | invite – Bestimmten Reiter öffnen")
     print("  /ea ruhm – Ruhmeshalle: die Erstkills der Gilde")
     print("  /ea markt – Gildenmarkt: Angebote der Gilde ansehen, kaufen und selbst etwas einstellen")
+    print("  /ea bank – Gildenbank: Bestand ansehen und etwas bei der Leitung anfragen")
     print("  /ea einstellungen – Chat-Zusätze, Knöpfe auf dem Bildschirm, Meldungen und Töne einzeln an- und abschalten")
     print("  /ea design – Design des Addons wählen (Elternabend, Allianz, Horde, Klassisch)")
     print("  /ea pause [Minuten] – Pause für den ganzen Raid (Leitung), /ea weiter beendet sie")
@@ -701,6 +705,8 @@ SlashCmdList.ELTERNABENDRAID = function(input)
         ns.UI:Show("kalender")
     elseif cmd == "pinnwand" or cmd == "zettel" or cmd == "brett" then
         ns.UI:Show("pinnwand")
+    elseif cmd == "bank" or cmd == "gildenbank" then
+        ns.UI:Show("gildenbank")
     elseif cmd == "fertigkeiten" then
         ns.Professions:DebugSkills()
     elseif cmd == "markt" or cmd == "gildenmarkt" or cmd == "ah" then

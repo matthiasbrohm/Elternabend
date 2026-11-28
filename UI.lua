@@ -42,8 +42,9 @@ local GUILD_TABS = {
     { key = "mitglieder", label = "Mitglieder" },
     { key = "spielzeiten", label = "Spielzeiten" },
     { key = "raidwunsch", label = "Raidwünsche" },
+    { key = "gildenbank", label = "Gildenbank" },
 }
-local IN_GUILD = { mitglieder = true, spielzeiten = true, raidwunsch = true }
+local IN_GUILD = { mitglieder = true, spielzeiten = true, raidwunsch = true, gildenbank = true }
 -- Unterreiter von „Berufe“: Berufe und Rezepte (Standard) und der Gildenmarkt
 local PROF_TABS = {
     { key = "berufe", label = "Berufe" },
@@ -333,6 +334,9 @@ function UI:Create()
     -- Grüne Plakette an „Gildenmarkt“: offene Kaufwünsche an meine Angebote
     self.subTabs.markt.badge = T.Badge(self.subTabs.markt, "gruen")
     self.subTabs.markt.badge:SetPoint("TOPRIGHT", 4, 2)
+    -- Grüne Plakette an „Gildenbank“ (Offiziere): Anfragen, die auf Freigabe oder Versand warten
+    self.subTabs.gildenbank.badge = T.Badge(self.subTabs.gildenbank, "gruen")
+    self.subTabs.gildenbank.badge:SetPoint("TOPRIGHT", 4, 2)
     local subline = T.GoldLine(subnav, 0.35)
     subline:SetPoint("BOTTOMLEFT", 10, -2)
     subline:SetPoint("BOTTOMRIGHT", -10, -2)
@@ -370,6 +374,7 @@ function UI:Create()
     self.panels.spielzeiten = self:CreatePlayTimesPanel()
     self.panels.raidwunsch = self:CreateRaidWishPanel()
     self.panels.markt = self:CreateMarketPanel()
+    self.panels.gildenbank = self:CreateGuildBankPanel()
     self.panels.gruppe = self.panels.gruppen.own
     -- Die Reiter mit Unterleiste (Raid, Gruppen, Gilde) beginnen unter ihr
     local below = {}
@@ -423,6 +428,7 @@ function UI:CanSee(key)
         return ns.Info:AtHome() or IsInGroup()
     end
     if not tab and IN_GROUPS[key] then return ns.Info:AtHome() end
+    if key == "gildenbank" then return ns.Info:AtHome() end
     if not tab and IN_GUILD[key] then return true end
     if not tab and IN_PROF[key] then return ns.Info:AtHome() end
     if not tab then return true end
@@ -536,7 +542,7 @@ function UI:QueueRefresh()
 end
 
 for _, msg in ipairs({ "ROSTER_UPDATE", "SR_UPDATE", "LOOT_UPDATE", "ROLL_UPDATE", "HISTORY_UPDATE", "SESSION_UPDATE", "NOTES_UPDATE", "INFO_UPDATE", "MEMBERS_UPDATE", "JOIN_UPDATE", "PROF_UPDATE",
-    "GROUPS_UPDATE", "VOTE_UPDATE", "WISHLIST_UPDATE", "DKP_UPDATE", "ORDERS_UPDATE", "MARKET_UPDATE", "FAME_UPDATE", "LEVELUP_UPDATE", "READY_UPDATE", "BOARD_UPDATE", "CALENDAR_UPDATE", "GUILDLOG_UPDATE", "PROFILE_UPDATE" }) do
+    "GROUPS_UPDATE", "VOTE_UPDATE", "WISHLIST_UPDATE", "DKP_UPDATE", "ORDERS_UPDATE", "MARKET_UPDATE", "GUILDBANK_UPDATE", "FAME_UPDATE", "LEVELUP_UPDATE", "READY_UPDATE", "BOARD_UPDATE", "CALENDAR_UPDATE", "GUILDLOG_UPDATE", "PROFILE_UPDATE" }) do
     ns:Listen(msg, function() UI:QueueRefresh() end)
 end
 
@@ -556,6 +562,10 @@ function UI:UpdateBadges()
     local orders = ns.Orders:NewCount()
     -- Gildenmarkt: offene Kaufwünsche an meine Angebote (grün wie die Aufträge)
     local market = (open and self.currentTab == "markt") and 0 or ns.Market:OpenRequestCount()
+    local bank = ns.GuildBank:OpenCount()
+    if self.subTabs.gildenbank and self.subTabs.gildenbank.badge then self.subTabs.gildenbank.badge:SetCount(bank) end
+    if open and self.currentTab == "gildenbank" then bank = 0 end
+    market = market + bank
     local mm = self.minimapButton
     if mm and mm.badge then
         mm.badge:SetCount(groups + waiting)
@@ -576,7 +586,7 @@ function UI:UpdateBadges()
         self.tabs.gilde.badge:SetCount(self.currentTab ~= "gilde" and #ns.Recruit.queue or 0)
     end
 end
-for _, msg in ipairs({ "GROUPS_UPDATE", "BOARD_UPDATE", "MEMBERS_UPDATE", "RECRUIT_UPDATE", "ORDERS_UPDATE", "MARKET_UPDATE" }) do
+for _, msg in ipairs({ "GROUPS_UPDATE", "BOARD_UPDATE", "MEMBERS_UPDATE", "RECRUIT_UPDATE", "ORDERS_UPDATE", "MARKET_UPDATE", "GUILDBANK_UPDATE" }) do
     ns:Listen(msg, function() UI:UpdateBadges() end)
 end
 ns:Listen("INIT", function()
@@ -7312,9 +7322,13 @@ function UI:CreateMinimapButton()
         local notes = ns.Board:UnreadCount()
         local orders = ns.Orders:NewCount()
         local market = ns.Market:OpenRequestCount()
-        if groups + notes + orders + market > 0 then GameTooltip:AddLine(" ") end
+        if groups + notes + orders + market + ns.GuildBank:OpenCount() > 0 then GameTooltip:AddLine(" ") end
         if market > 0 then
             GameTooltip:AddLine(market == 1 and "1 Kaufwunsch im Gildenmarkt" or (market .. " Kaufwünsche im Gildenmarkt"), 0.55, 0.85, 0.50)
+        end
+        local bank = ns.GuildBank:OpenCount()
+        if bank > 0 then
+            GameTooltip:AddLine(bank == 1 and "1 offene Anfrage an die Gildenbank" or (bank .. " offene Anfragen an die Gildenbank"), 0.55, 0.85, 0.50)
         end
         if groups > 0 then
             GameTooltip:AddLine(groups == 1 and "1 offene Gruppensuche in der Gilde" or (groups .. " offene Gruppensuchen in der Gilde"), 0.95, 0.45, 0.40)

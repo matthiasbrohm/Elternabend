@@ -259,6 +259,15 @@ Klick auf ein Rezept (in der Suche oder in der Rezeptliste eines Charakters) sch
 
 
 **Schlossknacken** (Idee von cbz64): Schurken erscheinen mit ihrer Stufe im Schlossknacken unter den Berufen – im Filter „Schlossknacken“ siehst du, wer dir eine Kassette öffnen kann. Das Addon liest die Stufe aus der Fertigkeitenliste.
+## Gildenbank
+
+Reiter „Gilde“ » „Gildenbank“ (`/ea bank`): Was liegt in der Gildenbank – und etwas davon bei der Leitung anfragen.
+
+- **Bestand:** Öffnet jemand mit Addon die Gildenbank, liest das Addon die Fächer, die er sehen darf, und verteilt sie an alle (je Fach mit Datum; der neueste Stand gilt). Auslesen geht nur bei offener Bank.
+- **Anfragen:** Gegenstand anklicken, Menge und optional „wofür“ eintragen, „Bei der Leitung anfragen“. Das dürfen alle ab dem Rang „Mitglied“ (Twinks mit dem Rang ihres Mains). Die Anfrage kommt auch an, wenn gerade niemand von der Leitung online ist; höchstens 10 offene Anfragen pro Person.
+- **Freigeben:** Offiziere und Gildenleitung sehen unter „Anfragen“ alles Offene (grüne Plakette) und klicken „Freigeben“ oder „Ablehnen“. Der Anfragende bekommt Bescheid.
+- **Verschicken:** An der Gildenbank holt „Aus der Bank holen“ die freigegebene Menge in die Taschen (ganze Stapel, der Rest wird geteilt). Am Briefkasten füllt „Brief vorbereiten“ Empfänger und Betreff aus und legt die Ware ein – ohne Nachnahme, nur noch abschicken. Danach steht die Anfrage auf „verschickt“. „Erledigt“ für die Übergabe per Handel.
+
 ## Gildenmarkt
 
 Ein Auktionshaus nur für die Gilde (Reiter „Berufe“ » „Gildenmarkt“, `/ea markt`; Idee von Philipp Wobakoff). Alles zum Festpreis, ohne Gebühren:
