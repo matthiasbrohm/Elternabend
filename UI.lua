@@ -565,12 +565,12 @@ function UI:UpdateBadges()
     local bank = ns.GuildBank:OpenCount()
     if self.subTabs.gildenbank and self.subTabs.gildenbank.badge then self.subTabs.gildenbank.badge:SetCount(bank) end
     if open and self.currentTab == "gildenbank" then bank = 0 end
-    market = market + bank
     local mm = self.minimapButton
     if mm and mm.badge then
         mm.badge:SetCount(groups + waiting)
         mm.badgeBoard:SetCount(notes)
-        mm.badgeOrders:SetCount(orders + market)
+        -- grün am Minimap-Knopf: Aufträge, Kaufwünsche im Gildenmarkt und (Offiziere) Anfragen an die Gildenbank
+        mm.badgeOrders:SetCount(orders + market + bank)
     end
     -- Neue Meldungen auf das eigene Gesuch: rot am Unterreiter „Eigene Gruppe“ und am Reiter „Gruppen“
     local applied = (open and self.currentTab == "gruppe") and 0 or ns.Groups:NewApplicants()
