@@ -152,14 +152,18 @@ local function Update()
     if ns.Market.mailOpen then UI:ShowMailHelper() end
 end
 
-pcall(ns.On, ns, "MAIL_SHOW", function()
+local function Opened()
     Post.auto, Post.skipped = false, nil
     C_Timer.After(0.6, Update)
-end)
-pcall(ns.On, ns, "MAIL_CLOSED", function()
+end
+local function Closed()
     Post.auto = false
     if UI.mailHelper then UI.mailHelper:Hide() end
-end)
+end
+pcall(ns.On, ns, "MAIL_SHOW", Opened)
+pcall(ns.On, ns, "MAIL_CLOSED", Closed)
+ns:Listen("MAILBOX_OPENED", Opened)
+ns:Listen("MAILBOX_CLOSED", Closed)
 -- Abgeschickt: Liste neu, und wenn gewünscht gleich den nächsten Brief vorbereiten
 pcall(ns.On, ns, "MAIL_SEND_SUCCESS", function()
     C_Timer.After(1, function()

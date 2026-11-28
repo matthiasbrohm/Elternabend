@@ -786,6 +786,25 @@ pcall(ns.On, ns, "BANKFRAME_OPENED", function() Market.bankSeen = true end)
 pcall(ns.On, ns, "BANKFRAME_CLOSED", StockSoon)
 pcall(ns.On, ns, "MAIL_SHOW", function() Market.mailOpen = true ns:Fire("MARKET_UPDATE") end)
 pcall(ns.On, ns, "MAIL_CLOSED", function() Market.mailOpen = false ns:Fire("MARKET_UPDATE") end)
+-- Neuere Clients melden den Briefkasten auch (oder nur) über den Interaktions-Manager
+local function IsMailbox(kind)
+    local t = Enum and Enum.PlayerInteractionType and Enum.PlayerInteractionType.MailInfo or 17
+    return kind == t
+end
+pcall(ns.On, ns, "PLAYER_INTERACTION_MANAGER_FRAME_SHOW", function(kind)
+    if IsMailbox(kind) and not Market.mailOpen then
+        Market.mailOpen = true
+        ns:Fire("MARKET_UPDATE")
+        ns:Fire("MAILBOX_OPENED")
+    end
+end)
+pcall(ns.On, ns, "PLAYER_INTERACTION_MANAGER_FRAME_HIDE", function(kind)
+    if IsMailbox(kind) and Market.mailOpen then
+        Market.mailOpen = false
+        ns:Fire("MARKET_UPDATE")
+        ns:Fire("MAILBOX_CLOSED")
+    end
+end)
 if hooksecurefunc and SendMail then
     hooksecurefunc("SendMail", function(recipient) Market.sendingTo = recipient end)
 end
